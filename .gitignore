@@ -146,4 +146,17 @@ vite.config.ts.timestamp-*
 .astro/
 
 # Turbo Repo
-.turbo
+.
+
+# Python
+__pycache__/
+*.pyc
+
+# Big Mars data: keep in Google Drive, never in Git
+data/raw/
+*.IMG
+*.img
+*.JP2
+*.jp2
+*.tif
+*.zip
