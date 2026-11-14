@@ -1,0 +1,84 @@
+{
+  "name": "CRISM mineral browse layers for the MarsWay EVA area",
+  "dataset": "CRISM Specialized Browse Product Mosaics, MSL Gale Crater, 23 July 2012 (MTRDR prototypes)",
+  "instrument": "Compact Reconnaissance Imaging Spectrometer for Mars (CRISM), Mars Reconnaissance Orbiter",
+  "credit": "NASA/JPL/JHUAPL; mosaics by F. Seelos, K. Seelos, C. Viviano (CRISM team)",
+  "source_page": "http://crism.jhuapl.edu/msl_landing_sites/index_news.php",
+  "source_crs": "Simple cylindrical, Mars 2000 sphere, centre (0, 0), 3072 px/deg = 19.295 m/px",
+  "project_crs": "Mars 2000 sphere, Equidistant Cylindrical, centre lon 0 (metres)",
+  "registration": "CRISM team warped each observation onto a CTX basemap (ENVI RST); small offsets may remain.",
+  "leaflet_image_bounds": [
+    [
+      0,
+      0
+    ],
+    [
+      3000,
+      3000
+    ]
+  ],
+  "products": {
+    "HYD": {
+      "file": "crism_hyd.png",
+      "legend": "Hydrated sulfates. R SINDEX2, G BD2100_2, B BD1900_2. Monohydrated sulfates green or yellow; polyhydrated sulfates magenta; other hydrated minerals blue.",
+      "source_png": "http://crism.jhuapl.edu/msl_landing_sites/2012July_Mosaics/HYD/MSL_gale_crater_targeted_mosaic_HYD_120723.png",
+      "source_geotiff": "http://crism.jhuapl.edu/msl_landing_sites/2012July_Mosaics/HYD/MSL_gale_crater_targeted_mosaic_HYD_120723.tif",
+      "world_file": [
+        19.295149,
+        0.0,
+        0.0,
+        -19.295149,
+        8130184.3475745,
+        -253707.2275745
+      ],
+      "mosaic_px": [
+        1529,
+        2208
+      ],
+      "window_cols": [
+        592,
+        747
+      ],
+      "window_rows": [
+        1549,
+        1705
+      ],
+      "source_pixels_across_area": 156,
+      "fraction_of_area_with_signal": 0.861
+    },
+    "ALT": {
+      "file": "crism_alt.png",
+      "legend": "Alteration minerals at Gale. R D2300, G SINDEX2, B BD1900_2. Hydrated sulfates green or blue-green; Fe/Mg clays red.",
+      "source_png": "http://crism.jhuapl.edu/msl_landing_sites/2012July_Mosaics/ALT/MSL_gale_crater_targeted_mosaic_ALT_120723.png",
+      "source_geotiff": "http://crism.jhuapl.edu/msl_landing_sites/2012July_Mosaics/ALT/MSL_gale_crater_targeted_mosaic_ALT_120723.tif",
+      "world_file": [
+        19.295149,
+        0.0,
+        0.0,
+        -19.295149,
+        8130184.3475745,
+        -253707.2275745
+      ],
+      "mosaic_px": [
+        1529,
+        2208
+      ],
+      "window_cols": [
+        592,
+        747
+      ],
+      "window_rows": [
+        1549,
+        1705
+      ],
+      "source_pixels_across_area": 156,
+      "fraction_of_area_with_signal": 0.855
+    }
+  },
+  "limitations": [
+    "Qualitative browse colours with a Gale-specific stretch. Brighter colour is a stronger spectral signal than elsewhere at Gale, not a percentage of mineral.",
+    "About 19 m per pixel, so roughly 155 pixels across the 3 km area. Individual boxwork ridges (metres wide) are not resolved.",
+    "Dust hides minerals: a black or bland pixel does not mean the mineral is absent.",
+    "2012 prototype products, before the final PDS MTRDR release. Ice haze can add false blue."
+  ]
+}

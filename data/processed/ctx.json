@@ -1,0 +1,58 @@
+{
+  "name": "CTX photo layer for the MarsWay EVA area",
+  "dataset": "Murray Lab Global CTX Mosaic of Mars, beta01 (uncontrolled), ~5 m/px",
+  "instrument": "Context Camera (CTX), Mars Reconnaissance Orbiter",
+  "credit": "NASA/JPL/MSSS/The Murray Lab (Caltech); tiles hosted by Esri",
+  "license": "Murray Lab grants free use of beta01 for all purposes (Esri service description)",
+  "tile_service": "https://astro.arcgis.com/arcgis/rest/services/OnMars/CTX/MapServer",
+  "trek_capabilities": "https://trek.nasa.gov/tiles/Mars/EQ/CTX_beta01_uncontrolled_5m_Caltech/1.0.0/WMTSCapabilities.xml",
+  "reference": "Dickson et al. (2023), Global CTX Mosaic of Mars, https://murray-lab.caltech.edu/CTX/",
+  "source_crs": "Mars 2000 sphere (R 3396190 m), geographic / plate carree",
+  "project_crs": "Mars 2000 sphere, Equidistant Cylindrical, centre lon 0 (metres)",
+  "zoom": 12,
+  "source_m_per_px": 5.09,
+  "output_px": 600,
+  "output_m_per_px": 5.0,
+  "bounds_lonlat": {
+    "west": 137.35371651283086,
+    "east": 137.4043283274052,
+    "south": -4.835115352335822,
+    "north": -4.784503537761475
+  },
+  "leaflet_image_bounds": [
+    [
+      0,
+      0
+    ],
+    [
+      3000,
+      3000
+    ]
+  ],
+  "tiles": {
+    "rows": [
+      2156,
+      2158
+    ],
+    "cols": [
+      7221,
+      7222
+    ]
+  },
+  "limitations": [
+    "beta01 is an uncontrolled mosaic: expect positional error of tens of metres relative to the USGS DEM.",
+    "Esri serves lossy 8-bit JPEG tiles; brightness is not calibrated reflectance.",
+    "CTX is 5 m/px: it shows ridges, hollows and dunes, not individual rocks. HiRISE is needed for boulders."
+  ],
+  "alignment_check": {
+    "status": "inconclusive",
+    "reason": "No clear correlation peak: CTX brightness here is dominated by albedo (bright bedrock, dark sand), not slope shading. Visual check instead: km-scale scarps, mesa edges and the Curiosity valley line up; offsets of tens of metres cannot be ruled out.",
+    "method": "FFT cross-correlation of band-passed CTX brightness vs DEM shading (Sun azimuth searched in 30 degree steps), 5 m grid, search +-100 m",
+    "sun_azimuth_deg": 0,
+    "ctx_offset_east_m": 100.0,
+    "ctx_offset_north_m": -80.0,
+    "correlation_at_best": 0.025,
+    "correlation_at_zero_shift": 0.005,
+    "note": "Positive east/north = CTX features sit east/north of the matching DEM features. Not applied to ctx.png."
+  }
+}
