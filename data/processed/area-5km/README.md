@@ -3,7 +3,7 @@
 Four science stops for a second EVA on the bigger 5 km map, in and beside the **Gediz Vallis channel** on Mount Sharp. Curiosity drove through this channel in 2024, before it reached the boxwork in 2025.
 
 - Data: `gediz-stops.json` (this folder). Photos: `app/public/photos/gediz-*.jpg`.
-- Status: **draft**. The app does not load these stops yet.
+- Status: **draft**, placed on the 5 km map. The app does not load these stops yet (it still uses the 3 km map).
 - Same format and photo rules as Kelly's EVA-07 stops (see `../SCIENCE-STOPS.md` and `../KELLY-HANDOFF.md`).
 
 Stop names are mission roles for a proposed astronaut EVA. Every coordinate is a real Curiosity waypoint from NASA/JPL's MSL waypoint list.
@@ -34,7 +34,7 @@ The photo sol is not its own waypoint in each case, so every photo is labelled a
 
 ## Still to do
 
-- [ ] **x / y.** Empty until `area-5km/area.json` exists. Then `x = easting − west edge`, `y = northing − south edge` (easting and northing are already in the JSON).
+- [x] **x / y.** Filled in from the 5 km map (`area-5km/area.json`, PR #20): `x = easting − 8141000`, `y = northing + 287000`. All four stops sit at x 3619–3885, y 3233–3660, well inside the map (0–5000), and each lands exactly on its Curiosity waypoint in `area-5km/curiosity_track.json`.
 - [ ] **Habitat.** Pick the habitat for the 5 km map, then confirm the stop order and the bonus stop.
 - [ ] **Route check.** Run Nigel's `planRoute` once the terrain is ready: every stop reachable, no stop on a no-go slope, whole walk fits the 6 h suit budget.
 - [ ] **Safety.** Rebuild the time-home map and home file for the new habitat, so the safe zone, turn-back timer and bonus GO / NO-GO work on this map.
