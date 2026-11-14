@@ -93,6 +93,9 @@ button { font: inherit; }
 .walk-tile.is-danger strong { color: var(--w-danger); }
 .walk-tile.is-ok strong { color: var(--w-ok); }
 .walk-tile.is-wide { grid-column: 1 / -1; }
+/* A long word (INCOMPLETE) is sized from the tile's own width, so it fits on narrow phones too. */
+.walk-tile.is-long { container-type: inline-size; }
+.walk-tile.is-long strong { font-size: min(26px, 16cqi); }
 
 /* Map */
 .walk-map-card { position: relative; background: var(--w-panel); border: 1px solid var(--w-line); border-radius: 14px; overflow: hidden; }

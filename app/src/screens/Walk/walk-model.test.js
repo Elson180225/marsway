@@ -6,7 +6,7 @@ import { buildTerrainRoute } from '../../terrainRoute.js'
 import { createTerrainNavigation } from '../../terrainNavigation.js'
 import { bonusStopCheck, TIGHT_MINUTES } from '../../safezone/bonusStop.js'
 import { xyToCell } from '../../pathfinding/walkingTime.js'
-import { advance, bonusStatus, minutesBehindPlan, radiationDose, safetyStatus } from './walk-model.js'
+import { advance, bonusStatus, canHeadHome, headHome, minutesBehindPlan, radiationDose, safetyStatus } from './walk-model.js'
 
 const close = (a, b, tolerance, message) => assert.ok(Math.abs(a - b) <= tolerance, `${message}: ${a} vs ${b}`)
 
@@ -92,6 +92,25 @@ assert.equal(bonusStatus(route, at(3, 230, { progress: 0.5 }), start, safezone).
 assert.equal(bonusStatus(route, at(3, 300, { mode: 'complete', progress: 1 }), start, safezone).phase, 'done')
 assert.equal(minutesBehindPlan(route, at(1, 60, { mode: 'return' }), start), null)
 
+// 4b. Heading home during the bonus science makes it "incomplete", never "done", all the way home.
+//     Head home clears scienceLeft, so headHome() keeps the stop whose science was cut short.
+const cut = at(3, 200, { scienceLeft: 20, playing: true })
+advance(route, cut, 5)
+assert.equal(canHeadHome(route, cut), true, 'can cut the science at the last stop short')
+headHome(route, cut, navigation)
+assert.deepEqual([cut.mode, cut.scienceLeft, cut.cutShortAt], ['return', 0, 'bonus'])
+assert.equal(bonusStatus(route, cut, cut.clockMs, safezone).phase, 'incomplete')
+advance(route, cut, 1e6)
+assert.deepEqual([cut.mode, bonusStatus(route, cut, cut.clockMs, safezone).phase], ['complete', 'incomplete'])
+// Once that science is done, walking on is the way home, so Head home is off and the stop is "done".
+const finished = at(3, 200, { scienceLeft: 20, playing: true })
+advance(route, finished, 20)
+assert.deepEqual([finished.scienceLeft, finished.playing, canHeadHome(route, finished)], [0, false, false])
+// Cutting the science short at an earlier stop: the bonus stop is "skipped".
+const early = at(1, 60, { scienceLeft: 10 })
+headHome(route, early, navigation)
+assert.deepEqual([early.cutShortAt, bonusStatus(route, early, early.clockMs, safezone).phase], ['a', 'skipped'])
+
 // 5. A route without a bonus stop has no bonus tile.
 const noBonus = buildTerrainRoute(template, area, terrain, { ...science, stops: science.stops.map((stop) => ({ ...stop, is_bonus: false })) }).route
 assert.equal(bonusStatus(noBonus, at(0, 0), start, safezone), null)
@@ -104,7 +123,7 @@ close(dose.soFarMSv, dose.fullWalkMSv, 1e-12, 'dose after 6 h out')
 assert.equal(radiationDose(route, start).soFarMSv, 0)
 assert.equal(radiationDose(route, start - 60000).soFarMSv, 0)
 
-console.log(`Walk screen passed: science time at stops, bonus GO / tight / NO-GO matching the status line, skipped / here / done, radiation ${dose.fullWalkMSv.toFixed(2)} mSv for ${dose.walkHours} h.`)
+console.log(`Walk screen passed: science time at stops, bonus GO / tight / NO-GO matching the status line, skipped / here / done / incomplete, radiation ${dose.fullWalkMSv.toFixed(2)} mSv for ${dose.walkHours} h.`)
 
 // 7. The real route with Kelly's stops (skipped if the terrain files are not in this workspace).
 const json = (path) => JSON.parse(readFileSync(new URL(`../../../public/${path}`, import.meta.url)))
@@ -136,6 +155,12 @@ if (real) {
   close(ours.spareMinutes, mias.spareMinutes, 1e-9, "same as Mia's check at the decision point")
   const fromHab = bonusStatus(kelly, { mode: 'outbound', legIndex: 0, progress: 0, scienceLeft: 0 }, kellyStart, { grid: kellyGrid, timeHome: nav.timeHome })
   close(fromHab.spareMinutes, ours.spareMinutes, 1e-6, 'same spare time from the habitat on plan')
+  // Reach the bonus stop, start its science, then head home before it is done: "incomplete".
+  const cut = { mode: 'outbound', legIndex: b, progress: 0, scienceLeft: kelly.stops[b].stop_minutes, playing: true, clockMs: kellyStart + (out + legs[b - 1]) * 60000 }
+  advance(kelly, cut, 5)
+  assert.equal(canHeadHome(kelly, cut), true, `Head home works during the science at ${kelly.stops[b].name}`)
+  headHome(kelly, cut, nav)
+  assert.equal(bonusStatus(kelly, cut, cut.clockMs, { grid: kellyGrid, timeHome: nav.timeHome }).phase, 'incomplete')
   const planned = legs.reduce((sum, m) => sum + m) + kelly.stops.reduce((sum, stop) => sum + (stop.stop_minutes || 0), 0)
   console.log(`Real route passed: ${kelly.stops[b].name} is GO with ${Math.round(ours.spareMinutes)} min to spare on plan `
     + `(NO-GO once ${Math.round(ours.spareMinutes)} min behind); full plan ${Math.round(planned)} min, radiation ${radiationDose(kelly, kellyStart + planned * 60000).soFarMSv.toFixed(2)} mSv.`)
