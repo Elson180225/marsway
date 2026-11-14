@@ -8,7 +8,7 @@ All four PNGs below are 600 by 600 pixels, north up, cropped to the same area. I
 
 | File | Source / resolution | Interpretation |
 |---|---|---|
-| `ctx.png` + `ctx.json` | Murray Lab CTX beta01 via Esri; approximately 5 m | Real orbital context photo. Uncontrolled mosaic; alignment with the DEM is uncertain by tens of metres. Automated correlation was inconclusive; no shift has been applied. |
+| `ctx.png` + `ctx.json` | Murray Lab CTX beta01 via Esri; approximately 5 m | Real orbital context photo. Uncontrolled mosaic; registration to the DEM is unverified; offsets of tens of metres or more remain possible. Automated correlation was inconclusive; no shift has been applied. |
 | `crism_hyd.png` + `crism.json` | CRISM Gale HYD prototype browse mosaic; approximately 19 m | Hydrated mineral signals: green/yellow monohydrated sulfates, magenta polyhydrated sulfates, blue other hydrated minerals. |
 | `crism_alt.png` + `crism.json` | CRISM Gale ALT prototype browse mosaic; approximately 19 m | Alteration signals: green/blue-green hydrated sulfates, red Fe/Mg clays. |
 | `themis_night.png` + `themis_night.json` | Mars Trek THEMIS night mosaic v14; delivered tiles approximately 163 m | Relative night infrared brightness, with only about 18 source pixels across the area. No calibrated temperature in degrees is available in these files. |
@@ -71,3 +71,7 @@ const nightIR = L.imageOverlay('/terrain/themis_night.png', bounds)
 ```
 
 Use layer labels such as **CTX photo**, **Hydrated mineral signals**, **Alteration signals**, and **Night IR brightness**. Display the corresponding legends and credits from the sidecars. CRISM is best viewed over CTX; THEMIS should be viewed separately because it is opaque and much coarser. Keep routing costs tied to the existing terrain model until the pathfinding team reviews any use of these science layers.
+
+## Science review
+
+See `review/2026-11-14/README.md` for Kelly's review of merged main, browser evidence for the four Planning cards and the phone-sized Walk screen, and the science findings from Aaron's draft layer PR #9 (`3e4b836`).
