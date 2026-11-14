@@ -2,6 +2,8 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './style.css'
 import './scienceLayers.css'
+import './missionSchedule.css'
+import { renderMissionSchedule } from './missionSchedule.js'
 import { showScienceLayerInfo } from './scienceLayerInfo.js'
 import { mountPlanningSafety } from './safezone/planningPanel.js'
 import './stopDetails.css'
@@ -73,6 +75,7 @@ function render(route, grid) {
           <div class="metric"><span>TURN BACK IN</span><strong id="planning-turnback">Calculating</strong><small id="planning-turnback-note">From selected reference</small></div>
           <div class="metric"><span>ROUTE NOTICES</span><strong>${warnings.length}</strong><small>Planner warnings to review</small></div>
         </section>
+        <section id="mission-schedule" aria-label="Planned EVA schedule"></section>
         <section id="planning-safety" aria-label="Safe-to-go planning scenario"></section>
         <section class="workspace" aria-label="Route planner">
           <div class="map-panel">
@@ -93,6 +96,8 @@ function render(route, grid) {
         <footer>Built for the NASA Space Apps Challenge · MarsWay planning prototype · No official NASA route or hazard assessment</footer>
       </main>
     </div>`
+
+  renderMissionSchedule(document.querySelector('#mission-schedule'), route)
 
   const map = L.map('map', { crs: L.CRS.Simple, minZoom: -1.7, maxZoom: 1.2, zoomSnap: 0.25, zoomControl: false })
   L.control.zoom({ position: 'bottomright' }).addTo(map)
