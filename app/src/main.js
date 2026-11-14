@@ -61,7 +61,7 @@ function render(route, grid) {
       </aside>
       <main id="planning" class="main">
         <header class="topbar"><div><span class="eyebrow">MISSION / ${safe(mission.id)}</span><h1>Plan the walk. <em>Get home safely.</em></h1><p>${safe(mission.site)} · ${safe(mission.name)}</p></div><div class="top-badge"><span class="sample-pulse"></span> TERRAIN ROUTING DEMO</div></header>
-        <div class="notice" role="note"><strong>Terrain-based route estimates</strong><span>Elson's terrain + Nigel's planner. Suit speed and slope limits are team assumptions. The grid-centre target is for demonstration; science stops, photos and return deadline are pending.</span></div>
+        <div class="notice" role="note"><strong>Terrain-based route estimates</strong><span>Elson's terrain + Nigel's planner. Suit speed and slope limits are team assumptions. ${route.provenance.target_status === 'ready' ? 'Kelly science stops are loaded.' : 'The grid-centre target is for demonstration; Kelly science stops are pending.'} Planning and Walk use the same route loader. Mission clock and suit budget are simulated; Mia's safe zone is pending.</span></div>
         <section class="metrics" aria-label="Mission summary">
           <div class="metric"><span>ROUTE DISTANCE</span><strong>${distance(totalDistance)}</strong><small>Round trip · ${legs.length} legs</small></div>
           <div class="metric"><span>WALKING TIME</span><strong>${duration(totalMinutes)}</strong><small>Excludes science and rest stops</small></div>
