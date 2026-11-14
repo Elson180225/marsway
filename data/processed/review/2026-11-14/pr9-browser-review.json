@@ -1,0 +1,101 @@
+{
+  "pr": 9,
+  "head": "3e4b836cc57120b9b20352efef35d67d72efafad",
+  "site": "http://127.0.0.1:5174",
+  "preview": "Vercel login required; reviewed exact PR locally",
+  "layers": [
+    {
+      "key": "ctx",
+      "note": "CTX orbital context (~5 m source pixels). The uncontrolled mosaic may be misaligned with the DEM by tens of metres.",
+      "active": [
+        "terrain",
+        "safety",
+        "ctx"
+      ],
+      "images": [
+        {
+          "src": "/terrain/basemap.png",
+          "width": 1500,
+          "height": 1500
+        },
+        {
+          "src": "/terrain/ctx.png",
+          "width": 600,
+          "height": 600
+        }
+      ],
+      "paths": 7,
+      "credits": " Leaflet"
+    },
+    {
+      "key": "crismHyd",
+      "note": "CRISM hydrated-mineral signals (~19 m source pixels). Colours are qualitative; transparent areas do not prove mineral absence.",
+      "active": [
+        "terrain",
+        "safety",
+        "crismHyd"
+      ],
+      "images": [
+        {
+          "src": "/terrain/basemap.png",
+          "width": 1500,
+          "height": 1500
+        },
+        {
+          "src": "/terrain/crism_hyd.png",
+          "width": 600,
+          "height": 600
+        }
+      ],
+      "paths": 7,
+      "credits": " Leaflet"
+    },
+    {
+      "key": "crismAlt",
+      "note": "CRISM alteration signals (~19 m source pixels). Colours are qualitative and cannot identify minerals on an individual ridge.",
+      "active": [
+        "terrain",
+        "safety",
+        "crismAlt"
+      ],
+      "images": [
+        {
+          "src": "/terrain/basemap.png",
+          "width": 1500,
+          "height": 1500
+        },
+        {
+          "src": "/terrain/crism_alt.png",
+          "width": 600,
+          "height": 600
+        }
+      ],
+      "paths": 7,
+      "credits": " Leaflet"
+    },
+    {
+      "key": "themis",
+      "note": "THEMIS relative night infrared brightness (~163 m source pixels). This is not a live or calibrated temperature map.",
+      "active": [
+        "terrain",
+        "safety",
+        "themis"
+      ],
+      "images": [
+        {
+          "src": "/terrain/basemap.png",
+          "width": 1500,
+          "height": 1500
+        },
+        {
+          "src": "/terrain/themis_night.png",
+          "width": 600,
+          "height": 600
+        }
+      ],
+      "paths": 7,
+      "credits": " Leaflet"
+    }
+  ],
+  "failureNotice": "Could not load the ctx image. Check Kelly's files in public/terrain/."
+}

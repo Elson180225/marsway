@@ -1,0 +1,69 @@
+{
+  "reviewed": "2026-11-14",
+  "site": "http://127.0.0.1:5173",
+  "scope": "Local main browser science review",
+  "planning": [
+    {
+      "name": "Boxwork Lookout",
+      "nearby": true,
+      "credit": "Nearby view - not an exact stop photograph.Nearby view. Curiosity Right Navigation Camera on sol 4657 (12 September 2025, 00:50:58 UTC). NASA's caption: boxwork terrain in front of the rover, with wind-sculpted yardangs in the distance. Sol 4657 has no separate waypoint. The sol 4655 waypoint is 19.5 m from this sol 4660 stop.Sol 4657 | Right Navigation Camera (Navcam)Image credit: NASA/JPL-CaltechOpen original source",
+      "source": "https://science.nasa.gov/blog/curiosity-blog-sols-4655-4660-boxworks-with-a-view/",
+      "photo": "http://127.0.0.1:5173/photos/boxwork-lookout.jpg",
+      "caption": "Nearby view. Curiosity Right Navigation Camera on sol 4657 (12 September 2025, 00:50:58 UTC). NASA's caption: boxwork terrain in front of the rover, with wind-sculpted yardangs in the distance. Sol 4657 has no separate waypoint. The sol 4655 waypoint is 19.5 m from this sol 4660 stop."
+    },
+    {
+      "name": "Ridge Sample",
+      "nearby": false,
+      "credit": "Curiosity Left Navigation Camera on sol 4671 (26 September 2025, 12:54:44 UTC), taken from this waypoint. NASA's caption: the ridge in front of the rover, with Laguna Escondida on the left and Laguna Socompa on the right. The ridge in the frame is a few metres ahead of the camera.Sol 4671 | Left Navigation Camera (Navcam)Image credit: NASA/JPL-CaltechOpen original source",
+      "source": "https://science.nasa.gov/blog/curiosity-blog-sols-4668-4674-winding-our-way-along/",
+      "photo": "http://127.0.0.1:5173/photos/ridge-sample.jpg",
+      "caption": "Curiosity Left Navigation Camera on sol 4671 (26 September 2025, 12:54:44 UTC), taken from this waypoint. NASA's caption: the ridge in front of the rover, with Laguna Escondida on the left and Laguna Socompa on the right. The ridge in the frame is a few metres ahead of the camera."
+    },
+    {
+      "name": "Hollow Comparison",
+      "nearby": true,
+      "credit": "Nearby view - not an exact stop photograph.Nearby view. Curiosity Left Navigation Camera on sol 4662 (17 September 2025, 05:25:51 UTC), at the sol 4662 waypoint 179 m south of this stop. NASA's caption: hollows surrounded by ridges. This is not a photograph of the sol 4609 coordinate.Sol 4662 | Left Navigation Camera (Navcam)Image credit: NASA/JPL-CaltechOpen original source",
+      "source": "https://science.nasa.gov/blog/curiosity-blog-sols-4661-4667-peaking-into-the-hollows/",
+      "photo": "http://127.0.0.1:5173/photos/hollow-comparison.jpg",
+      "caption": "Nearby view. Curiosity Left Navigation Camera on sol 4662 (17 September 2025, 05:25:51 UTC), at the sol 4662 waypoint 179 m south of this stop. NASA's caption: hollows surrounded by ridges. This is not a photograph of the sol 4609 coordinate."
+    },
+    {
+      "name": "Mineral Investigation",
+      "nearby": true,
+      "credit": "Nearby view - not an exact stop photograph.Nearby view. Curiosity Mastcam on sol 4564 (8 June 2025, 13:57:45 UTC) of the Altadena drill hole and tailings. Sol 4564 has no separate waypoint. NASA reported a bump of less than 4 m to reach the drill block from the previous workspace. The stop coordinate is the sol 4560 waypoint.Sol 4564 | Mast Camera (Mastcam)Image credit: NASA/JPL-Caltech/MSSSOpen original source",
+      "source": "https://science.nasa.gov/blog/curiosity-blog-sols-4568-4569-a-close-look-at-the-altadena-drill-hole-and-tailings/",
+      "photo": "http://127.0.0.1:5173/photos/mineral-investigation.jpg",
+      "caption": "Nearby view. Curiosity Mastcam on sol 4564 (8 June 2025, 13:57:45 UTC) of the Altadena drill hole and tailings. Sol 4564 has no separate waypoint. NASA reported a bump of less than 4 m to reach the drill block from the previous workspace. The stop coordinate is the sol 4560 waypoint."
+    }
+  ],
+  "walk": [
+    {
+      "next": "Boxwork Lookout",
+      "phase": "At Habitat (H1)",
+      "photoLabels": false
+    },
+    {
+      "next": "Ridge Sample",
+      "phase": "At Boxwork Lookout",
+      "photoLabels": false
+    },
+    {
+      "next": "Hollow Comparison",
+      "phase": "At Ridge Sample",
+      "photoLabels": false
+    },
+    {
+      "next": "Mineral Investigation",
+      "phase": "At Hollow Comparison",
+      "photoLabels": false
+    }
+  ],
+  "layerButtons": [
+    "◈ Basemap",
+    "▥ Slope",
+    "⁙ Roughness",
+    "Safe zone"
+  ],
+  "walkPhotoCount": 0,
+  "walkPrototypeNotice": "Terrain route estimates; simulated clock, suit budget and position. Not live navigation. Science stops may still be demo targets."
+}

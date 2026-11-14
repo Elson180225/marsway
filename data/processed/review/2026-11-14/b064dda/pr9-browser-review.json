@@ -1,0 +1,127 @@
+{
+  "pr": 9,
+  "head": "b064ddacaafa05e92a7a48c7a356d4f45c2986e2",
+  "site": "http://127.0.0.1:5174",
+  "preview": "Exact commit reviewed locally; no new deployed-preview or physical-phone verification claimed.",
+  "layers": [
+    {
+      "key": "ctx",
+      "note": "CTX orbital photoUncontrolled CTX mosaic; about 5 m source pixels. Registration to the terrain DEM is unverified. Offsets of tens of metres or more are possible; matching crop bounds do not prove alignment.Image credit: NASA/JPL/MSSS/The Murray Lab (Caltech); tiles hosted by Esri.Open original source: CTX mosaic source",
+      "active": [
+        "terrain",
+        "safety",
+        "ctx"
+      ],
+      "images": [
+        {
+          "src": "/terrain/basemap.png",
+          "width": 1500,
+          "height": 1500
+        },
+        {
+          "src": "/terrain/ctx.png",
+          "width": 600,
+          "height": 600
+        }
+      ],
+      "paths": 7,
+      "credits": "Image credit: NASA/JPL/MSSS/The Murray Lab (Caltech); tiles hosted by Esri.",
+      "source": "https://murray-lab.caltech.edu/CTX/",
+      "legend": []
+    },
+    {
+      "key": "crismHyd",
+      "note": "CRISM hydrated-mineral signals (HYD)2012 prototype browse mosaic, about 19 m source pixels. Colours show qualitative spectral signals, not mineral percentages or individual ridges. Blank areas can mean dust, weak signal or missing coverage. Alignment to the terrain DEM has not been independently verified.Green/yellow: monohydrated sulfate signalsMagenta: polyhydrated sulfate signalsBlue: other hydrated signalsImage credit: NASA/JPL/JHUAPL; mosaics by F. Seelos, K. Seelos and C. Viviano (CRISM team).Open original source: CRISM HYD source image",
+      "active": [
+        "terrain",
+        "safety",
+        "crismHyd"
+      ],
+      "images": [
+        {
+          "src": "/terrain/basemap.png",
+          "width": 1500,
+          "height": 1500
+        },
+        {
+          "src": "/terrain/crism_hyd.png",
+          "width": 600,
+          "height": 600
+        },
+        {
+          "src": "[generated local overlay]",
+          "width": 600,
+          "height": 600
+        }
+      ],
+      "paths": 7,
+      "credits": "Image credit: NASA/JPL/JHUAPL; mosaics by F. Seelos, K. Seelos and C. Viviano (CRISM team).",
+      "source": "http://crism.jhuapl.edu/msl_landing_sites/2012July_Mosaics/HYD/MSL_gale_crater_targeted_mosaic_HYD_120723.png",
+      "legend": [
+        "Green/yellow: monohydrated sulfate signals",
+        "Magenta: polyhydrated sulfate signals",
+        "Blue: other hydrated signals"
+      ]
+    },
+    {
+      "key": "crismAlt",
+      "note": "CRISM alteration signals (ALT)2012 prototype browse mosaic, about 19 m source pixels. Colours show qualitative spectral signals, not mineral percentages or individual ridges. Blank areas can mean dust, weak signal or missing coverage. Alignment to the terrain DEM has not been independently verified.Green/blue-green: sulfate signalsRed: Fe/Mg clay signalsImage credit: NASA/JPL/JHUAPL; mosaics by F. Seelos, K. Seelos and C. Viviano (CRISM team).Open original source: CRISM ALT source image",
+      "active": [
+        "terrain",
+        "safety",
+        "crismAlt"
+      ],
+      "images": [
+        {
+          "src": "/terrain/basemap.png",
+          "width": 1500,
+          "height": 1500
+        },
+        {
+          "src": "/terrain/crism_alt.png",
+          "width": 600,
+          "height": 600
+        },
+        {
+          "src": "[generated local overlay]",
+          "width": 600,
+          "height": 600
+        }
+      ],
+      "paths": 7,
+      "credits": "Image credit: NASA/JPL/JHUAPL; mosaics by F. Seelos, K. Seelos and C. Viviano (CRISM team).",
+      "source": "http://crism.jhuapl.edu/msl_landing_sites/2012July_Mosaics/ALT/MSL_gale_crater_targeted_mosaic_ALT_120723.png",
+      "legend": [
+        "Green/blue-green: sulfate signals",
+        "Red: Fe/Mg clay signals"
+      ]
+    },
+    {
+      "key": "themis",
+      "note": "THEMIS relative night IR brightnessAbout 163 m source pixels: only about 18 span this 3 km area. This multi-observation mosaic is relative night infrared brightness, not calibrated temperature, thermal inertia, current weather or reliable material classification. Fine relief visible under the translucent image comes from the terrain basemap, not THEMIS.Image credit: NASA/JPL-Caltech/Arizona State University; tiles from NASA Mars Trek.Open original source: NASA Mars Trek source",
+      "active": [
+        "terrain",
+        "safety",
+        "themis"
+      ],
+      "images": [
+        {
+          "src": "/terrain/basemap.png",
+          "width": 1500,
+          "height": 1500
+        },
+        {
+          "src": "/terrain/themis_night.png",
+          "width": 600,
+          "height": 600
+        }
+      ],
+      "paths": 7,
+      "credits": "Image credit: NASA/JPL-Caltech/Arizona State University; tiles from NASA Mars Trek.",
+      "source": "https://trek.nasa.gov/mars/",
+      "legend": []
+    }
+  ],
+  "failureNotice": "CTX orbital photoCould not load the CTX orbital photo image. Check the local file in public/terrain/.Uncontrolled CTX mosaic; about 5 m source pixels. Registration to the terrain DEM is unverified. Offsets of tens of metres or more are possible; matching crop bounds do not prove alignment.Image credit: NASA/JPL/MSSS/The Murray Lab (Caltech); tiles hosted by Esri.Open original source: CTX mosaic source",
+  "failurePreservesCredit": true
+}

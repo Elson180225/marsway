@@ -40,19 +40,19 @@
     ]
   },
   "limitations": [
-    "beta01 is an uncontrolled mosaic: expect positional error of tens of metres relative to the USGS DEM.",
+    "beta01 is an uncontrolled mosaic. Registration to the USGS DEM has not been established; offsets of tens of metres or more are possible. Matching crop bounds do not establish pixel-level alignment.",
     "Esri serves lossy 8-bit JPEG tiles; brightness is not calibrated reflectance.",
     "CTX is 5 m/px: it shows ridges, hollows and dunes, not individual rocks. HiRISE is needed for boulders."
   ],
   "alignment_check": {
     "status": "inconclusive",
-    "reason": "No clear correlation peak: CTX brightness here is dominated by albedo (bright bedrock, dark sand), not slope shading. Visual check instead: km-scale scarps, mesa edges and the Curiosity valley line up; offsets of tens of metres cannot be ruled out.",
+    "reason": "No reliable correlation peak was found in the searched window. Albedo differences may contribute. The reported best-search offsets are not a validated registration or an error bound; no shift was applied.",
     "method": "FFT cross-correlation of band-passed CTX brightness vs DEM shading (Sun azimuth searched in 30 degree steps), 5 m grid, search +-100 m",
     "sun_azimuth_deg": 0,
     "ctx_offset_east_m": 100.0,
     "ctx_offset_north_m": -80.0,
     "correlation_at_best": 0.025,
     "correlation_at_zero_shift": 0.005,
-    "note": "Positive east/north = CTX features sit east/north of the matching DEM features. Not applied to ctx.png."
+    "note": "Positive east/north describes the best-search shift direction only. When status is inconclusive, these values must not be used as measured offsets. No correction was applied to ctx.png."
   }
 }
