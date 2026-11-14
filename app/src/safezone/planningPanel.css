@@ -1,0 +1,22 @@
+.planning-safety { padding: 20px; margin: 0 0 20px; border: 1px solid #42545a; border-radius: 14px; background: #1b272d; color: #f1f0eb; }
+.planning-safety h2 { margin: 5px 0 12px; font-size: 21px; }
+.planning-safety p { line-height: 1.5; }
+.planning-safety .ps-form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.planning-safety label { display: grid; gap: 6px; font-size: 12px; color: #c3d1d3; }
+.planning-safety input { width: 145px; max-width: 100%; padding: 10px; border: 1px solid #62757b; border-radius: 8px; background: #101820; color: #f1f0eb; font: inherit; }
+.planning-safety button { min-height: 42px; padding: 9px 14px; border: 1px solid #62757b; border-radius: 8px; background: #24343a; color: #f1f0eb; font: inherit; cursor: pointer; }
+.planning-safety button[aria-pressed="true"] { border-color: #ff7b6e; color: #ffb9a3; }
+.planning-safety button:focus-visible, .planning-safety input:focus-visible { outline: 2px solid #fff0ce; outline-offset: 3px; }
+.planning-safety .ps-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin: 16px 0; }
+.planning-safety .ps-summary > div { background: #101820; border-radius: 9px; padding: 12px; min-width: 0; }
+.planning-safety .ps-summary small { display: block; color: #a7bbc0; font-size: 11px; }
+.planning-safety .ps-summary strong { display: block; font-size: 22px; margin: 6px 0; overflow-wrap: anywhere; }
+.planning-safety .ps-status { padding: 10px 12px; border-left: 3px solid #8ce0d6; background: #1d3537; }
+.planning-safety .ps-status[data-level="caution"] { border-color: #f2c066; background: #3a3020; }
+.planning-safety .ps-status[data-level="danger"] { border-color: #ff7b6e; background: #47201f; }
+.planning-safety .ps-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: #c3d1d3; }
+.planning-safety .ps-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; }
+.planning-safety .ps-note, .planning-safety .ps-probe { color: #acbec3; font-size: 12px; }
+.planning-safety .ps-storm-note { color: #ffd0b0; font-size: 13px; }
+@media(max-width:800px) { .planning-safety .ps-summary { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width:450px) { .planning-safety { padding: 15px; } .planning-safety input { width: 125px; } }

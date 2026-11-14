@@ -1,6 +1,7 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './style.css'
+import { mountPlanningSafety } from './safezone/planningPanel.js'
 import './stopDetails.css'
 import { renderStopDetails } from './stopDetails.js'
 import { loadTerrainRoute, roughnessImage } from './terrainRoute.js'
@@ -63,17 +64,18 @@ function render(route, grid) {
       </aside>
       <main id="planning" class="main">
         <header class="topbar"><div><span class="eyebrow">MISSION / ${safe(mission.id)}</span><h1>Plan the walk. <em>Get home safely.</em></h1><p>${safe(mission.site)} · ${safe(mission.name)}</p></div><div class="top-badge"><span class="sample-pulse"></span> TERRAIN ROUTING DEMO</div></header>
-        <div class="notice" role="note"><strong>Terrain-based route estimates</strong><span>Elson's terrain + Nigel's planner. Suit speed and slope limits are team assumptions. ${route.provenance.target_status === 'ready' ? 'Kelly science stops are loaded.' : 'The grid-centre target is for demonstration; Kelly science stops are pending.'} Planning and Walk use the same route loader. Mission clock and suit budget are simulated; Mia's safe zone is pending.</span></div>
+        <div class="notice" role="note"><strong>Terrain-based route estimates</strong><span>Elson's terrain + Nigel's planner. Suit speed and slope limits are team assumptions. ${route.provenance.target_status === 'ready' ? 'Kelly science stops are loaded.' : 'The grid-centre target is for demonstration; Kelly science stops are pending.'} Planning and Walk use the same route loader. Mission clock and suit budget are simulated; Planning safe-zone and turn-back estimates use Mia's model.</span></div>
         <section class="metrics" aria-label="Mission summary">
           <div class="metric"><span>ROUTE DISTANCE</span><strong>${distance(totalDistance)}</strong><small>Round trip · ${legs.length} legs</small></div>
           <div class="metric"><span>WALKING TIME</span><strong>${duration(totalMinutes)}</strong><small>Excludes science and rest stops</small></div>
-          <div class="metric"><span>RETURN DEADLINE</span><strong>Pending</strong><small>Awaiting Mia's safety model</small></div>
+          <div class="metric"><span>TURN BACK IN</span><strong id="planning-turnback">Calculating</strong><small id="planning-turnback-note">From selected reference</small></div>
           <div class="metric"><span>ROUTE NOTICES</span><strong>${warnings.length}</strong><small>Planner warnings to review</small></div>
         </section>
+        <section id="planning-safety" aria-label="Safe-to-go planning scenario"></section>
         <section class="workspace" aria-label="Route planner">
           <div class="map-panel">
             <div class="panel-header"><div><span class="eyebrow">GALE CRATER / LOCAL GRID</span><h2>Route overview</h2></div><span class="map-scale">LOCAL METRES · TERRAIN GRID</span></div>
-            <div class="layer-toolbar" role="group" aria-label="Terrain map layers"><span>LAYERS</span><button type="button" data-layer="terrain" aria-pressed="true">◈ Basemap</button><button type="button" data-layer="slope" aria-pressed="false">▥ Slope</button><button type="button" data-layer="roughness" aria-pressed="false">⁙ Roughness</button></div>
+            <div class="layer-toolbar" role="group" aria-label="Terrain map layers"><span>LAYERS</span><button type="button" data-layer="terrain" aria-pressed="true">◈ Basemap</button><button type="button" data-layer="slope" aria-pressed="false">▥ Slope</button><button type="button" data-layer="roughness" aria-pressed="false">⁙ Roughness</button><button type="button" data-layer="safety" aria-pressed="true">Safe zone</button></div>
             <div id="map" role="img" aria-label="Terrain map showing the ordered demo stops and calculated return path"></div>
             <div class="map-footer"><div><span class="legend-line"></span> Planned path <span class="legend-dash"></span> Return from selected stop</div><span>Drag to explore · scroll to zoom</span></div>
           </div>
@@ -100,7 +102,8 @@ function render(route, grid) {
     const notice = document.querySelector('.notice span')
     notice.textContent = 'A terrain image failed to load. Check public/terrain/basemap.png and slope.png. Route calculations use the JSON grids.'
   })
-  const layerMap = { terrain, slope, roughness }
+  const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route })
+  const layerMap = { terrain, slope, roughness, safety: safety.layer }
   document.querySelectorAll('[data-layer]').forEach((button) => button.addEventListener('click', () => {
     const layer = layerMap[button.dataset.layer]
     const enabled = button.getAttribute('aria-pressed') !== 'true'
@@ -118,6 +121,7 @@ function render(route, grid) {
 
   function selectStop(index, pan = true) {
     const stop = stops[index]
+    safety.selectStop(stop)
     renderStopDetails(document.querySelector('#selected-stop-science'), stop, { targetStatus: route.provenance?.target_status })
     const leg = legs[index] || legs[legs.length - 1]
     const home = route.returns.find((item) => item.from_stop_id === stop.id)
