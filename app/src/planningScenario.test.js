@@ -48,4 +48,12 @@ assert.ok(windy.timer.turnbackIn < calm.timer.turnbackIn)
 assert.ok(windy.safeCells <= calm.safeCells)
 const cell = xyToCell(grid, goal.x, goal.y)
 assert.equal(windy.bonusCheck.go, windy.zone[cell] === ZONE.SAFE, 'weather bonus verdict matches the overlay')
+const homeMinutes = model.checkBonus({ position: goal, bonus: goal, elapsedMinutes: 0, stopMinutes: 20 }).homeFromBonusMinutes
+const nearLimit = 360 - 20 - homeMinutes - 0.25
+const calmBonus = model.checkBonus({ position: goal, bonus: goal, elapsedMinutes: nearLimit, stopMinutes: 20 })
+const stormBonus = model.checkBonus({ position: goal, bonus: goal, elapsedMinutes: nearLimit, stopMinutes: 20, weather: weatherScenario(start) })
+assert.equal(calmBonus.go, true)
+assert.equal(stormBonus.go, false)
+assert.equal(stormBonus.reason, 'reserve', 'storm-flipped NO-GO explains reserve use')
+assert.equal(windy.storm.walk_minutes, Math.round(windy.storm.seconds / 60), 'storm return minutes match adjusted seconds')
 console.log('Planning scenario passed: timed storm, directional home, safe zone, bonus and planned CSV exports.')
