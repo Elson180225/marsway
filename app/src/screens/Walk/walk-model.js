@@ -275,6 +275,17 @@ export function bonusStatus(route, state, clockMs, { grid, timeHome }) {
   return { ...check, stop, phase: 'ahead', decideNow: state.legIndex === index - 1 }
 }
 
+// The stop whose photo and task the Walk screen shows: the stop the crew is at, or the next stop
+// while walking there. None on the way home or once the walk is over.
+//   Returns { stop, here } (here = the crew is at it) or null.
+export function photoStop(route, state) {
+  if (state.mode !== 'outbound') return null
+  const trip = currentTrip(route, state)
+  const here = state.progress === 0 && state.legIndex > 0
+  const stop = here ? trip.from : trip.to
+  return stop && stop.type !== 'home' && stop.type !== 'habitat' ? { stop, here } : null
+}
+
 // Radiation so far, and for the whole walking budget (suit time minus the reserve: 8 h - 2 h = 6 h),
 // from Mia's walkDoseMSv(): about 0.67 mSv a day on the surface at Gale Crater (Curiosity's RAD).
 export function radiationDose(route, clockMs) {

@@ -4,9 +4,10 @@ import './walk.css'
 import { loadTerrainRoute } from '../../terrainRoute.js'
 import { createTerrainNavigation } from '../../terrainNavigation.js'
 import { loadHomeFile } from '../../safezone/homeFile.js'
+import { stopMetadata } from '../../stopDetails.js'
 import {
   ALERT_LEVELS, advance, bearing, bonusStatus, buildReturnTrip, canHeadHome, cardinal, currentTrip, headHome,
-  minutesBehindPlan, pointAlong, radiationDose, safetyStatus, segmentLength, shelterFor, sortWarnings,
+  minutesBehindPlan, photoStop, pointAlong, radiationDose, safetyStatus, segmentLength, shelterFor, sortWarnings,
 } from './walk-model.js'
 
 const root = document.querySelector('#walk')
@@ -84,6 +85,7 @@ function start(route, navigation, grid) {
   let homeArmedUntil = 0
   let warningsKey = ''
   let alertsKey = ''
+  let photoKey = ''
   let simAlert = null
 
   root.innerHTML = `
@@ -130,6 +132,8 @@ function start(route, navigation, grid) {
         <button type="button" id="w-recenter" class="walk-recenter" hidden>⌖ Recenter</button>
         <div class="walk-legend"><span class="walk-legend-line"></span>This leg<span class="walk-legend-dash"></span>Path home</div>
       </section>
+
+      <section id="w-photo" class="walk-photo" aria-label="Photo and task for this stop" hidden></section>
 
       <section class="walk-warnings" aria-label="Warnings for this leg">
         <h2 class="walk-eyebrow">WARNINGS ON THIS LEG</h2>
@@ -298,6 +302,7 @@ function start(route, navigation, grid) {
     $('w-plan').classList.toggle('is-late', behind >= 0.5)
     renderBonus()
     renderRadiation()
+    renderPhoto()
 
     // Map
     legLine.setLatLngs(complete ? [] : remainingPath.map(mapPoint))
@@ -371,6 +376,37 @@ function start(route, navigation, grid) {
     tile.title = `${bonus.stop?.name ?? 'Bonus stop'}: ${why}`
     $('w-bonus').textContent = value
     $('w-bonus-note').textContent = note
+  }
+
+  // Photo and task for the stop the crew is at, or the next stop while walking (Kelly's stop data,
+  // read through the Planning screen's stopMetadata so both screens show the same credits).
+  function renderPhoto() {
+    const current = photoStop(route, state)
+    const key = current ? `${current.stop.id}:${current.here}` : ''
+    if (key === photoKey) return
+    photoKey = key
+    const panel = $('w-photo')
+    panel.hidden = !current
+    if (!current) { panel.replaceChildren(); return }
+    const { stop, here } = current
+    const meta = stopMetadata(stop, window.location.href)
+    const away = Number.isFinite(stop.photo_offset_m) ? `, about ${Math.round(stop.photo_offset_m)} m away` : ''
+    const shot = [meta.sol ? `Sol ${meta.sol}` : null, meta.camera].filter(Boolean).join(' · ')
+    panel.innerHTML = `
+      <div class="walk-photo-head"><span class="walk-eyebrow">${here ? 'AT THIS STOP' : 'COMING UP'}</span>${meta.bonus ? '<span class="walk-photo-badge">OPTIONAL BONUS</span>' : ''}</div>
+      <h2>${safe(meta.name)}</h2>
+      ${stop.why ? `<p class="walk-photo-task"><b>TASK</b>${safe(stop.why)}${meta.visitMinutes ? ` <span>${meta.visitMinutes} min</span>` : ''}</p>` : ''}
+      ${meta.photo ? `<figure>
+        <img alt="${safe(meta.caption || `Photo near ${meta.name}`)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+        <p class="walk-photo-missing" hidden>Photo could not load.</p>
+        <figcaption>${meta.nearby ? `<strong class="walk-photo-nearby">Nearby view${away}, not taken at this exact spot.</strong>` : ''}
+          ${shot ? `${safe(shot)} · ` : ''}Image: ${safe(meta.credit || 'credit pending')}${meta.source ? ` · <a href="${safe(meta.source)}" target="_blank" rel="noopener noreferrer">Source ↗</a>` : ''}</figcaption>
+      </figure>` : '<p class="walk-photo-missing">No photo for this stop yet.</p>'}
+      <details><summary>More about this stop</summary><p>${safe(meta.description)}</p>${meta.caption ? `<p>${safe(meta.caption)}</p>` : ''}</details>`
+    const image = panel.querySelector('img')
+    if (!image) return
+    image.addEventListener('error', () => { image.hidden = true; panel.querySelector('.walk-photo-missing').hidden = false }, { once: true })
+    image.src = meta.photo // set after the listener, so a failed load is always shown
   }
 
   // Radiation counter: dose so far, next to the dose for the whole walking budget (0.17 mSv for 6 h).
