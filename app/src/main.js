@@ -72,7 +72,7 @@ function render(route, grid) {
         <div class="brand"><span class="brand-symbol">✦</span><span>MARS<span class="brand-accent">WAY</span><small>EXPEDITION CONTROL</small></span></div>
         <div class="sidebar-divider"></div>
         <div class="sidebar-label">MISSION CONTROL</div>
-        <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a><a class="nav-item" href="/walk.html"><span>⌖</span> Walk screen <small>Russell's view</small></a></nav>
+        <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a><a class="nav-item" href="/walk.html"><span>⌖</span> Walk screen <small>Russell's view</small></a><a class="nav-item" href="/terrain-lab.html"><span>◇</span> Explore terrain in 3D <small>5 km view</small></a></nav>
         <div class="sidebar-bottom"><div class="sample-pulse"></div><div><strong>Prototype mode</strong><span>Terrain route estimates</span></div></div>
       </aside>
       <main id="planning" class="main">
