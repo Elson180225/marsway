@@ -148,7 +148,7 @@ export function buildScenarioRoute(template, area, terrain, catalog, eva) {
   return { grid, route: { ...template, mission, ...result,
     coordinate_system: { ...template.coordinate_system, unit: 'meter', origin_note: area.localCoords, description: '6 km terrain grid; local metres x east, y north. Leaflet [y,x].' },
     map: { bounds: [[0, 0], [grid.sizeY, grid.sizeX]], basemap_url: '/terrain/basemap.png' },
-    provenance: { terrain: area.source, routing: `Nigel pathfinding from ${label}`, target_status: catalog.status, targets: 'Curiosity waypoints; names, science and photos pending Kelly review', safety: `Simulation. ${label} ${habitat.status === 'confirmed' ? 'is the confirmed habitat' : 'is a candidate habitat site'}; terrain-based estimates under team suit assumptions.` } } }
+    provenance: { terrain: area.source, routing: `Nigel pathfinding from ${label}`, target_status: catalog.status, targets: catalog.science_review?.summary || 'Curiosity waypoints; names, science and photos pending Kelly review', safety: `Simulation. ${label} ${habitat.status === 'confirmed' ? 'is the confirmed habitat' : 'is a candidate habitat site'}; terrain-based estimates under team suit assumptions.` } } }
 }
 
 export function loadScenarioCatalog(fetcher = fetch) {
