@@ -5,12 +5,14 @@ import { loadTerrainRoute } from '../../terrainRoute.js'
 import { createTerrainNavigation } from '../../terrainNavigation.js'
 import { loadHomeFile } from '../../safezone/homeFile.js'
 import {
-  ALERT_LEVELS, bearing, buildReturnTrip, cardinal, currentTrip, pointAlong, safetyStatus, segmentLength, shelterFor, sortWarnings,
+  ALERT_LEVELS, advance, bearing, bonusStatus, buildReturnTrip, cardinal, currentTrip, minutesBehindPlan, pointAlong, radiationDose,
+  safetyStatus, segmentLength, shelterFor, sortWarnings,
 } from './walk-model.js'
 
 const root = document.querySelector('#walk')
 const SPEEDS = [1, 60, 300] // simulated minutes per real minute
 const TICK_MS = 250
+const STAY_MINUTES = 30 // demo button: the crew stays this much longer at a stop
 
 function safe(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -69,11 +71,11 @@ function simulatedStorm(route) {
   }
 }
 
-function start(route, navigation) {
+function start(route, navigation, grid) {
   const { mission, stops, legs } = route
   const isSample = mission.data_status !== 'VALIDATED'
   const initialState = () => ({
-    mode: 'outbound', legIndex: 0, progress: 0, playing: false, returnTrip: null,
+    mode: 'outbound', legIndex: 0, progress: 0, playing: false, returnTrip: null, scienceLeft: 0,
     clockMs: Date.parse(mission.start_time),
   })
   let state = initialState()
@@ -110,11 +112,17 @@ function start(route, navigation) {
             <small id="w-eta">–</small>
           </div>
         </div>
+        <div id="w-stop-row" class="walk-stop-row" hidden>
+          <small id="w-plan">On plan</small>
+          <button type="button" id="w-stay" class="walk-btn walk-btn-quiet" title="Simulate staying longer at this stop (demo)">+${STAY_MINUTES}m here</button>
+        </div>
       </section>
 
-      <section class="walk-tiles" aria-label="Suit and turn-back timers">
+      <section class="walk-tiles" aria-label="Turn-back timer, time home, bonus stop and radiation">
         <div class="walk-tile" id="w-turnback-tile"><span>TURN BACK IN</span><strong id="w-turnback">–</strong><small id="w-turnback-by">–</small></div>
         <div class="walk-tile"><span>HOME FROM HERE</span><strong id="w-home">–</strong><small id="w-reserve">–</small></div>
+        <div class="walk-tile" id="w-bonus-tile" hidden><span>BONUS STOP</span><strong id="w-bonus">–</strong><small id="w-bonus-note">–</small></div>
+        <div class="walk-tile" id="w-rad-tile" title="Estimate: about 0.67 mSv a day on the surface at Gale Crater, measured by Curiosity's RAD instrument (Hassler et al. 2014)."><span>RADIATION SO FAR</span><strong id="w-rad">–</strong><small id="w-rad-note">–</small></div>
       </section>
 
       <section class="walk-map-card" aria-label="Route map">
@@ -153,7 +161,8 @@ function start(route, navigation) {
   const homeLine = L.polyline([], { color: '#8ce0d6', weight: 4, opacity: 0.95, dashArray: '8 9' }).addTo(map)
   stops.forEach((stop, index) => {
     if (index > 0 && stop.type === 'home') return
-    const icon = L.divIcon({ className: 'walk-stop-icon', html: `<span class="walk-stop ${index === 0 ? 'is-home' : ''}">${index === 0 ? '⌂' : index}</span>`, iconSize: [28, 28], iconAnchor: [14, 14] })
+    const kind = index === 0 ? 'is-home' : stop.is_bonus ? 'is-bonus' : ''
+    const icon = L.divIcon({ className: 'walk-stop-icon', html: `<span class="walk-stop ${kind}">${index === 0 ? '⌂' : index}</span>`, iconSize: [28, 28], iconAnchor: [14, 14] })
     L.marker(mapPoint(stop), { icon, interactive: false, keyboard: false }).addTo(map)
   })
   const shelterRing = L.circleMarker([0, 0], { radius: 22, color: '#ff7b6e', weight: 3, fill: false, dashArray: '4 5', interactive: false })
@@ -164,22 +173,8 @@ function start(route, navigation) {
   map.on('dragstart', () => { follow = false; $('w-recenter').hidden = false })
   $('w-recenter').addEventListener('click', () => { follow = true; $('w-recenter').hidden = true; update() })
 
-  // Simulation
-  function advance(minutes) {
-    const trip = currentTrip(route, state)
-    minutes = Math.min(minutes, Math.max(0, (1 - state.progress) * trip.walk_minutes))
-    state.clockMs += minutes * 60000
-    state.progress += minutes / trip.walk_minutes
-    if (state.progress < 1) return
-    state.playing = false
-    if (state.mode === 'return' || trip.to.type === 'home') {
-      state.mode = 'complete'
-      state.progress = 1
-    } else {
-      state.legIndex += 1
-      state.progress = 0
-    }
-  }
+  // Simulation (advance() in walk-model.js moves the clock, the crew and the science time at stops)
+  const atStop = () => state.mode === 'outbound' && state.progress === 0 && state.legIndex > 0
 
   function canHeadHome() {
     if (state.mode !== 'outbound') return false
@@ -201,7 +196,13 @@ function start(route, navigation) {
     catch (error) { stopOnRouteError(error); return }
     state.mode = 'return'
     state.progress = 0
+    state.scienceLeft = 0
     state.playing = true
+    update()
+  })
+  $('w-stay').addEventListener('click', () => {
+    if (!atStop()) return
+    state.clockMs += STAY_MINUTES * 60000 // demo: the crew stayed longer than planned
     update()
   })
   $('w-speed').addEventListener('click', () => { speedIndex = (speedIndex + 1) % SPEEDS.length; update() })
@@ -271,9 +272,12 @@ function start(route, navigation) {
     status.className = `walk-status is-${safety.level}`
     status.innerHTML = `<span class="walk-status-icon">${safety.level === 'ok' ? '✓' : safety.level === 'info' ? '⌂' : '!'}</span><div><strong>${safe(safety.title)}</strong><small>${safe(safety.message)}</small></div>`
 
-    $('w-next-label').textContent = complete ? 'EVA COMPLETE' : state.mode === 'return' ? 'HEADING HOME' : 'NEXT STOP'
+    const scienceLeft = state.scienceLeft || 0
+    $('w-next-label').textContent = complete ? 'EVA COMPLETE' : state.mode === 'return' ? 'HEADING HOME' : trip.to.is_bonus ? 'NEXT STOP · BONUS' : 'NEXT STOP'
     $('w-next-name').textContent = trip.to.name
-    $('w-phase').textContent = complete ? 'Done' : state.playing ? 'Walking' : state.progress === 0 ? `At ${trip.from.name}` : 'Paused'
+    $('w-phase').textContent = complete ? 'Done'
+      : scienceLeft ? `${state.playing ? 'Science' : 'Paused'} · ${duration(scienceLeft)} left`
+        : state.playing ? 'Walking' : state.progress === 0 ? `At ${trip.from.name}` : 'Paused'
     $('w-distance').textContent = complete ? 'Arrived' : distance(trip.distance_m * (1 - state.progress))
     if (ahead && !complete) {
       const deg = bearing(point, ahead)
@@ -284,7 +288,7 @@ function start(route, navigation) {
       $('w-arrow').toggleAttribute('hidden', true)
       $('w-heading').textContent = complete ? 'Back at the habitat' : '–'
     }
-    $('w-eta').textContent = complete ? '' : `${duration(leftMinutes)} walking · arrive ${utcTime(state.clockMs + leftMinutes * 60000)} UTC`
+    $('w-eta').textContent = complete ? '' : `${scienceLeft ? `${duration(scienceLeft)} science, then ` : ''}${duration(leftMinutes)} walking · arrive ${utcTime(state.clockMs + (scienceLeft + leftMinutes) * 60000)} UTC`
 
     // Turn-back = suit deadline − reserve − time home from here, so it shrinks faster while walking away.
     const outbound = state.mode === 'outbound'
@@ -296,6 +300,14 @@ function start(route, navigation) {
     $('w-turnback-tile').className = `walk-tile ${outbound && turnbackIn <= 0 ? 'is-danger' : outbound && turnbackIn <= 30 ? 'is-caution' : ''}`
     $('w-home').textContent = complete ? '0m' : duration(safety.homeMinutes)
     $('w-reserve').textContent = `${duration(safety.reserveAtHome)} suit time left at home`
+
+    // At a stop: how the crew is doing against the planned times, and the demo "+30m here" button.
+    $('w-stop-row').hidden = !atStop()
+    const behind = minutesBehindPlan(route, state, state.clockMs) ?? 0
+    $('w-plan').textContent = behind < 0.5 ? 'On schedule' : `${duration(behind)} behind schedule`
+    $('w-plan').classList.toggle('is-late', behind >= 0.5)
+    renderBonus()
+    renderRadiation()
 
     // Map
     legLine.setLatLngs(complete ? [] : remainingPath.map(mapPoint))
@@ -321,8 +333,9 @@ function start(route, navigation) {
     primary.textContent = complete
       ? '↺ Restart simulation'
       : state.playing ? '❚❚ Pause'
-        : state.progress > 0 ? '▶\uFE0E Resume'
-          : state.mode === 'return' ? '▶\uFE0E Start walking home' : `▶\uFE0E Walk to ${trip.to.name}`
+        : scienceLeft ? `▶\uFE0E Resume science · ${duration(scienceLeft)} left`
+          : state.progress > 0 ? '▶\uFE0E Resume'
+            : state.mode === 'return' ? '▶\uFE0E Start walking home' : `▶\uFE0E Walk to ${trip.to.name}`
     primary.classList.toggle('is-paused', state.playing)
     const homeBtn = $('w-home-btn')
     homeBtn.disabled = !canHeadHome()
@@ -334,11 +347,54 @@ function start(route, navigation) {
     $('w-storm').setAttribute('aria-pressed', String(Boolean(simAlert)))
   }
 
+  // Bonus stop GO / NO-GO from Mia's check. Before the stop it answers "if we keep to the plan".
+  function renderBonus() {
+    let bonus
+    try { bonus = bonusStatus(route, state, state.clockMs, { grid, timeHome: navigation.timeHome }) }
+    catch (error) { bonus = { phase: 'error', error } }
+    const tile = $('w-bonus-tile')
+    tile.hidden = !bonus
+    $('w-rad-tile').classList.toggle('is-wide', !bonus)
+    if (!bonus) return
+    let value = '–'
+    let note = ''
+    let level = ''
+    if (bonus.phase === 'error') note = 'check unavailable'
+    else if (bonus.phase === 'here') { value = 'HERE'; note = state.scienceLeft > 0 ? `science ${duration(state.scienceLeft)} left` : 'science done' }
+    else if (bonus.phase === 'done') { value = 'DONE'; note = 'visited' }
+    else if (bonus.phase === 'skipped') { value = 'SKIPPED'; note = 'headed home instead' }
+    else if (!bonus.go) {
+      value = 'NO-GO'
+      level = 'danger'
+      note = bonus.spareMinutes < 0 ? `would use ${duration(-bonus.spareMinutes)} of reserve` : bonus.title.replace(/^NO-GO:\s*/, '')
+    } else {
+      value = 'GO'
+      level = bonus.level === 'caution' ? 'caution' : 'ok'
+      note = `${level === 'caution' ? 'tight: ' : ''}${duration(bonus.spareMinutes)} to spare`
+    }
+    const why = bonus.phase === 'error' ? bonus.error.message
+      : bonus.phase === 'ahead' && Number.isFinite(bonus.spareMinutes)
+        ? `${bonus.decideNow ? '' : 'If you keep to the plan: '}${duration(bonus.walkThereMinutes)} to get there, ${Math.round(bonus.stopMinutes)} min of science, ${duration(bonus.homeFromBonusMinutes)} back to the habitat.`
+        : note
+    tile.className = `walk-tile${level ? ` is-${level}` : ''}`
+    tile.title = `${bonus.stop?.name ?? 'Bonus stop'}: ${why}`
+    $('w-bonus').textContent = value
+    $('w-bonus-note').textContent = note
+  }
+
+  // Radiation counter: dose so far, next to the dose for the whole walking budget (0.17 mSv for 6 h).
+  function renderRadiation() {
+    const dose = radiationDose(route, state.clockMs)
+    const hours = Number.isInteger(dose.walkHours) ? `${dose.walkHours}h` : duration(dose.walkHours * 60)
+    $('w-rad').textContent = `${dose.soFarMSv.toFixed(2)} mSv`
+    $('w-rad-note').textContent = `${dose.fullWalkMSv.toFixed(2)} mSv for a full ${hours} walk`
+  }
+
   let last = performance.now()
   setInterval(() => {
     const now = performance.now()
     const wasPlaying = state.playing
-    if (wasPlaying) advance(((now - last) / 60000) * SPEEDS[speedIndex])
+    if (wasPlaying) advance(route, state, ((now - last) / 60000) * SPEEDS[speedIndex])
     last = now
     // Redraw while walking, on the tick that arrives at a stop, and while "head home" is armed.
     const armExpired = homeArmedUntil && Date.now() > homeArmedUntil
@@ -362,6 +418,6 @@ Promise.all([loadTerrainRoute(), homeFile])
     assertRoute(route)
     const navigation = createTerrainNavigation(route, grid, { homeFile: file })
     if (file && navigation.source !== 'home file') console.warn('Home file does not match this terrain, so the phone worked out the way home itself. Rebuild it: node src/safezone/buildHomeFile.js')
-    start(route, navigation)
+    start(route, navigation, grid)
   })
   .catch((error) => { root.innerHTML = `<div class="walk-loading is-error"><h1>Unable to load the route</h1><p>${safe(error.message)}</p></div>` })

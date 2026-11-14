@@ -18,6 +18,7 @@ export function createTerrainNavigation(route, grid, { homeFile = null } = {}) {
   const cache = new Map()
   return {
     source: useFile ? 'home file' : 'terrain',
+    timeHome, // seconds home from every cell, for Mia's bonus-stop GO / NO-GO
     homeFrom(point) {
       if (!Number.isFinite(point?.x) || !Number.isFinite(point?.y)) throw new Error('Invalid simulated position.')
       const cell = xyToCell(grid, point.x, point.y)
