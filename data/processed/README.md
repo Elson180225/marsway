@@ -23,6 +23,7 @@ Made by `scripts/prepare_terrain.py` from the USGS *MSL Gale Merged DEM 1m v3*.
 | `slope.png` | See-through steepness overlay, one pixel per cell (green < 10°, yellow 10–15°, orange 15–25°, red > 25°) | Aaron, Russell |
 | `curiosity_track.json` | Curiosity's real stops in our area (sol, x, y), from NASA's waypoint list | Kelly, Aaron, Russell |
 | `SCIENCE-STOPS.md` | Provenance for the four EVA science stops. The file the app loads is `app/public/routes/science-stops.json` | Kelly, Nigel, Aaron, Russell |
+| `area-5km/gediz-stops.json` | **Draft:** four Gediz Vallis stops for the 5 km map, with Curiosity photos. Not loaded by the app yet. See `area-5km/README.md` | Kelly, Nigel, Mia |
 
 ## Leaflet (Aaron, Russell)
 
