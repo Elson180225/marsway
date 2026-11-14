@@ -1,6 +1,8 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './style.css'
+import './stopDetails.css'
+import { renderStopDetails } from './stopDetails.js'
 import { loadTerrainRoute, roughnessImage } from './terrainRoute.js'
 
 const root = document.querySelector('#app')
@@ -81,6 +83,7 @@ function render(route, grid) {
             <div id="return-summary" class="return-summary" aria-live="polite"></div>
           </div>
         </section>
+        <section id="selected-stop-science" aria-label="Selected stop science and photo"></section>
         <section class="details"><div class="details-heading"><div><span class="eyebrow">SELECTED LEG</span><h2 id="leg-title">Route details</h2></div><span id="leg-distance"></span></div><p id="leg-description"></p><div id="warning-list" class="warning-list"></div></section>
         <footer>Built for the NASA Space Apps Challenge · MarsWay planning prototype · No official NASA route or hazard assessment</footer>
       </main>
@@ -115,6 +118,7 @@ function render(route, grid) {
 
   function selectStop(index, pan = true) {
     const stop = stops[index]
+    renderStopDetails(document.querySelector('#selected-stop-science'), stop, { targetStatus: route.provenance?.target_status })
     const leg = legs[index] || legs[legs.length - 1]
     const home = route.returns.find((item) => item.from_stop_id === stop.id)
     document.querySelector('#stop-list').innerHTML = stops.map((item, number) => {
