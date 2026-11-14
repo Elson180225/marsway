@@ -2,7 +2,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './walk.css'
 import {
-  bearing, buildReturnTrip, cardinal, currentTrip, pointAlong, safetyStatus, sortWarnings,
+  ALERT_LEVELS, bearing, buildReturnTrip, cardinal, currentTrip, pointAlong, safetyStatus, segmentLength, shelterFor, sortWarnings,
 } from './walk-model.js'
 
 const root = document.querySelector('#walk')
@@ -48,6 +48,22 @@ function assertRoute(route) {
   for (const stop of route.stops) {
     if (!route.returns.some((item) => item.from_stop_id === stop.id)) throw new Error(`No return route for ${stop.id}.`)
   }
+  // `alerts` is optional: [{ type, level, message, shelter_stop_id }]
+  if (route.alerts !== undefined) {
+    if (!Array.isArray(route.alerts)) throw new Error('Route alerts must be a list.')
+    for (const alert of route.alerts) {
+      if (!ALERT_LEVELS.includes(alert.level)) throw new Error(`Unknown alert level "${alert.level}".`)
+      if (alert.shelter_stop_id != null && !route.stops.some((stop) => stop.id === alert.shelter_stop_id)) throw new Error(`Alert shelter "${alert.shelter_stop_id}" is not a stop.`)
+    }
+  }
+}
+
+// Demo only. Clearly labelled as simulated wherever it appears.
+function simulatedStorm(route) {
+  return {
+    type: 'solar_storm', level: 'danger', simulated: true, shelter_stop_id: route.stops[0].id,
+    message: 'Solar particle event expected. Stop the walk and move to shelter.',
+  }
 }
 
 function start(route) {
@@ -62,6 +78,8 @@ function start(route) {
   let follow = true
   let homeArmedUntil = 0
   let warningsKey = ''
+  let alertsKey = ''
+  let simAlert = null
 
   root.innerHTML = `
     <div class="walk">
@@ -70,6 +88,8 @@ function start(route) {
         <div class="walk-mission"><span>${safe(mission.id)}</span><strong id="w-clock">--:--:--</strong><small>UTC</small></div>
       </header>
       ${isSample ? '<p class="walk-sample"><span class="walk-dot"></span>Sample route and simulated position. This is not live navigation.</p>' : ''}
+
+      <section id="w-alerts" class="walk-alerts" aria-label="Alerts" aria-live="assertive"></section>
 
       <section id="w-status" class="walk-status" role="status" aria-live="polite"></section>
 
@@ -90,7 +110,7 @@ function start(route) {
       </section>
 
       <section class="walk-tiles" aria-label="Suit and turn-back timers">
-        <div class="walk-tile" id="w-turnback-tile"><span>TURN BACK IN</span><strong id="w-turnback">–</strong><small>by ${safe(utcTime(Date.parse(mission.latest_turnback_time)))} UTC</small></div>
+        <div class="walk-tile" id="w-turnback-tile"><span>TURN BACK IN</span><strong id="w-turnback">–</strong><small id="w-turnback-by">–</small></div>
         <div class="walk-tile"><span>HOME FROM HERE</span><strong id="w-home">–</strong><small id="w-reserve">–</small></div>
       </section>
 
@@ -110,6 +130,7 @@ function start(route) {
         <div class="walk-actions-row">
           <button type="button" id="w-home-btn" class="walk-btn walk-btn-home">⌂ Head home</button>
           <button type="button" id="w-speed" class="walk-btn walk-btn-quiet" title="Simulation speed"></button>
+          <button type="button" id="w-storm" class="walk-btn walk-btn-quiet" title="Simulate a solar storm alert (demo)"></button>
         </div>
       </div>
     </div>`
@@ -128,6 +149,7 @@ function start(route) {
     const icon = L.divIcon({ className: 'walk-stop-icon', html: `<span class="walk-stop ${index === 0 ? 'is-home' : ''}">${index === 0 ? '⌂' : index}</span>`, iconSize: [28, 28], iconAnchor: [14, 14] })
     L.marker(mapPoint(stop), { icon, interactive: false, keyboard: false }).addTo(map)
   })
+  const shelterRing = L.circleMarker([0, 0], { radius: 22, color: '#ff7b6e', weight: 3, fill: false, dashArray: '4 5', interactive: false })
   const me = L.marker([0, 0], {
     icon: L.divIcon({ className: 'walk-me-icon', html: '<span class="walk-me"></span>', iconSize: [22, 22], iconAnchor: [11, 11] }),
     interactive: false, keyboard: false, zIndexOffset: 2000,
@@ -174,6 +196,33 @@ function start(route) {
     update()
   })
   $('w-speed').addEventListener('click', () => { speedIndex = (speedIndex + 1) % SPEEDS.length; update() })
+  $('w-storm').addEventListener('click', () => { simAlert = simAlert ? null : simulatedStorm(route); update() })
+
+  function renderAlerts(point) {
+    const alerts = sortWarnings([...(route.alerts || []), ...(simAlert ? [simAlert] : [])])
+    const key = `${alerts.length}:${simAlert ? 1 : 0}:${Math.round(point.x / 25)}:${Math.round(point.y / 25)}`
+    if (key === alertsKey) return
+    alertsKey = key
+    const shelterStops = []
+    $('w-alerts').innerHTML = alerts.map((alert) => {
+      const shelter = shelterFor(route, alert)
+      if (shelter && alert.level !== 'info') shelterStops.push(shelter)
+      let shelterLine = '<small class="walk-alert-shelter">No shelter identified.</small>'
+      if (shelter) {
+        const deg = bearing(point, shelter)
+        const metres = segmentLength(point, shelter)
+        shelterLine = metres < 1
+          ? `<small class="walk-alert-shelter">Shelter: ${safe(shelter.name)} · you are here</small>`
+          : `<small class="walk-alert-shelter">Shelter: <b>${safe(shelter.name)}</b> · ${distance(metres)} ${cardinal(deg)} in a straight line (not a planned route)</small>`
+      }
+      return `<div class="walk-alert is-${safe(alert.level)}">
+        <div class="walk-alert-head"><strong>${safe(String(alert.type).replaceAll('_', ' '))}</strong>${alert.simulated ? '<span class="walk-alert-sim">SIMULATED</span>' : ''}</div>
+        <p>${safe(alert.message)}</p>${shelterLine}
+      </div>`
+    }).join('')
+    if (shelterStops.length) shelterRing.setLatLng(mapPoint(shelterStops[0])).addTo(map)
+    else shelterRing.remove()
+  }
 
   // Rendering
   function update() {
@@ -182,9 +231,15 @@ function start(route) {
     const remainingPath = [point, ...trip.path.slice(nextIndex)]
     const ahead = trip.path.slice(nextIndex).find((p) => p.x !== point.x || p.y !== point.y)
     const leftMinutes = trip.walk_minutes * (1 - state.progress)
-    const safety = safetyStatus(route, state, state.clockMs)
-    const turnbackMs = Date.parse(mission.latest_turnback_time) - state.clockMs
+    let safety = safetyStatus(route, state, state.clockMs)
+    // A danger alert (e.g. a solar storm) outranks the suit-time status.
+    const urgent = [...(route.alerts || []), ...(simAlert ? [simAlert] : [])].find((a) => a.level === 'danger')
+    if (urgent && state.mode !== 'complete') {
+      const shelter = shelterFor(route, urgent)
+      safety = { ...safety, level: 'danger', title: shelter ? `Go to shelter: ${shelter.name}` : 'Danger alert', message: shelter?.id === stops[0].id ? 'Shelter is the habitat. Use Head home to follow the planned return path.' : 'See the alert above.' }
+    }
     const complete = state.mode === 'complete'
+    renderAlerts(point)
 
     $('w-clock').textContent = utcTime(state.clockMs, true)
 
@@ -207,8 +262,14 @@ function start(route) {
     }
     $('w-eta').textContent = complete ? '' : `${duration(leftMinutes)} walking · arrive ${utcTime(state.clockMs + leftMinutes * 60000)} UTC`
 
-    $('w-turnback').textContent = state.mode === 'outbound' ? (turnbackMs > 0 ? duration(turnbackMs / 60000) : 'NOW') : '—'
-    $('w-turnback-tile').className = `walk-tile ${state.mode === 'outbound' && turnbackMs <= 0 ? 'is-danger' : state.mode === 'outbound' && turnbackMs <= 30 * 60000 ? 'is-caution' : ''}`
+    // Turn-back = suit deadline − reserve − time home from here, so it shrinks faster while walking away.
+    const outbound = state.mode === 'outbound'
+    const turnbackIn = safety.turnbackIn
+    $('w-turnback').textContent = outbound ? (turnbackIn > 0 ? duration(turnbackIn) : 'NOW') : '—'
+    $('w-turnback-by').textContent = outbound
+      ? (turnbackIn > 0 ? `start home by ${utcTime(state.clockMs + turnbackIn * 60000)} UTC` : 'start heading home')
+      : complete ? 'walk finished' : 'already heading home'
+    $('w-turnback-tile').className = `walk-tile ${outbound && turnbackIn <= 0 ? 'is-danger' : outbound && turnbackIn <= 30 ? 'is-caution' : ''}`
     $('w-home').textContent = complete ? '0m' : duration(safety.homeMinutes)
     $('w-reserve').textContent = `${duration(safety.reserveAtHome)} suit time left at home`
 
@@ -244,7 +305,9 @@ function start(route) {
     const armed = Date.now() <= homeArmedUntil
     homeBtn.textContent = armed ? 'Tap again to head home' : '⌂ Head home'
     homeBtn.classList.toggle('is-armed', armed)
-    $('w-speed').textContent = `Sim ${SPEEDS[speedIndex]}×`
+    $('w-speed').textContent = `${SPEEDS[speedIndex]}×`
+    $('w-storm').textContent = simAlert ? '✕ Storm' : '☀︎ Storm'
+    $('w-storm').setAttribute('aria-pressed', String(Boolean(simAlert)))
   }
 
   let last = performance.now()

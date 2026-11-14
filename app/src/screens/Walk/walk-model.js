@@ -102,31 +102,45 @@ export function minutesHome(route, state) {
 }
 
 /**
- * Safety check against the suit budget.
- * Returns { level, title, message, reserveAtHome, homeMinutes }.
+ * Safety check against the suit budget. Turn-back is computed, not taken from the route file:
+ *   turn back by = suit deadline − protected reserve − time to walk home from here
+ * Returns { level, title, message, homeMinutes, reserveAtHome, turnbackIn, nextStopOk }.
+ *   turnbackIn: minutes until the crew must start heading home (negative = already late).
+ *   nextStopOk: false when walking on to the next stop would leave too little time to get home
+ *               with the reserve intact (null when the next stop is home or not applicable).
  */
 export function safetyStatus(route, state, clockMs) {
   const { mission } = route
-  const start = Date.parse(mission.start_time)
-  const suitEnd = start + mission.max_walk_minutes * 60000
-  const turnback = Date.parse(mission.latest_turnback_time)
+  const suitEnd = Date.parse(mission.start_time) + mission.max_walk_minutes * 60000
   const homeMinutes = minutesHome(route, state)
   const reserveAtHome = (suitEnd - clockMs) / 60000 - homeMinutes
+  const turnbackIn = reserveAtHome - mission.reserve_minutes
 
-  if (state.mode === 'complete') {
-    return { level: 'info', title: 'EVA complete', message: 'Crew is back at the habitat.', reserveAtHome, homeMinutes }
+  let nextStopOk = null
+  const trip = currentTrip(route, state)
+  if (state.mode === 'outbound' && trip.to.type !== 'home') {
+    const arriveMs = clockMs + trip.walk_minutes * (1 - state.progress) * 60000
+    const homeFromNext = returnFor(route, trip.to.id).walk_minutes
+    nextStopOk = (suitEnd - arriveMs) / 60000 - homeFromNext >= mission.reserve_minutes
   }
-  if (reserveAtHome <= 0) {
-    return { level: 'danger', title: 'Suit time short', message: 'Projected to run out before reaching the habitat. Head home now.', reserveAtHome, homeMinutes }
+
+  const result = (level, title, message) => ({ level, title, message, homeMinutes, reserveAtHome, turnbackIn, nextStopOk })
+  if (state.mode === 'complete') return result('info', 'EVA complete', 'Crew is back at the habitat.')
+  if (reserveAtHome <= 0) return result('danger', 'Suit time short', 'Projected to run out before reaching the habitat. Head home now.')
+  if (state.mode === 'return') {
+    return turnbackIn < 0
+      ? result('caution', 'Using reserve', 'Getting home will use part of the protected suit reserve.')
+      : result('ok', 'Heading home', 'Reserve stays intact on the way home.')
   }
-  if (state.mode !== 'return' && clockMs >= turnback) {
-    return { level: 'danger', title: 'Past turn-back time', message: 'Stop the plan and head home now.', reserveAtHome, homeMinutes }
-  }
-  if (reserveAtHome < mission.reserve_minutes) {
-    return { level: 'caution', title: 'Reserve at risk', message: 'Heading home now would use part of the suit reserve.', reserveAtHome, homeMinutes }
-  }
-  if (state.mode !== 'return' && turnback - clockMs <= 30 * 60000) {
-    return { level: 'caution', title: 'Turn-back soon', message: 'Less than 30 minutes until the turn-back time.', reserveAtHome, homeMinutes }
-  }
-  return { level: 'ok', title: 'On plan', message: 'Enough suit time to reach home with the reserve intact.', reserveAtHome, homeMinutes }
+  if (turnbackIn <= 0) return result('danger', 'Turn back now', 'Heading home now already uses part of the protected reserve.')
+  if (nextStopOk === false) return result('caution', `Skip ${trip.to.name}?`, 'Reaching it would leave too little time to get home with the reserve intact.')
+  if (turnbackIn <= 30) return result('caution', 'Turn back soon', 'Less than 30 minutes before you must start heading home.')
+  return result('ok', 'On plan', 'Enough suit time to reach home with the reserve intact.')
+}
+
+// Alerts from the route file, e.g. solar storms. Shelter must be an existing stop or null.
+export const ALERT_LEVELS = ['info', 'caution', 'danger']
+
+export function shelterFor(route, alert) {
+  return alert.shelter_stop_id == null ? null : route.stops.find((stop) => stop.id === alert.shelter_stop_id) || null
 }
