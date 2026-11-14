@@ -75,6 +75,11 @@ button { font: inherit; }
 .walk-nav-copy strong { font: 600 clamp(32px, 10vw, 42px)/1 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; }
 .walk-nav-copy span { font-size: 16px; font-weight: 600; color: var(--w-route); }
 .walk-nav-copy small { font-size: 13px; color: var(--w-muted); }
+/* At a stop: on schedule or behind, and the demo "+30m here" button */
+.walk-stop-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--w-line); }
+.walk-stop-row[hidden] { display: none; }
+.walk-stop-row small { font-size: 14px; color: var(--w-muted); }
+.walk-stop-row small.is-late { color: var(--w-caution); font-weight: 600; }
 
 /* Timer tiles */
 .walk-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -86,6 +91,11 @@ button { font: inherit; }
 .walk-tile.is-caution strong { color: var(--w-caution); }
 .walk-tile.is-danger { border-color: var(--w-danger); background: #3a1f1f; }
 .walk-tile.is-danger strong { color: var(--w-danger); }
+.walk-tile.is-ok strong { color: var(--w-ok); }
+.walk-tile.is-wide { grid-column: 1 / -1; }
+/* A long word (INCOMPLETE) is sized from the tile's own width, so it fits on narrow phones too. */
+.walk-tile.is-long { container-type: inline-size; }
+.walk-tile.is-long strong { font-size: min(26px, 16cqi); }
 
 /* Map */
 .walk-map-card { position: relative; background: var(--w-panel); border: 1px solid var(--w-line); border-radius: 14px; overflow: hidden; }
@@ -98,6 +108,7 @@ button { font: inherit; }
 .walk-stop-icon, .walk-me-icon { background: transparent; border: 0; }
 .walk-stop { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #23343a; background: #f3bd83; color: #263038; font-size: 12px; font-weight: 700; }
 .walk-stop.is-home { background: #91d5c7; font-size: 16px; }
+.walk-stop.is-bonus { background: #2a2422; color: #f3bd83; border: 2px dashed #f3bd83; } /* optional bonus stop */
 .walk-me { display: block; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 4px solid #2f8cff; box-shadow: 0 0 0 6px #2f8cff44; }
 
 /* Warnings */
