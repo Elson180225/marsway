@@ -1,0 +1,27 @@
+{
+ "schema_version": 1,
+ "coordinate_system": {
+  "type": "local_cartesian",
+  "unit": "meter",
+  "x_axis": "east",
+  "y_axis": "north",
+  "origin_note": "6 km terrain grid (data/processed/area-6km): x metres east of easting 8141000, y metres north of northing -287000. Same walk as the 3 km EVA-07, shifted by x + 600, y + 400."
+ },
+ "mission": {
+  "id": "EVA-07",
+  "name": "The Boxwork Walk",
+  "site": "Gale Crater · Mount Sharp",
+  "start_time": "2026-11-14T08:00:00Z",
+  "max_walk_minutes": 480,
+  "latest_turnback_time": "2026-11-14T14:00:00Z",
+  "reserve_minutes": 120,
+  "data_status": "ILLUSTRATIVE_SAMPLE",
+  "home": {
+   "id": "hab",
+   "name": "Habitat (H1)",
+   "x": 1047.5,
+   "y": 917.5,
+   "description": "Confirmed H1 habitat (447.5, 517.5 on the 3 km map), at the same spot on the 6 km map."
+  }
+ }
+}

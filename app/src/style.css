@@ -6,3 +6,4 @@
 
 /* EVA-07 / EVA-08 switch in the sidebar */
 .mission-label{margin-top:26px}
+.stop-marker.other-marker{width:24px;height:24px;border-width:2px;font-size:11px;opacity:.6;box-shadow:none;cursor:pointer}.stop-marker.other-marker.home-marker{font-size:14px}.legend-other{width:23px;height:0;border-top:3px dotted #d8c7b4;margin-left:4px;opacity:.8}

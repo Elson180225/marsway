@@ -9,7 +9,7 @@ import { showScienceLayerInfo } from './scienceLayerInfo.js'
 import { mountPlanningSafety } from './safezone/planningPanel.js'
 import './stopDetails.css'
 import { renderStopDetails } from './stopDetails.js'
-import { loadTerrainRoute, roughnessImage, MISSIONS, DEFAULT_MISSION } from './terrainRoute.js'
+import { loadTerrainRoute, loadMissionOnSameMap, roughnessImage, MISSIONS, DEFAULT_MISSION } from './terrainRoute.js'
 
 const root = document.querySelector('#app')
 // Which EVA to plan: ?eva=EVA-08 shows the Gediz Vallis walk on the 6 km map. Default: EVA-07.
@@ -64,7 +64,7 @@ function assertRoute(route) {
   }
 }
 
-function render(route, grid) {
+function render(route, grid, loaded) {
   const { mission, stops, legs } = route
   const totalDistance = legs.reduce((sum, leg) => sum + leg.distance_m, 0)
   const totalMinutes = Math.round(legs.reduce((sum, leg) => sum + (leg.seconds ?? leg.walk_minutes * 60), 0) / 60)
@@ -96,7 +96,7 @@ function render(route, grid) {
             <div class="panel-header"><div><span class="eyebrow">GALE CRATER / LOCAL GRID</span><h2>Route overview</h2></div><span class="map-scale">LOCAL METRES · TERRAIN GRID</span></div>
             <div class="layer-toolbar" role="group" aria-label="Terrain map layers"><span>LAYERS</span><button type="button" data-layer="terrain" aria-pressed="true">◈ Basemap</button><button type="button" data-layer="slope" aria-pressed="false">▥ Slope</button><button type="button" data-layer="roughness" aria-pressed="false">⁙ Roughness</button><button type="button" data-layer="safety" aria-pressed="true">Safe zone</button><button type="button" data-layer="ctx" aria-pressed="false">CTX photo</button><button type="button" data-layer="crismHyd" aria-pressed="false">CRISM hydrated</button><button type="button" data-layer="crismAlt" aria-pressed="false">CRISM alteration</button><button type="button" data-layer="themis" aria-pressed="false">THEMIS night</button></div>
             <div id="map" role="img" aria-label="Terrain map showing ordered route stops and calculated return path"></div>
-            <div class="map-footer"><div><span class="legend-line"></span> Planned path <span class="legend-dash"></span> Return from selected stop</div><span>Drag to explore · scroll to zoom</span></div>
+            <div class="map-footer"><div><span class="legend-line"></span> Planned path <span class="legend-dash"></span> Return from selected stop <span class="legend-other"></span> Other EVA (click to plan it)</div><span>Drag to explore · scroll to zoom</span></div>
             <div id="science-layer-note" class="science-layer-note" role="status" aria-live="polite">Orbital layers: select to see legend, credit and source.</div>
           </div>
           <div class="route-panel">
@@ -114,11 +114,12 @@ function render(route, grid) {
   // Bring the map and ordered stops above the deeper safety and schedule sections.
   document.querySelector('.metrics').after(document.querySelector('.workspace'))
 
-  // Science layers are 3 km crops: only offer them on the map they were cut for.
+  // Science layers are 3 km crops: hide them for a mission whose map they don't cover.
   if (!files.scienceLayers) document.querySelectorAll('[data-layer="ctx"], [data-layer="crismHyd"], [data-layer="crismAlt"], [data-layer="themis"], #science-layer-note').forEach((item) => item.remove())
 
   // Bigger maps need to zoom further out (EVA-07's 3 km map keeps its original -1.7).
-  const minZoom = -1.7 - Math.max(0, Math.log2(Math.max(grid.sizeX, grid.sizeY) / 3000))
+  // (one extra step on bigger maps so both walks fit in the panel at once)
+  const minZoom = grid.sizeX > 3000 || grid.sizeY > 3000 ? -1.7 - Math.log2(Math.max(grid.sizeX, grid.sizeY) / 3000) - 1.25 : -1.7
   const map = L.map('map', { crs: L.CRS.Simple, minZoom, maxZoom: 1.2, zoomSnap: 0.25, zoomControl: false })
   L.control.zoom({ position: 'bottomright' }).addTo(map)
   const bounds = L.latLngBounds([[0, 0], [grid.sizeY, grid.sizeX]])
@@ -126,12 +127,14 @@ function render(route, grid) {
   const terrain = L.imageOverlay(`${files.terrain}basemap.png`, bounds, { opacity: 0.92, interactive: false }).addTo(map)
   const slope = L.imageOverlay(`${files.terrain}slope.png`, bounds, { opacity: 0.55, interactive: false })
   const roughness = L.imageOverlay(roughnessImage(grid), bounds, { opacity: 0.7, interactive: false })
-  // Kelly's 600 px north-up crops fill the same 3 km bounds as the terrain.
+  // Kelly's 600 px north-up crops cover the original 3 km square. On the 6 km map they sit at
+  // scienceBounds (600 m east, 400 m north of the corner); on the 3 km map they fill the map.
+  const scienceBounds = files.scienceBounds ? L.latLngBounds(files.scienceBounds) : bounds
   const science = !files.scienceLayers ? {} : {
-    ctx: L.imageOverlay('/terrain/ctx.png', bounds, { opacity: 0.85, interactive: false }),
-    crismHyd: L.imageOverlay('/terrain/crism_hyd.png', bounds, { opacity: 0.7, interactive: false }),
-    crismAlt: L.imageOverlay('/terrain/crism_alt.png', bounds, { opacity: 0.7, interactive: false }),
-    themis: L.imageOverlay('/terrain/themis_night.png', bounds, { opacity: 0.75, interactive: false }),
+    ctx: L.imageOverlay('/terrain/ctx.png', scienceBounds, { opacity: 0.85, interactive: false }),
+    crismHyd: L.imageOverlay('/terrain/crism_hyd.png', scienceBounds, { opacity: 0.7, interactive: false }),
+    crismAlt: L.imageOverlay('/terrain/crism_alt.png', scienceBounds, { opacity: 0.7, interactive: false }),
+    themis: L.imageOverlay('/terrain/themis_night.png', scienceBounds, { opacity: 0.75, interactive: false }),
   }
   const scienceNote = document.querySelector('#science-layer-note')
   for (const [name, layer] of Object.entries(science)) layer.on('error', () => {
@@ -180,6 +183,28 @@ function render(route, grid) {
   if (Math.max(grid.sizeX, grid.sizeY) > 3000) map.fitBounds(routeBounds.pad(0.35), { padding: [18, 18] })
   else map.fitBounds(bounds.pad(0.03), { padding: [18, 18] })
 
+  // Every other EVA on the same map is drawn faded, so both walks show on the one 6 km map.
+  // The selected EVA keeps its own home, stop list and safety numbers; click the other to switch.
+  let mapTouched = false
+  map.getContainer().addEventListener('pointerdown', () => { mapTouched = true }, { once: true })
+  map.getContainer().addEventListener('wheel', () => { mapTouched = true }, { once: true })
+  const sameMap = Object.keys(MISSIONS).filter((id) => id !== missionId && MISSIONS[id].terrain === files.terrain)
+  setTimeout(() => sameMap.forEach((id) => loadMissionOnSameMap(fetch, id, loaded).then(({ route: other }) => {
+    const go = () => { location.search = `?eva=${id}` }
+    const style = { color: '#d8c7b4', weight: 3, opacity: 0.55, dashArray: '2 7', lineCap: 'round' }
+    const otherLines = other.legs.map((leg) => L.polyline(leg.path.map(mapPoint), style).addTo(map).on('click', go).bindTooltip(`${id} · ${other.mission.name}: click to plan this walk`, { sticky: true }))
+    other.stops.slice(0, -1).forEach((stop, index) => {
+      const icon = L.divIcon({ className: 'stop-icon', html: `<span class="stop-marker other-marker ${index === 0 ? 'home-marker' : ''}">${index === 0 ? '⌂' : index}</span>`, iconSize: [24, 24], iconAnchor: [12, 12] })
+      L.marker(mapPoint(stop), { icon, zIndexOffset: -500 }).addTo(map).on('click', go).bindTooltip(`${id} · ${safe(stop.name)}`, { direction: 'top', offset: [0, -10] })
+    })
+    // The rover drive between the two homes is not walked: a thin straight line, labelled as such.
+    const homes = [stops[0], other.stops[0]].filter((stop) => /rover/i.test(stop.name) || stop.name === 'Habitat (H1)')
+    if (homes.length === 2) L.polyline(homes.map(mapPoint), { color: '#8fb8c9', weight: 2, opacity: 0.6, dashArray: '1 9' }).addTo(map).bindTooltip('Rover drive between H1 and G2 (straight line, not a walking route)', { sticky: true })
+    otherLines.forEach((line) => line.bringToBack())
+    if (map.hasLayer(terrain)) terrain.bringToBack()
+    if (!mapTouched) map.fitBounds(routeBounds.extend(L.latLngBounds(other.legs.flatMap((leg) => leg.path.map(mapPoint)))).pad(0.12), { padding: [18, 18] })
+  }).catch((error) => console.warn(`Could not draw ${id} on the shared map: ${error.message}`))), 50)
+
   function selectStop(index, pan = true) {
     const stop = stops[index]
     safety.selectStop(stop)
@@ -206,5 +231,5 @@ function render(route, grid) {
 
 root.innerHTML = `<div class="loading-screen">Loading ${safe(files.label)} terrain and calculating the route…</div>`
 loadTerrainRoute(fetch, missionId)
-  .then(({ route, grid }) => { assertRoute(route); render(route, grid) })
+  .then((loaded) => { assertRoute(loaded.route); render(loaded.route, loaded.grid, loaded) })
   .catch((error) => { root.innerHTML = `<div class="error-screen"><h1>Unable to calculate the route</h1><p>${safe(error.message)}</p><p>Check the terrain files in <code>public/terrain/</code> and the mission template in <code>public/routes/sample-route.json</code>. No sample route has been substituted.</p></div>` })

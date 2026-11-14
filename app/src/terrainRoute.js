@@ -68,16 +68,22 @@ export function buildTerrainRoute(template, area, terrain, science = { status: '
   }
 }
 
-// The EVAs the Planning screen can show. EVA-07 is the original 3 km boxwork walk (unchanged);
-// EVA-08 is the rover-assisted Gediz Vallis walk on the 6 km map, with home = the rover at G2.
+// The EVAs the Planning screen can show, both on the same 6 km map (data/processed/area-6km):
+//   EVA-07  the boxwork walk from H1 (Kelly's stops, shifted x + 600, y + 400 onto the 6 km map)
+//   EVA-08  the rover-assisted Gediz Vallis walk, home = the rover at G2
+// Kelly's science images are 3 km crops; scienceBounds places them on the 6 km map ([y, x] order).
+const SCIENCE_ON_6KM = [[400, 600], [3400, 3600]]
 export const MISSIONS = {
-  'EVA-07': { label: 'EVA-07 · Boxwork', template: '/routes/sample-route.json', terrain: '/terrain/', stops: '/routes/science-stops.json', scienceLayers: true },
-  'EVA-08': { label: 'EVA-08 · Gediz Vallis', template: '/routes/eva-08.json', terrain: '/terrain-6km/', stops: '/routes/gediz-stops.json', scienceLayers: false },
+  'EVA-07': { label: 'EVA-07 · Boxwork', template: '/routes/eva-07-6km.json', terrain: '/terrain-6km/', stops: '/routes/science-stops-6km.json', scienceLayers: true, scienceBounds: SCIENCE_ON_6KM },
+  'EVA-08': { label: 'EVA-08 · Gediz Vallis', template: '/routes/eva-08.json', terrain: '/terrain-6km/', stops: '/routes/gediz-stops.json', scienceLayers: true, scienceBounds: SCIENCE_ON_6KM },
 }
 export const DEFAULT_MISSION = 'EVA-07'
+// Called with no mission (Russell's Walk screen and the older tests): the original EVA-07 on the
+// 3 km map, unchanged, because the Walk screen's home file (home-h1) is built on the 3 km grid.
+const EVA_07_3KM = { label: 'EVA-07 · Boxwork (3 km)', template: '/routes/sample-route.json', terrain: '/terrain/', stops: '/routes/science-stops.json', scienceLayers: true }
 
-export async function loadTerrainRoute(fetcher = fetch, missionId = DEFAULT_MISSION) {
-  const files = MISSIONS[missionId]
+export async function loadTerrainRoute(fetcher = fetch, missionId = null) {
+  const files = missionId == null ? EVA_07_3KM : MISSIONS[missionId]
   if (!files) throw new Error(`Unknown mission ${missionId}.`)
   async function json(url) {
     const response = await fetcher(url)
@@ -87,7 +93,22 @@ export async function loadTerrainRoute(fetcher = fetch, missionId = DEFAULT_MISS
   const [template, area, elevation, slope, roughness, science] = await Promise.all([
     json(files.template), json(`${files.terrain}area.json`), json(`${files.terrain}elevation.json`), json(`${files.terrain}slope.json`), json(`${files.terrain}roughness.json`), json(files.stops),
   ])
-  return buildTerrainRoute({ ...template, terrain_dir: files.terrain }, area, { elevation, slope, roughness }, science)
+  const built = buildTerrainRoute({ ...template, terrain_dir: files.terrain }, area, { elevation, slope, roughness }, science)
+  return { ...built, area, terrain: { elevation, slope, roughness } }
+}
+
+// Another EVA on the map that is already loaded (no second download of the terrain), so the
+// Planning screen can draw both walks on the one 6 km map.
+export async function loadMissionOnSameMap(fetcher, missionId, loaded) {
+  const files = MISSIONS[missionId]
+  if (!files) throw new Error(`Unknown mission ${missionId}.`)
+  const get = async (url) => {
+    const response = await fetcher(url)
+    if (!response.ok) throw new Error(`${url} unavailable (${response.status}).`)
+    return response.json()
+  }
+  const [template, science] = await Promise.all([get(files.template), get(files.stops)])
+  return buildTerrainRoute({ ...template, terrain_dir: files.terrain }, loaded.area, loaded.terrain, science)
 }
 
 export function roughnessImage(grid) {
