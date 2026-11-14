@@ -8,7 +8,7 @@ import { stopMetadata } from '../../stopDetails.js'
 import { directionsFor } from '../../pathfinding/directions.js'
 import {
   ALERT_LEVELS, advance, arrivalTimes, bearing, bonusStatus, buildReturnTrip, canHeadHome, cardinal, currentTrip, directionLine,
-  hazardSpots, headHome, minutesBehindPlan, pathLength, photoStop, pointAlong, radiationDose, safetyStatus, segmentLength,
+  hazardSpots, headHome, minutesBehindPlan, pathLength, photoDistance, photoStop, pointAlong, radiationDose, safetyStatus, segmentLength,
   shelterFor, sortWarnings, walkPace,
 } from './walk-model.js'
 
@@ -343,7 +343,8 @@ function start(route, navigation, grid) {
     const turn = $('w-turn')
     turn.hidden = !line
     if (!line) return
-    const html = `<b>${safe(line.lead)}</b>${safe(line.rest)}`
+    const keep = (text) => safe(text).replace(/(\d) (k?m)\b/g, '$1&nbsp;$2') // "700 m" never splits across lines
+    const html = `<b>${keep(line.lead)}</b>${keep(line.rest)}`
     if (turn.innerHTML !== html) turn.innerHTML = html
   }
 
@@ -532,7 +533,8 @@ function start(route, navigation, grid) {
     if (!current) { panel.replaceChildren(); return }
     const { stop, here } = current
     const meta = stopMetadata(stop, window.location.href)
-    const away = Number.isFinite(stop.photo_offset_m) ? `, about ${Math.round(stop.photo_offset_m)} m away` : ''
+    const metres = photoDistance(stop) // only when it is known for this photo
+    const away = metres === null ? '' : `, about ${metres} m away`
     const shot = [meta.sol ? `Sol ${meta.sol}` : null, meta.camera].filter(Boolean).join(' · ')
     panel.innerHTML = `
       <div class="walk-photo-head"><span class="walk-eyebrow">${here ? 'AT THIS STOP' : 'COMING UP'}</span>${meta.bonus ? '<span class="walk-photo-badge">OPTIONAL BONUS</span>' : ''}</div>

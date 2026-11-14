@@ -390,6 +390,14 @@ export function photoStop(route, state) {
   return stop && stop.type !== 'home' && stop.type !== 'habitat' ? { stop, here } : null
 }
 
+// How far from the stop a "nearby view" photo was taken, in whole metres (19.5 m -> 20), or null when
+// that photo's distance isn't known. Kelly: no number when it is unverified (photo_offset_status
+// 'unverified', e.g. the reviewed Gediz photos), even if a number is filled in.
+export function photoDistance(stop) {
+  if (stop?.photo_view !== 'nearby' || stop.photo_offset_status === 'unverified') return null
+  return Number.isFinite(stop.photo_offset_m) ? Math.round(stop.photo_offset_m) : null
+}
+
 // Radiation so far, and for the whole walking budget (suit time minus the reserve: 8 h - 2 h = 6 h),
 // from Mia's walkDoseMSv(): about 0.67 mSv a day on the surface at Gale Crater (Curiosity's RAD).
 export function radiationDose(route, clockMs) {

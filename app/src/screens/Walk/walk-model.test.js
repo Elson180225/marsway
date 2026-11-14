@@ -10,7 +10,7 @@ import { stopMetadata } from '../../stopDetails.js'
 import { directionsFor } from '../../pathfinding/directions.js'
 import {
   advance, arrivalTimes, bonusStatus, canHeadHome, currentTrip, directionLine, hazardSpots, headHome, minutesBehindPlan, minutesHome,
-  pathLength, photoStop, pointAlong, radiationDose, safetyStatus, walkPace,
+  pathLength, photoDistance, photoStop, pointAlong, radiationDose, safetyStatus, walkPace,
 } from './walk-model.js'
 
 const close = (a, b, tolerance, message) => assert.ok(Math.abs(a - b) <= tolerance, `${message}: ${a} vs ${b}`)
@@ -129,6 +129,13 @@ assert.deepEqual(photoStop(route, at(3, 200)), { stop: route.stops[3], here: tru
 assert.equal(photoStop(route, at(3, 230, { progress: 0.5 })), null)
 assert.equal(photoStop(route, at(1, 60, { mode: 'return' })), null)
 assert.equal(photoStop(route, at(3, 300, { mode: 'complete', progress: 1 })), null)
+// "Nearby view, about N m away" only when that photo's distance is known; never when it is unverified.
+assert.equal(photoDistance({ photo_view: 'nearby', photo_offset_m: 19.5 }), 20)
+assert.equal(photoDistance({ photo_view: 'nearby', photo_offset_m: 178.8 }), 179)
+assert.equal(photoDistance({ photo_view: 'nearby' }), null)
+assert.equal(photoDistance({ photo_view: 'nearby', photo_offset_m: null, photo_offset_status: 'unverified' }), null)
+assert.equal(photoDistance({ photo_view: 'nearby', photo_offset_m: 6, photo_offset_status: 'unverified' }), null, 'unverified wins over a number')
+assert.equal(photoDistance({ photo_offset_m: 19.5 }), null, 'not a nearby view')
 
 // 7. Radiation: about 0.67 mSv a day, so the 6 h walking budget (8 h suit - 2 h reserve) is 0.17 mSv.
 const dose = radiationDose(route, start + 6 * 3600000)
@@ -249,6 +256,9 @@ if (real) {
     assert.ok(meta.credit && meta.source?.startsWith('https://') && stop.why, `${stop.id}: credit, source link and task`)
   }
   assert.equal(photoStop(kelly, { mode: 'outbound', legIndex: 0, progress: 0 }).stop.id, science[0].id)
+  // Kelly's photo distances: Boxwork Lookout "about 20 m" (19.5 m recorded); every reviewed Gediz photo has none.
+  assert.equal(photoDistance(kelly.stops.find((stop) => stop.id === 'boxwork-lookout')), 20)
+  for (const stop of json('routes/gediz-stops.json').stops) assert.equal(photoDistance(stop), null, `${stop.id}: unverified, no number`)
   // Every warning the planner raised on the first leg gets a pin on that leg's path.
   const leg0 = currentTrip(kelly, { mode: 'outbound', legIndex: 0, progress: 0 })
   const pins = hazardSpots(kellyGrid, leg0)
