@@ -127,7 +127,7 @@ function render(route, grid) {
     const home = route.returns.find((item) => item.from_stop_id === stop.id)
     document.querySelector('#stop-list').innerHTML = stops.map((item, number) => {
       const next = legs[number]
-      return `<button type="button" class="stop-row ${number === index ? 'selected' : ''}" data-stop="${number}" aria-pressed="${number === index}"><span class="timeline-node">${number === 0 || item.type === 'home' ? '⌂' : number}</span><span class="stop-copy"><strong>${safe(item.name)}</strong><small>${safe(item.type.replace('_', ' '))}${next ? ` · ${distance(next.distance_m)} to next` : ''}</small></span><span class="stop-arrow">›</span></button>`
+      return `<button type="button" class="stop-row ${number === index ? 'selected' : ''}" data-stop="${number}" aria-pressed="${number === index}"><span class="timeline-node">${number === 0 || item.type === 'home' ? '⌂' : number}</span><span class="stop-copy"><strong>${safe(item.name)}${item.is_bonus ? ' <span class="bonus-chip" data-bonus-verdict>BONUS</span>' : ''}</strong><small>${safe(item.type.replace('_', ' '))}${next ? ` · ${distance(next.distance_m)} to next` : ''}</small></span><span class="stop-arrow">›</span></button>`
     }).join('')
     document.querySelectorAll('[data-stop]').forEach((button) => button.addEventListener('click', () => selectStop(Number(button.dataset.stop))))
     document.querySelector('#return-summary').innerHTML = `<span class="eyebrow">RETURN FROM ${safe(stop.name.toUpperCase())}</span><strong>${distance(home.distance_m)} · ${duration(home.walk_minutes)}</strong><small>Calculated return estimate to habitat</small>`
