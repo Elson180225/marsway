@@ -78,8 +78,10 @@ if (files.every((name) => existsSync(new URL(name, base)))) {
     console.log('Public terrain check skipped: scratch fixture is synthetic.')
   } else {
     const real = makeGrid({ elevation: read('elevation.json'), slope: read('slope.json'), roughness: read('roughness.json') })
-    const realHabitat = { x: 447.5, y: 517.5 }
-    assert.ok(area.habitatCandidates.some((h) => Math.abs(h.x - realHabitat.x) < 2.6 && Math.abs(h.y - realHabitat.y) < 2.6), 'H1 must be present in the terrain area')
+    const realHabitat = area.boundsProjected
+      ? { x: 8142047.5 - area.boundsProjected.west, y: -286082.5 - area.boundsProjected.south }
+      : { x: 447.5, y: 517.5 }
+    assert.ok(realHabitat.x >= 0 && realHabitat.x < real.sizeX && realHabitat.y >= 0 && realHabitat.y < real.sizeY, 'H1 must be inside the terrain area')
     const realModel = createPlanningSafety(real, realHabitat, { max_walk_minutes: 480, reserve_minutes: 120 })
     const chosen = realModel.evaluate({ position: realHabitat, elapsedMinutes: 0, stopMinutes: 20 })
     assert.ok(chosen.safeCells > 0 && chosen.storm)

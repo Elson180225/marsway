@@ -47,7 +47,7 @@ export function mountPlanningSafety({ root, map, grid, route }) {
     <h2>Can we still get home?</h2>
     <p class="ps-note">Reference: <strong id="ps-reference"></strong>. Select a route stop to change it.</p>
     <form class="ps-form">
-      <label>Elapsed suit time (hours)<input id="ps-elapsed" type="number" min="0" step="0.25" value="0" required></label>
+      <label>Elapsed suit time (hours)<input id="ps-elapsed" type="number" min="0" step="any" value="${(route.mission.drive_out_minutes ?? 0) / 60}" required></label>
       <label>Time at a candidate stop (min)<input id="ps-stop" type="number" min="0" max="120" step="1" value="20" required></label>
       <button type="submit">Update safe zone</button>
       <button id="ps-storm" type="button" aria-pressed="false" disabled>Simulate storm route</button>
@@ -68,7 +68,7 @@ export function mountPlanningSafety({ root, map, grid, route }) {
   const $ = (id) => root.querySelector(`#${id}`)
   const form = root.querySelector('form')
   $('ps-elapsed').max = String(route.mission.max_walk_minutes / 60)
-  $('ps-budget').textContent = `Suit budget: ${duration(route.mission.max_walk_minutes)}; protected reserve: ${duration(route.mission.reserve_minutes)}. No live suit or position feed.`
+  $('ps-budget').textContent = `Suit budget: ${duration(route.mission.max_walk_minutes)}; protected reserve: ${duration(route.mission.reserve_minutes)}.${route.mission.drive_home_minutes ? ' EVA-08 includes an assumed 55 min suited drive each way; G2 is not storm shelter. Elapsed time starts after the outbound drive.' : ''} No live suit or position feed.`
   const metric = document.querySelector('#planning-turnback')
   const metricLabel = document.querySelector('#planning-turnback-note')
 
@@ -119,7 +119,7 @@ export function mountPlanningSafety({ root, map, grid, route }) {
     const path = result.storm.path
     if (path.length > 1) stormLine.setLatLngs(path.map((p) => [p.y, p.x])).addTo(map)
     $('ps-storm-note').textContent = path.length > 1
-      ? `SIMULATED storm route to H1: ${(result.storm.distance_m / 1000).toFixed(2)} km, ${duration(result.storm.seconds / 60)}. This is a modelled return route, not a live storm alert or shelter certification.`
+      ? `SIMULATED storm route to ${route.mission.drive_home_minutes ? 'G2 rover, then assumed 55 min drive to H1' : 'H1'}: ${(result.storm.distance_m / 1000).toFixed(2)} km, ${duration(result.storm.seconds / 60)} on foot. This is a modelled return route, not a live storm alert or shelter certification.`
       : 'SIMULATED storm: the reference is already in H1\'s grid cell.'
   }
   function calculate() {
