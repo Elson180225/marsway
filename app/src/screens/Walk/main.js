@@ -117,8 +117,10 @@ function start(route, navigation, grid) {
       </section>
 
       <section id="w-map-card" class="walk-map-card" aria-label="Route map">
-        <div id="w-map" role="img" aria-label="Map of the current leg, your simulated position, the path home and pop-ups for stops, hazards and alerts"></div>
-        <button type="button" id="w-recenter" class="walk-recenter" hidden>⌖ Recenter</button>
+        <div class="walk-map-wrap">
+          <div id="w-map" role="img" aria-label="Map of the current leg, your simulated position, the path home and pop-ups for stops, hazards and alerts"></div>
+          <button type="button" id="w-recenter" class="walk-recenter" aria-label="Recenter the map on me" title="Recenter the map on me" hidden>⌖</button>
+        </div>
         <div class="walk-legend"><span class="walk-legend-line"></span>This leg<span class="walk-legend-dash"></span>Path home<span class="walk-hazard is-caution walk-legend-sign"><i>!</i></span>Hazard</div>
       </section>
       <p id="w-announce" class="walk-sr" aria-live="assertive"></p>
@@ -238,7 +240,7 @@ function start(route, navigation, grid) {
     hazards = state.mode === 'complete' ? [] : hazardSpots(grid, trip).map((spot) => {
       const steep = spot.type === 'steep_slope'
       const icon = L.divIcon({ className: 'walk-stop-icon', html: `<span class="walk-hazard is-${safe(spot.level)}"><i>${steep ? '!' : '≈'}</i></span>`, iconSize: [24, 24], iconAnchor: [12, 12] })
-      const marker = L.marker(mapPoint(spot.point), { icon, keyboard: false, title: steep ? 'Steep ground' : 'Rough ground' }).addTo(hazardLayer)
+      const marker = L.marker(mapPoint(spot.point), { icon, keyboard: false, zIndexOffset: -1000, title: steep ? 'Steep ground' : 'Rough ground' }).addTo(hazardLayer)
       marker.bindTooltip('', { permanent: true, direction: 'right', offset: [12, 0], opacity: 1, className: 'walk-pop' }).closeTooltip()
       const hazard = { spot, marker, pinned: false, title: steep ? 'Steep ground' : 'Rough ground' }
       marker.on('click', () => { hazard.pinned = !hazard.pinned; update() }) // tap a sign to show or hide it
