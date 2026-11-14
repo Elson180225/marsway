@@ -47,7 +47,7 @@ export function showScienceLayerInfo(container, key, failed = false) {
     return node
   }
   if (!key) {
-    container.textContent = 'Select an orbital layer for its source, colour key and limits. The basemap remains the terrain reference.'
+    container.textContent = 'Orbital layers: select to see legend, credit and source.'
     return
   }
   const info = scienceLayerInfo[key]
@@ -55,7 +55,8 @@ export function showScienceLayerInfo(container, key, failed = false) {
   const card = element('div', 'science-layer-info')
   card.append(element('strong', '', info.title))
   if (failed) card.append(element('p', 'science-layer-error', `Could not load the ${info.title} image. Check the local file in public/terrain/.`))
-  card.append(element('p', '', info.detail))
+  const firstSentence = info.detail.match(/^[\s\S]*?[.!?](?=\s|$)/)?.[0] || info.detail
+  card.append(element('p', '', firstSentence))
   if (info.key) {
     const legend = element('ul', 'science-colour-key')
     for (const item of info.key) {
@@ -73,5 +74,8 @@ export function showScienceLayerInfo(container, key, failed = false) {
   source.target = '_blank'
   source.rel = 'noopener noreferrer'
   card.append(source)
+  const more = element('details', 'science-layer-more')
+  more.append(element('summary', '', 'About this layer ⓘ'), element('p', '', info.detail))
+  card.append(more)
   container.replaceChildren(card)
 }

@@ -2,6 +2,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './style.css'
 import './scienceLayers.css'
+import './planningCompact.css'
 import './missionSchedule.css'
 import { renderMissionSchedule } from './missionSchedule.js'
 import { showScienceLayerInfo } from './scienceLayerInfo.js'
@@ -36,6 +37,14 @@ function mapPoint(point) {
   return [point.y, point.x] // Leaflet CRS.Simple uses [northing, easting].
 }
 
+function prominentWarnings(warnings) {
+  return warnings.filter((warning) => {
+    if (warning.type !== 'rough_ground') return true
+    const metres = /^About (\d+) m of rocky or uneven ground/.exec(warning.message)?.[1]
+    return metres === undefined || Number(metres) > 15
+  })
+}
+
 function assertRoute(route) {
   if (route.schema_version !== 1 || route.coordinate_system?.unit !== 'meter') throw new Error('Unsupported route data format.')
   if (!Array.isArray(route.stops) || !Array.isArray(route.legs) || !Array.isArray(route.returns)) throw new Error('Route data is incomplete.')
@@ -56,7 +65,7 @@ function render(route, grid) {
   const { mission, stops, legs } = route
   const totalDistance = legs.reduce((sum, leg) => sum + leg.distance_m, 0)
   const totalMinutes = legs.reduce((sum, leg) => sum + leg.walk_minutes, 0)
-  const warnings = legs.flatMap((leg) => leg.warnings || [])
+  const warnings = prominentWarnings(legs.flatMap((leg) => leg.warnings || []))
   root.innerHTML = `
     <div class="shell">
       <aside class="sidebar">
@@ -68,12 +77,12 @@ function render(route, grid) {
       </aside>
       <main id="planning" class="main">
         <header class="topbar"><div><span class="eyebrow">MISSION / ${safe(mission.id)}</span><h1>Plan the walk. <em>Get home safely.</em></h1><p>${safe(mission.site)} · ${safe(mission.name)}</p></div><div class="top-badge"><span class="sample-pulse"></span> TERRAIN ROUTING DEMO</div></header>
-        <div class="notice" role="note"><strong>Terrain-based route estimates</strong><span>Elson's terrain + Nigel's planner. Suit speed and slope limits are team assumptions. ${route.provenance.target_status === 'ready' ? 'Kelly science stops are loaded.' : 'The grid-centre target is for demonstration; Kelly science stops are pending.'} Planning and Walk use the same route loader. Mission clock and suit budget are simulated; Planning safe-zone and turn-back estimates use Mia's model.</span></div>
+        <div class="notice" role="note"><span>Demo mission · ${route.provenance.target_status === 'ready' ? 'terrain estimates' : 'test target'} · no live telemetry</span></div>
         <section class="metrics" aria-label="Mission summary">
-          <div class="metric"><span>ROUTE DISTANCE</span><strong>${distance(totalDistance)}</strong><small>Round trip · ${legs.length} legs</small></div>
-          <div class="metric"><span>WALKING TIME</span><strong>${duration(totalMinutes)}</strong><small>Excludes science and rest stops</small></div>
+          <div class="metric"><span>DISTANCE</span><strong>${distance(totalDistance)}</strong><small>Round trip</small></div>
+          <div class="metric"><span>WALKING</span><strong>${duration(totalMinutes)}</strong><small>Science time below</small></div>
           <div class="metric"><span>TURN BACK IN</span><strong id="planning-turnback">Calculating</strong><small id="planning-turnback-note">From selected reference</small></div>
-          <div class="metric"><span>ROUTE NOTICES</span><strong>${warnings.length}</strong><small>Planner warnings to review</small></div>
+          <div class="metric"><span>TERRAIN NOTES</span><strong>${warnings.length}</strong><small>Across the route</small></div>
         </section>
         <section id="mission-schedule" aria-label="Planned EVA schedule"></section>
         <section id="planning-safety" aria-label="Safe-to-go planning scenario"></section>
@@ -81,9 +90,9 @@ function render(route, grid) {
           <div class="map-panel">
             <div class="panel-header"><div><span class="eyebrow">GALE CRATER / LOCAL GRID</span><h2>Route overview</h2></div><span class="map-scale">LOCAL METRES · TERRAIN GRID</span></div>
             <div class="layer-toolbar" role="group" aria-label="Terrain map layers"><span>LAYERS</span><button type="button" data-layer="terrain" aria-pressed="true">◈ Basemap</button><button type="button" data-layer="slope" aria-pressed="false">▥ Slope</button><button type="button" data-layer="roughness" aria-pressed="false">⁙ Roughness</button><button type="button" data-layer="safety" aria-pressed="true">Safe zone</button><button type="button" data-layer="ctx" aria-pressed="false">CTX photo</button><button type="button" data-layer="crismHyd" aria-pressed="false">CRISM hydrated</button><button type="button" data-layer="crismAlt" aria-pressed="false">CRISM alteration</button><button type="button" data-layer="themis" aria-pressed="false">THEMIS night</button></div>
-            <div id="map" role="img" aria-label="Terrain map showing the ordered demo stops and calculated return path"></div>
+            <div id="map" role="img" aria-label="Terrain map showing ordered route stops and calculated return path"></div>
             <div class="map-footer"><div><span class="legend-line"></span> Planned path <span class="legend-dash"></span> Return from selected stop</div><span>Drag to explore · scroll to zoom</span></div>
-            <div id="science-layer-note" class="science-layer-note" role="status" aria-live="polite">Select an orbital layer for its source, colour key and limits. The basemap remains the terrain reference.</div>
+            <div id="science-layer-note" class="science-layer-note" role="status" aria-live="polite">Orbital layers: select to see legend, credit and source.</div>
           </div>
           <div class="route-panel">
             <div class="panel-header"><div><span class="eyebrow">EVA-07 / FLIGHT PLAN</span><h2>Route stops</h2></div><span class="count">${stops.length} STOPS</span></div>
@@ -92,11 +101,13 @@ function render(route, grid) {
           </div>
         </section>
         <section id="selected-stop-science" aria-label="Selected stop science and photo"></section>
-        <section class="details"><div class="details-heading"><div><span class="eyebrow">SELECTED LEG</span><h2 id="leg-title">Route details</h2></div><span id="leg-distance"></span></div><p id="leg-description"></p><div id="warning-list" class="warning-list"></div></section>
+        <section class="details"><div class="details-heading"><div><span class="eyebrow">NEXT LEG</span><h2 id="leg-title">Route details</h2></div><span id="leg-distance"></span></div><div id="warning-list" class="warning-list"></div></section>
         <footer>Built for the NASA Space Apps Challenge · MarsWay planning prototype · No official NASA route or hazard assessment</footer>
       </main>
     </div>`
 
+  // Bring the map and ordered stops above the deeper safety and schedule sections.
+  document.querySelector('.metrics').after(document.querySelector('.workspace'))
   renderMissionSchedule(document.querySelector('#mission-schedule'), route)
 
   const map = L.map('map', { crs: L.CRS.Simple, minZoom: -1.7, maxZoom: 1.2, zoomSnap: 0.25, zoomControl: false })
@@ -122,6 +133,12 @@ function render(route, grid) {
     notice.textContent = 'A terrain image failed to load. Check public/terrain/basemap.png and slope.png. Route calculations use the JSON grids.'
   })
   const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route })
+  const safetyNotes = document.createElement('details')
+  safetyNotes.className = 'planning-model-notes'
+  const safetyNotesTitle = document.createElement('summary')
+  safetyNotesTitle.textContent = 'How these estimates work'
+  safetyNotes.append(safetyNotesTitle, ...document.querySelectorAll('#planning-safety .ps-note'))
+  document.querySelector('#planning-safety').append(safetyNotes)
   const layerMap = { terrain, slope, roughness, safety: safety.layer, ...science }
   document.querySelectorAll('[data-layer]').forEach((button) => button.addEventListener('click', () => {
     const key = button.dataset.layer
@@ -161,11 +178,10 @@ function render(route, grid) {
       return `<button type="button" class="stop-row ${number === index ? 'selected' : ''}" data-stop="${number}" aria-pressed="${number === index}"><span class="timeline-node">${number === 0 || item.type === 'home' ? '⌂' : number}</span><span class="stop-copy"><strong>${safe(item.name)}</strong><small>${safe(item.type.replace('_', ' '))}${next ? ` · ${distance(next.distance_m)} to next` : ''}</small></span><span class="stop-arrow">›</span></button>`
     }).join('')
     document.querySelectorAll('[data-stop]').forEach((button) => button.addEventListener('click', () => selectStop(Number(button.dataset.stop))))
-    document.querySelector('#return-summary').innerHTML = `<span class="eyebrow">RETURN FROM ${safe(stop.name.toUpperCase())}</span><strong>${distance(home.distance_m)} · ${duration(home.walk_minutes)}</strong><small>Calculated return estimate to habitat</small>`
+    document.querySelector('#return-summary').innerHTML = `<span class="eyebrow">HOME FROM ${safe(stop.name.toUpperCase())}</span><strong>${distance(home.distance_m)} · ${duration(home.walk_minutes)}</strong><small>Terrain estimate</small>`
     document.querySelector('#leg-title').textContent = index < legs.length ? `${stop.name} → ${stops[index + 1].name}` : 'EVA complete'
     document.querySelector('#leg-distance').textContent = index < legs.length ? `${distance(leg.distance_m)}  /  ${duration(leg.walk_minutes)}` : ''
-    document.querySelector('#leg-description').textContent = index < legs.length ? `${stop.description} Select a stop above to inspect its next leg and return route.` : 'Return to habitat.'
-    document.querySelector('#warning-list').innerHTML = index < legs.length ? (leg.warnings || []).map((warning) => `<div class="warning ${safe(warning.level)}"><span>${warning.level === 'danger' ? '!' : '⚑'}</span><div><strong>${safe(warning.type.replaceAll('_', ' '))} · ${safe(warning.level)}</strong><small>${safe(warning.message)}</small></div></div>`).join('') || '<span class="no-warning">No planner warnings for this leg. This does not certify safety.</span>' : '<span class="no-warning">End of planned route.</span>'
+    document.querySelector('#warning-list').innerHTML = index < legs.length ? prominentWarnings(leg.warnings || []).map((warning) => `<div class="warning ${safe(warning.level)}"><span>${warning.level === 'danger' ? '!' : '⚑'}</span><div><strong>${safe(warning.type.replaceAll('_', ' '))} · ${safe(warning.level)}</strong><small>${safe(warning.message)}</small></div></div>`).join('') || '<span class="no-warning">No significant terrain notices for this leg. Route safety is estimated.</span>' : '<span class="no-warning">End of planned route.</span>'
     lineLayers.forEach((layer, number) => layer.setStyle({ color: number === index ? '#fff0ce' : '#f6b77c', weight: number === index ? 7 : 5, opacity: number === index ? 1 : 0.55 }))
     returnLayer.setLatLngs(home.path.map(mapPoint))
     markers.forEach((marker, number) => marker.setZIndexOffset(number === index ? 1000 : 0))
