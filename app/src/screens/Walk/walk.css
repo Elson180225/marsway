@@ -41,20 +41,20 @@ button { font: inherit; }
 .walk-mission { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
 .walk-mission span, .walk-mission small { font-size: 11px; font-weight: 700; letter-spacing: .12em; color: var(--w-muted); }
 .walk-mission strong { font: 600 20px 'Space Grotesk', sans-serif; }
-.walk-sample { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 12px; border: 1px solid #6c4b38; border-radius: 9px; background: #2a2422; color: #e6c7b0; font-size: 12px; }
-.walk-dot { width: 8px; height: 8px; border-radius: 50%; background: #efaa71; flex: none; }
+.walk-sim { margin-left: auto; flex: none; padding: 3px 8px; border-radius: 6px; background: #3a2c22; color: #efaa71; font-size: 11px; font-weight: 700; } /* simulated, not live */
+.walk-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; margin: 0; } /* screen readers only */
 
 .walk-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .16em; color: var(--w-muted); margin: 0; }
 
 /* Safety status */
-.walk-status { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--w-ok); background: #1b3329; }
-.walk-status strong { display: block; font: 600 17px 'Space Grotesk', sans-serif; }
+.walk-status { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; border: 2px solid var(--w-ok); background: #1b3329; }
+.walk-status strong { display: block; font: 600 16px 'Space Grotesk', sans-serif; }
 .walk-status small { display: block; font-size: 13px; color: #cfe0d8; margin-top: 2px; }
-.walk-status-icon { width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 18px; background: var(--w-ok); color: #102018; }
+.walk-status-icon { width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 18px; background: var(--w-ok); color: #102018; }
 .walk-status.is-caution { border-color: var(--w-caution); background: #3a3020; }
 .walk-status.is-caution .walk-status-icon { background: var(--w-caution); color: #2a2010; }
 .walk-status.is-caution small { color: #eadcbf; }
-.walk-status.is-danger { border-color: var(--w-danger); background: #47201f; animation: walk-pulse 1.4s ease-in-out infinite; }
+.walk-status.is-danger { border-color: var(--w-danger); background: #47201f; }
 .walk-status.is-danger .walk-status-icon { background: var(--w-danger); color: #2a0c0a; }
 .walk-status.is-danger small { color: #f4d0cb; }
 .walk-status.is-info { border-color: var(--w-home); background: #1d3537; }
@@ -62,17 +62,17 @@ button { font: inherit; }
 @keyframes walk-pulse { 50% { box-shadow: 0 0 0 5px #ff7b6e33; } }
 
 /* Next stop */
-.walk-next { background: var(--w-panel); border: 1px solid var(--w-line); border-radius: 14px; padding: 16px; }
+.walk-next { background: var(--w-panel); border: 1px solid var(--w-line); border-radius: 14px; padding: 14px 16px; }
 .walk-next-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .walk-phase { font-size: 12px; color: var(--w-route); text-align: right; }
-.walk-next h1 { font: 600 clamp(24px, 7vw, 30px)/1.15 'Space Grotesk', sans-serif; letter-spacing: -.02em; margin: 6px 0 14px; }
+.walk-next h1 { font: 600 clamp(24px, 7vw, 30px)/1.15 'Space Grotesk', sans-serif; letter-spacing: -.02em; margin: 4px 0 10px; }
 .walk-nav { display: flex; align-items: center; gap: 16px; }
-.walk-compass { position: relative; width: 96px; height: 96px; flex: none; border-radius: 50%; border: 2px solid #4a5d63; background: radial-gradient(circle, #26363c 55%, #1d2a30 56%); display: grid; place-items: center; }
-.walk-compass-n { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 700; color: var(--w-muted); }
-.walk-arrow { width: 52px; height: 52px; fill: var(--w-route); transform-origin: 50% 50%; transition: transform .3s ease; }
+.walk-compass { position: relative; width: 64px; height: 64px; flex: none; border-radius: 50%; border: 2px solid #4a5d63; background: radial-gradient(circle, #26363c 55%, #1d2a30 56%); display: grid; place-items: center; }
+.walk-compass-n { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 700; color: var(--w-muted); }
+.walk-arrow { width: 34px; height: 34px; fill: var(--w-route); transform-origin: 50% 50%; transition: transform .3s ease; }
 .walk-arrow[hidden] { display: none; }
 .walk-nav-copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.walk-nav-copy strong { font: 600 clamp(32px, 10vw, 42px)/1 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; }
+.walk-nav-copy strong { font: 600 clamp(28px, 8.5vw, 36px)/1 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; }
 .walk-nav-copy span { font-size: 16px; font-weight: 600; color: var(--w-route); }
 .walk-nav-copy small { font-size: 13px; color: var(--w-muted); }
 /* At a stop: on schedule or behind, and the demo "+30m here" button */
@@ -99,7 +99,7 @@ button { font: inherit; }
 
 /* Map */
 .walk-map-card { position: relative; background: var(--w-panel); border: 1px solid var(--w-line); border-radius: 14px; overflow: hidden; }
-#w-map { height: 34vh; min-height: 220px; max-height: 340px; background-color: #26333a; background-image: linear-gradient(#d9c4a30f 1px, transparent 1px), linear-gradient(90deg, #d9c4a30f 1px, transparent 1px); background-size: 40px 40px; }
+#w-map { height: 46vh; min-height: 280px; max-height: 500px; background-color: #26333a; background-image: linear-gradient(#d9c4a30f 1px, transparent 1px), linear-gradient(90deg, #d9c4a30f 1px, transparent 1px); background-size: 40px 40px; }
 .walk-recenter { position: absolute; top: 10px; right: 10px; z-index: 500; min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #4a5d63; background: #1b272dee; color: var(--w-text); font-weight: 600; cursor: pointer; }
 .walk-recenter[hidden] { display: none; }
 .walk-legend { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12px; color: var(--w-muted); }
@@ -109,6 +109,30 @@ button { font: inherit; }
 .walk-stop { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #23343a; background: #f3bd83; color: #263038; font-size: 12px; font-weight: 700; }
 .walk-stop.is-home { background: #91d5c7; font-size: 16px; }
 .walk-stop.is-bonus { background: #2a2422; color: #f3bd83; border: 2px dashed #f3bd83; } /* optional bonus stop */
+/* Hazard signs: a diamond like a road sign, at the worst spot of a warning on this leg. */
+.walk-hazard { display: grid; place-items: center; width: 18px; height: 18px; margin: 3px; transform: rotate(45deg); border-radius: 4px; border: 2px solid #1b272d; background: var(--w-home); color: #10282a; cursor: pointer; }
+.walk-hazard i { transform: rotate(-45deg); font: 800 12px/1 'DM Sans', sans-serif; font-style: normal; }
+.walk-hazard.is-caution { background: var(--w-caution); color: #2a2010; }
+.walk-hazard.is-danger { background: var(--w-danger); color: #2a0c0a; }
+.walk-legend-sign { width: 12px; height: 12px; margin: 0 0 0 10px; cursor: default; }
+.walk-legend-sign i { font-size: 9px; }
+.walk-map-note { position: absolute; left: 10px; top: 10px; z-index: 500; margin: 0; padding: 6px 10px; border-radius: 8px; background: #1b272dee; color: var(--w-muted); font-size: 12px; }
+/* A storm or "turn back" lights up the map's edge, the one moving thing on the screen. */
+.walk-map-card[data-level="danger"] { border-color: var(--w-danger); animation: walk-pulse 1.4s ease-in-out infinite; }
+.walk-map-card[data-level="caution"] { border-color: var(--w-caution); }
+
+/* Map pop-ups: solid, high-contrast callouts pinned to the crew, a stop, a hazard or the bonus stop. */
+.leaflet-tooltip.walk-pop { --pop: var(--w-panel-2); padding: 6px 10px; border: 0; border-radius: 9px; background: var(--pop); color: var(--w-text); box-shadow: 0 4px 14px #0009; font: 500 12px/1.3 'DM Sans', sans-serif; white-space: nowrap; }
+.walk-pop b { display: block; font: 700 14px/1.2 'Space Grotesk', sans-serif; }
+.walk-pop span { display: block; }
+.walk-pop[data-level="danger"] { --pop: var(--w-danger); color: #2a0c0a; }
+.walk-pop[data-level="caution"] { --pop: var(--w-caution); color: #2a2010; }
+.walk-pop[data-level="ok"] { --pop: var(--w-ok); color: #102018; }
+.walk-pop[data-level="info"] { --pop: var(--w-home); color: #10282a; }
+.leaflet-tooltip-top.walk-pop::before { border-top-color: var(--pop); }
+.leaflet-tooltip-bottom.walk-pop::before { border-bottom-color: var(--pop); }
+.leaflet-tooltip-right.walk-pop::before { border-right-color: var(--pop); }
+.leaflet-tooltip-left.walk-pop::before { border-left-color: var(--pop); }
 .walk-me { display: block; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 4px solid #2f8cff; box-shadow: 0 0 0 6px #2f8cff44; }
 
 /* Stop photo and task (Kelly's stop data) */
@@ -131,18 +155,6 @@ button { font: inherit; }
 .walk-photo summary { padding: 10px 0; color: var(--w-text); font-weight: 600; cursor: pointer; }
 .walk-photo details p { margin: 0 0 8px; }
 
-/* Warnings */
-.walk-warnings { display: flex; flex-direction: column; gap: 8px; }
-#w-warnings { display: flex; flex-direction: column; gap: 8px; }
-.walk-warning { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid #4b666b; background: #27363c; }
-.walk-warning > span { width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: #9ecfd4; color: #142428; }
-.walk-warning strong { display: block; font-size: 14px; text-transform: capitalize; }
-.walk-warning small { display: block; font-size: 13px; color: #c3d1d3; margin-top: 2px; }
-.walk-warning.is-caution { border-color: #8a6a35; background: #352e22; }
-.walk-warning.is-caution > span { background: var(--w-caution); color: #2a2010; }
-.walk-warning.is-danger { border-color: #a45e5a; background: #432b2e; }
-.walk-warning.is-danger > span { background: var(--w-danger); color: #2a0c0a; }
-.walk-none { margin: 0; font-size: 14px; color: var(--w-muted); }
 
 /* Bottom action bar */
 .walk-actions { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(#10182000, #101820 22%); display: flex; flex-direction: column; gap: 8px; align-items: center; }
@@ -150,18 +162,6 @@ button { font: inherit; }
 .walk-actions-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; }
 .walk-btn-quiet[aria-pressed="true"] { border-color: var(--w-danger); color: var(--w-danger); }
 
-/* Alerts (route-file alerts and the simulated storm) */
-.walk-alerts { display: flex; flex-direction: column; gap: 8px; }
-.walk-alerts:empty { display: none; }
-.walk-alert { padding: 12px 14px; border-radius: 12px; border: 2px solid #4b666b; background: #27363c; }
-.walk-alert.is-caution { border-color: var(--w-caution); background: #3a3020; }
-.walk-alert.is-danger { border-color: var(--w-danger); background: #47201f; }
-.walk-alert-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.walk-alert-head strong { font: 600 17px 'Space Grotesk', sans-serif; text-transform: capitalize; }
-.walk-alert-sim { font-size: 10px; font-weight: 700; letter-spacing: .14em; padding: 4px 8px; border-radius: 6px; background: #f2c066; color: #2a2010; }
-.walk-alert p { margin: 4px 0 6px; font-size: 14px; }
-.walk-alert-shelter { display: block; font-size: 13px; color: #e8d6cf; }
-.walk-alert-shelter b { color: var(--w-text); }
 .walk-btn { min-height: 52px; border-radius: 12px; border: 1px solid transparent; padding: 0 16px; font-weight: 700; font-size: 16px; cursor: pointer; }
 .walk-btn:focus-visible { outline: 3px solid #fff0ce; outline-offset: 2px; }
 .walk-btn-primary { min-height: 60px; font-size: 18px; background: var(--w-route); color: #1d2328; }
@@ -177,5 +177,5 @@ button { font: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   .walk-arrow { transition: none; }
-  .walk-status.is-danger { animation: none; }
+  .walk-map-card[data-level="danger"] { animation: none; }
 }

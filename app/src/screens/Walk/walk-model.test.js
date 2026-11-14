@@ -7,7 +7,10 @@ import { createTerrainNavigation } from '../../terrainNavigation.js'
 import { bonusStopCheck, TIGHT_MINUTES } from '../../safezone/bonusStop.js'
 import { xyToCell } from '../../pathfinding/walkingTime.js'
 import { stopMetadata } from '../../stopDetails.js'
-import { advance, bonusStatus, canHeadHome, headHome, minutesBehindPlan, photoStop, radiationDose, safetyStatus } from './walk-model.js'
+import {
+  advance, bonusStatus, canHeadHome, currentTrip, hazardSpots, headHome, minutesBehindPlan, pathLength, photoStop, pointAlong,
+  radiationDose, safetyStatus,
+} from './walk-model.js'
 
 const close = (a, b, tolerance, message) => assert.ok(Math.abs(a - b) <= tolerance, `${message}: ${a} vs ${b}`)
 
@@ -134,7 +137,19 @@ close(dose.soFarMSv, dose.fullWalkMSv, 1e-12, 'dose after 6 h out')
 assert.equal(radiationDose(route, start).soFarMSv, 0)
 assert.equal(radiationDose(route, start - 60000).soFarMSv, 0)
 
-console.log(`Walk screen passed: science time at stops, bonus GO / tight / NO-GO matching the status line, skipped / here / done / incomplete, photo panel stop, radiation ${dose.fullWalkMSv.toFixed(2)} mSv for ${dose.walkHours} h.`)
+// 7b. Map pins for hazards: the steepest spot of a steep leg, at its distance along the path.
+const firstLeg = currentTrip(route, at(0, 0))
+const midway = pointAlong(firstLeg.path, 0.5).point
+const steepGrid = { ...grid, slope: Float32Array.from(grid.slope) }
+steepGrid.slope[xyToCell(grid, midway.x, midway.y)] = grid.suit.slopeWarnDeg + 10
+const [pin, ...extra] = hazardSpots(steepGrid, { ...firstLeg, warnings: [{ type: 'steep_slope', level: 'caution' }] })
+assert.equal(extra.length, 0)
+assert.deepEqual([pin.type, pin.level, xyToCell(grid, pin.point.x, pin.point.y)], ['steep_slope', 'caution', xyToCell(grid, midway.x, midway.y)])
+assert.ok(Math.abs(pin.along - pathLength(firstLeg.path) / 2) <= grid.cellSize, 'pin is about halfway along the leg')
+assert.deepEqual(hazardSpots(steepGrid, { ...firstLeg, warnings: [] }), [], 'no warning from the planner, no pin')
+assert.deepEqual(hazardSpots(grid, { ...firstLeg, warnings: [{ type: 'steep_slope', level: 'caution' }] }), [], 'flat ground, no pin')
+
+console.log(`Walk screen passed: science time at stops, bonus GO / tight / NO-GO matching the status line, skipped / here / done / incomplete, photo panel stop, hazard pins, radiation ${dose.fullWalkMSv.toFixed(2)} mSv for ${dose.walkHours} h.`)
 
 // 8. The real route with Kelly's stops (skipped if the terrain files are not in this workspace).
 const json = (path) => JSON.parse(readFileSync(new URL(`../../../public/${path}`, import.meta.url)))
@@ -180,6 +195,11 @@ if (real) {
     assert.ok(meta.credit && meta.source?.startsWith('https://') && stop.why, `${stop.id}: credit, source link and task`)
   }
   assert.equal(photoStop(kelly, { mode: 'outbound', legIndex: 0, progress: 0 }).stop.id, science[0].id)
+  // Every warning the planner raised on the first leg gets a pin on that leg's path.
+  const leg0 = currentTrip(kelly, { mode: 'outbound', legIndex: 0, progress: 0 })
+  const pins = hazardSpots(kellyGrid, leg0)
+  assert.deepEqual(pins.map((p) => p.type).sort(), leg0.warnings.map((w) => w.type).sort())
+  for (const p of pins) assert.ok(p.along >= 0 && p.along <= pathLength(leg0.path) + 1e-6, `${p.type} pin is on the leg`)
   const planned = legs.reduce((sum, m) => sum + m) + kelly.stops.reduce((sum, stop) => sum + (stop.stop_minutes || 0), 0)
   console.log(`Real route passed: ${kelly.stops[b].name} is GO with ${Math.round(ours.spareMinutes)} min to spare on plan `
     + `(NO-GO once ${Math.round(ours.spareMinutes)} min behind); full plan ${Math.round(planned)} min, radiation ${radiationDose(kelly, kellyStart + planned * 60000).soFarMSv.toFixed(2)} mSv; `

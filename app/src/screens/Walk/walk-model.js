@@ -2,6 +2,7 @@
 // Coordinates are local metres from the shared route contract: x = east, y = north.
 import { bonusStopCheck } from '../../safezone/bonusStop.js'
 import { walkDoseMSv } from '../../safezone/radiation.js'
+import { xyToCell } from '../../pathfinding/walkingTime.js'
 
 const LEVEL_RANK = { danger: 0, caution: 1, info: 2 }
 
@@ -58,6 +59,39 @@ export function bearing(from, to) {
 export function cardinal(degrees) {
   const names = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
   return names[Math.round(degrees / 45) % 8]
+}
+
+// Where the leg's warnings are worst, so the map can pin them: the steepest spot for "steep_slope",
+// the roughest for "rough_ground". Only warnings the route planner raised for this trip get a spot.
+// The path is sampled every half cell. Returns [{ type, level, point, along }], where `along` is
+// metres from the start of trip.path (compare with progress * pathLength(trip.path)).
+const HAZARD_LAYERS = { steep_slope: ['slope', 'slopeWarnDeg'], rough_ground: ['roughness', 'roughWarnDeg'] }
+
+export function hazardSpots(grid, trip) {
+  const spots = []
+  for (const warning of trip.warnings || []) {
+    const [layer, limitName] = HAZARD_LAYERS[warning.type] || []
+    const values = grid?.[layer]
+    const limit = grid?.suit?.[limitName]
+    if (!values || !Number.isFinite(limit)) continue
+    let best = null
+    let walked = 0
+    for (let i = 1; i < trip.path.length; i++) {
+      const a = trip.path[i - 1]
+      const b = trip.path[i]
+      const length = segmentLength(a, b)
+      const steps = Math.max(1, Math.ceil(length / (grid.cellSize / 2)))
+      for (let s = 0; s <= steps; s++) {
+        const point = { x: a.x + (b.x - a.x) * (s / steps), y: a.y + (b.y - a.y) * (s / steps) }
+        const cell = xyToCell(grid, point.x, point.y)
+        const value = cell < 0 ? -Infinity : values[cell]
+        if (value > limit && (!best || value > best.value)) best = { type: warning.type, level: warning.level, point, along: walked + length * (s / steps), value }
+      }
+      walked += length
+    }
+    if (best) spots.push(best)
+  }
+  return spots
 }
 
 export function sortWarnings(warnings) {
