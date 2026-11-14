@@ -35,9 +35,20 @@ The photo sol is not its own waypoint in each case, so every photo is labelled a
 ## Still to do
 
 - [x] **x / y.** Filled in from the 5 km map (`area-5km/area.json`, PR #20): `x = easting − 8141000`, `y = northing + 287000`. All four stops sit at x 3619–3885, y 3233–3660, well inside the map (0–5000), and each lands exactly on its Curiosity waypoint in `area-5km/curiosity_track.json`.
-- [ ] **Habitat.** Pick the habitat for the 5 km map, then confirm the stop order and the bonus stop.
-- [ ] **Route check.** Run Nigel's `planRoute` once the terrain is ready: every stop reachable, no stop on a no-go slope, whole walk fits the 6 h suit budget.
-- [ ] **Safety.** Rebuild the time-home map and home file for the new habitat, so the safe zone, turn-back timer and bonus GO / NO-GO work on this map.
+- [x] **Home base.** EVA-08 is rover-assisted: the crew drives from H1 (x 1047.5, y 917.5) to staging point **G2** (x 3192.5, y 3542.5, flat, about 4°, about 550 m from Gediz), parks the rover, walks the four stops and comes back to the rover. So for EVA-08, home = the rover at G2.
+- [x] **Route check (first pass).** Nigel's `planRoute` from G2: every stop reachable, none on a no-go slope. About 55 min walking + 95 min science = 2 h 30 min, out of 6 h usable. Two legs have a steep-slope caution (G2 → Mineral King, Kings Canyon → Panorama). Nigel to confirm.
+
+  | Leg | Distance | Walk |
+  |---|---:|---:|
+  | G2 → Mineral King | 633 m | 17 min |
+  | Mineral King → Sulfur Crystal Field | 374 m | 13 min |
+  | Sulfur Crystal Field → Kings Canyon | 102 m | 4 min |
+  | Kings Canyon → Gediz Vallis Panorama (bonus) | 402 m | 11 min |
+  | Gediz Vallis Panorama → back to the rover | 438 m | 10 min |
+- [x] **Safety.** Home file for EVA-08 built: `app/public/safezone/home-g2.*` (home = rover at G2, 5 km grid). The phone loads it with `loadHomeFile('/safezone/home-g2')`. Back to the rover: Mineral King 15 min, Sulfur Crystal Field 18 min, Kings Canyon 19 min, Panorama 10 min. In a solar storm, the storm route leads back to the rover. See `app/src/safezone/README.md`.
+- [ ] **6 km map.** When `area-6km/` lands (same bottom-left corner, so x/y stay the same), rebuild the home file on the new grid as `home-g2-6km`, keeping `home-g2` until everyone has switched.
+- [ ] **Suit time during the drive.** Team to decide: if the crew is suited for the H1 → G2 drive, that time counts toward the 8 h suit.
+- [ ] **On screen.** Aaron (Planning) and Russell (Walk) add EVA-08 when they switch to the bigger map.
 - [ ] **Science check** by Kelly.
 
 ## Test
@@ -51,4 +62,4 @@ Checks ids, order, one bonus stop, real waypoints (sols 4100–4400), photos and
 ## What this does not claim
 
 - These are proposals placed on rover waypoints so the coordinates are real. They are not a NASA traverse plan.
-- No walk times, safe zone or route have been calculated yet for this map.
+- Walk times are model estimates from the team's suit assumptions, not a NASA traverse plan.
