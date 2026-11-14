@@ -90,7 +90,7 @@ function start(route, navigation) {
         <a class="walk-brand" href="/" aria-label="Back to the Planning screen"><span class="walk-brand-mark">✦</span>MARS<span>WAY</span></a>
         <div class="walk-mission"><span>${safe(mission.id)}</span><strong id="w-clock">--:--:--</strong><small>UTC</small></div>
       </header>
-      ${isSample ? '<p class="walk-sample"><span class="walk-dot"></span>Terrain route estimates; simulated clock, suit budget and position. Not live navigation. Science stops may still be demo targets.</p>' : ''}
+      ${isSample ? '<p class="walk-sample"><span class="walk-dot"></span>Terrain route estimates; simulated clock, suit budget and position. Not live navigation.</p>' : ''}
 
       <section id="w-alerts" class="walk-alerts" aria-label="Alerts" aria-live="assertive"></section>
 
