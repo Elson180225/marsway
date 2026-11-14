@@ -566,10 +566,12 @@ function start(route, navigation, grid) {
   function renderRadiation() {
     const dose = radiationDose(route, state.clockMs, state.solarStorms)
     const hours = Number.isInteger(dose.walkHours) ? `${dose.walkHours}h` : duration(dose.walkHours * 60)
-    $('w-rad').textContent = `${dose.soFarMSv.toFixed(2)} mSv`
+    // 3 decimals so the faster climb during a short storm shows (0.006 → 0.009, not 0.00 → 0.01).
+    $('w-rad').textContent = `${dose.soFarMSv.toFixed(3)} mSv`
     // Once a solar storm has been on, say how long and how much it added (dose rate ×2 meanwhile).
+    // Kept short so it fits on one line on a phone.
     $('w-rad-note').textContent = dose.stormMinutes > 0
-      ? `☀︎ ${duration(dose.stormMinutes)} in storm (+${dose.stormExtraMSv.toFixed(3)} mSv) · normal ${hours} walk: ${dose.fullWalkMSv.toFixed(2)}`
+      ? `☀︎ ${duration(dose.stormMinutes)} storm, +${dose.stormExtraMSv.toFixed(3)} mSv`
       : `full ${hours} walk: ${dose.fullWalkMSv.toFixed(2)} mSv`
   }
 
