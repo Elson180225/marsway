@@ -9,7 +9,7 @@ import { showScienceLayerInfo } from './scienceLayerInfo.js'
 import { mountPlanningSafety } from './safezone/planningPanel.js'
 import './stopDetails.css'
 import { renderStopDetails } from './stopDetails.js'
-import { loadTerrainRoute, loadGedizRoute, roughnessImage } from './terrainRoute.js'
+import { loadRouteForEva, loadScenarioCatalog, roughnessImage } from './terrainRoute.js'
 
 const root = document.querySelector('#app')
 
@@ -63,7 +63,13 @@ function assertRoute(route) {
   }
 }
 
-function render(route, grid) {
+// Used if public/routes/scenarios.json cannot be loaded.
+const BUILTIN_SCENARIOS = [
+  { eva: '07', id: 'EVA-07', label: 'EVA-07 · Boxwork' },
+  { eva: '08', id: 'EVA-08', label: 'EVA-08 · Gediz' },
+]
+
+function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
   const { mission, stops, legs } = route
   const totalDistance = legs.reduce((sum, leg) => sum + leg.distance_m, 0)
   const totalMinutes = Math.round(legs.reduce((sum, leg) => sum + (leg.seconds ?? leg.walk_minutes * 60), 0) / 60)
@@ -74,13 +80,13 @@ function render(route, grid) {
         <div class="brand"><span class="brand-symbol">✦</span><span>MARS<span class="brand-accent">WAY</span><small>EXPEDITION CONTROL</small></span></div>
         <div class="sidebar-divider"></div>
         <div class="sidebar-label">MISSION CONTROL</div>
-        <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a><a class="nav-item" href="/walk.html"><span>⌖</span> Walk screen <small>Russell's view</small></a><a class="nav-item" href="/terrain-lab.html"><span>◇</span> Explore terrain in 3D <small>5 km view</small></a></nav>
+        <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a><a class="nav-item" href="/walk.html${mission.drive_out_minutes ? '' : `?eva=${encodeURIComponent(mission.id.replace('EVA-', ''))}`}"><span>⌖</span> Walk screen <small>Russell's view</small></a><a class="nav-item" href="/terrain-lab.html"><span>◇</span> Explore terrain in 3D <small>5 km view</small></a></nav>
         <div class="sidebar-bottom"><div class="sample-pulse"></div><div><strong>Prototype mode</strong><span>Terrain route estimates</span></div></div>
       </aside>
       <main id="planning" class="main">
         <header class="topbar"><div><span class="eyebrow">MISSION / ${safe(mission.id)}</span><h1>Plan the walk. <em>Get home safely.</em></h1><p>${safe(mission.site)} · ${safe(mission.name)}</p></div><div class="top-badge"><span class="sample-pulse"></span> TERRAIN ROUTING DEMO</div></header>
         <div class="notice" role="note"><span>Demo mission · ${route.provenance.target_status === 'draft' ? 'proposed Gediz stops' : route.provenance.target_status === 'ready' ? 'terrain estimates' : 'test target'} · no live telemetry</span></div>
-        <nav class="eva-picker" aria-label="Select EVA"><a href="/?eva=07" aria-current="${mission.id === 'EVA-07' ? 'page' : 'false'}">EVA-07 · Boxwork</a><a href="/?eva=08" aria-current="${mission.id === 'EVA-08' ? 'page' : 'false'}">EVA-08 · Gediz</a></nav>
+        <nav class="eva-picker" aria-label="Select EVA">${scenarios.map((item) => `<a href="/?eva=${encodeURIComponent(item.eva)}" aria-current="${mission.id === item.id ? 'page' : 'false'}">${safe(item.label)}</a>`).join('')}</nav>
         <section class="metrics" aria-label="Mission summary">
           <div class="metric"><span>${mission.drive_out_minutes ? 'WALK DISTANCE' : 'DISTANCE'}</span><strong>${distance(totalDistance)}</strong><small>${mission.drive_out_minutes ? 'G2 loop; suited drive below' : 'Round trip'}</small></div>
           <div class="metric"><span>WALKING</span><strong id="planning-walking">${duration(totalMinutes)}</strong><small>Science time below</small></div>
@@ -196,7 +202,7 @@ function render(route, grid) {
 }
 
 root.innerHTML = '<div class="loading-screen">Loading terrain and calculating the demo route…</div>'
-const loader = new URLSearchParams(location.search).get('eva') === '08' ? loadGedizRoute : loadTerrainRoute
-loader()
-  .then(({ route, grid }) => { assertRoute(route); render(route, grid) })
+const catalog = loadScenarioCatalog().then((file) => (Array.isArray(file?.scenarios) && file.scenarios.length ? file.scenarios : BUILTIN_SCENARIOS)).catch(() => BUILTIN_SCENARIOS)
+Promise.all([loadRouteForEva(new URLSearchParams(location.search).get('eva')), catalog])
+  .then(([{ route, grid }, scenarios]) => { assertRoute(route); render(route, grid, scenarios) })
   .catch((error) => { root.innerHTML = `<div class="error-screen"><h1>Unable to calculate the route</h1><p>${safe(error.message)}</p><p>Check the terrain files in <code>public/terrain/</code> and the mission template in <code>public/routes/sample-route.json</code>. No sample route has been substituted.</p></div>` })

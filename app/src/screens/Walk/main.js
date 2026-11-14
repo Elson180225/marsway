@@ -1,7 +1,7 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './walk.css'
-import { loadTerrainRoute } from '../../terrainRoute.js'
+import { loadRouteForEva, loadScenarioCatalog } from '../../terrainRoute.js'
 import { createTerrainNavigation } from '../../terrainNavigation.js'
 import { loadHomeFile } from '../../safezone/homeFile.js'
 import { stopMetadata } from '../../stopDetails.js'
@@ -11,6 +11,9 @@ import {
 } from './walk-model.js'
 
 const root = document.querySelector('#walk')
+// ?eva=09 etc. picks the scenario, as on the Planning screen. No ?eva is EVA-07.
+const eva = new URLSearchParams(location.search).get('eva')
+const planningHref = eva ? `/?eva=${encodeURIComponent(eva)}` : '/'
 const SPEEDS = [1, 60, 300] // simulated minutes per real minute
 const TICK_MS = 250
 const STAY_MINUTES = 30 // demo button: the crew stays this much longer at a stop
@@ -89,7 +92,7 @@ function start(route, navigation, grid) {
   root.innerHTML = `
     <div class="walk">
       <header class="walk-top">
-        <a class="walk-brand" href="/" aria-label="Back to the Planning screen"><span class="walk-brand-mark">✦</span>MARS<span>WAY</span></a>
+        <a class="walk-brand" href="${planningHref}" aria-label="Back to the Planning screen"><span class="walk-brand-mark">✦</span>MARS<span>WAY</span></a>
         <div class="walk-mission"><span>${safe(mission.id)}</span><strong id="w-clock">--:--:--</strong><small>UTC</small></div>
       </header>
 
@@ -513,15 +516,22 @@ function start(route, navigation, grid) {
 
 root.innerHTML = '<div class="walk-loading">Loading the walk route…</div>'
 // Mia's pre-calculated way home saves the phone a search. Without it, the terrain is enough.
-const homeFile = loadHomeFile().catch((error) => {
-  console.warn(`Home file unavailable (${error.message}). Working out the way home on the phone.`)
-  return null
-})
-Promise.all([loadTerrainRoute(), homeFile])
-  .then(([{ route, grid }, file]) => {
+// Each habitat has its own file (public/safezone/home-<habitat>-6km.*); scenarios.json says which habitat this EVA uses.
+const habitat = loadScenarioCatalog()
+  .then((catalog) => catalog.scenarios.find((item) => item.eva === (eva || '07'))?.habitat ?? 'H1')
+  .catch(() => 'H1')
+const homeFile = habitat
+  .then((id) => loadHomeFile(`/safezone/home-${id.toLowerCase()}-6km`))
+  .catch((error) => {
+    console.warn(`Home file unavailable (${error.message}). Working out the way home on the phone.`)
+    return null
+  })
+Promise.all([loadRouteForEva(eva), homeFile, habitat])
+  .then(([{ route, grid }, file, id]) => {
+    if (route.mission.drive_out_minutes) throw new Error(`${route.mission.id} includes a rover drive, which the Walk screen does not model yet. Open it on the Planning screen.`)
     assertRoute(route)
     const navigation = createTerrainNavigation(route, grid, { homeFile: file })
-    if (file && navigation.source !== 'home file') console.warn('Home file does not match this terrain, so the phone worked out the way home itself. Rebuild it: node src/safezone/buildHomeFile.js')
+    if (file && navigation.source !== 'home file') console.warn(`Home file does not match this terrain, so the phone worked out the way home itself. Rebuild it: node src/safezone/buildHomeFile.js --home <x,y> --id ${id} --out home-${id.toLowerCase()}-6km`)
     start(route, navigation, grid)
   })
-  .catch((error) => { root.innerHTML = `<div class="walk-loading is-error"><h1>Unable to load the route</h1><p>${safe(error.message)}</p></div>` })
+  .catch((error) => { root.innerHTML = `<div class="walk-loading is-error"><h1>Unable to load the route</h1><p>${safe(error.message)}</p><p><a href="${planningHref}">Back to Planning</a></p></div>` })

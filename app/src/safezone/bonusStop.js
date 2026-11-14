@@ -53,14 +53,14 @@ export function bonusStopCheck(grid, timeHome, options) {
   const bonusCell = xyToCell(grid, bonus.x, bonus.y)
   if (bonusCell < 0) return noGo('off-map', 'off the map', 'The bonus stop is outside the terrain map.')
   if (grid.blocked?.[bonusCell]) return noGo('no-go-ground', 'no-go ground', 'The bonus stop is on ground too steep or rough to walk on. Pick a spot nearby on walkable ground.')
-  if (!(timeHome[bonusCell] < Infinity)) return noGo('no-way-home', 'no safe way home', 'There is no walkable way back to H1 from the bonus stop: it is cut off by no-go ground.')
+  if (!(timeHome[bonusCell] < Infinity)) return noGo('no-way-home', 'no safe way home', 'There is no walkable way back home from the bonus stop: it is cut off by no-go ground.')
 
   // 2. The walk there from the crew.
   let walkThereMinutes = options.walkThereMinutes
   if (walkThereMinutes == null) {
     if (!grid.blocked) throw new Error('bonusStopCheck needs the full terrain grid, or pass walkThereMinutes.')
     const hereCell = homeCellNear(grid, timeHome, here)
-    if (hereCell < 0) return noGo('crew-lost', 'no way home from here', 'The crew position has no walkable way back to H1, so no extra stop can be planned from it.')
+    if (hereCell < 0) return noGo('crew-lost', 'no way home from here', 'The crew position has no walkable way back home, so no extra stop can be planned from it.')
     const found = findPathCells(grid, hereCell, bonusCell)
     if (!found) return noGo('cant-reach', 'can\'t reach it', 'There is no safe walking route from the crew to the bonus stop.')
     walkThereMinutes = found.seconds / 60
