@@ -2,12 +2,9 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './style.css'
 import './scienceLayers.css'
-<<<<<<< HEAD
 import './missionSchedule.css'
 import { renderMissionSchedule } from './missionSchedule.js'
-=======
 import { showScienceLayerInfo } from './scienceLayerInfo.js'
->>>>>>> origin/feat/web-science-layers
 import { mountPlanningSafety } from './safezone/planningPanel.js'
 import './stopDetails.css'
 import { renderStopDetails } from './stopDetails.js'
