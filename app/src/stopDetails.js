@@ -31,6 +31,8 @@ export function stopMetadata(stop, base) {
     nearby: stop.photo_view === 'nearby',
     sol: label(stop.sol),
     camera: label(stop.camera),
+    visitMinutes: Number.isFinite(stop.stop_minutes) && stop.stop_minutes >= 0 ? stop.stop_minutes : null,
+    bonus: stop.is_bonus === true,
   }
 }
 
@@ -49,8 +51,11 @@ export function renderStopDetails(container, stop, { targetStatus = 'pending' } 
   heading.append(title)
   if (targetStatus !== 'ready' && stop.type !== 'home' && stop.type !== 'habitat') {
     heading.append(element('span', 'science-badge', 'DEMO TARGET'))
+  } else if (meta.bonus) {
+    heading.append(element('span', 'science-badge science-bonus', 'OPTIONAL BONUS STOP'))
   }
   card.append(heading, element('p', 'science-description', meta.description), element('p', 'science-coordinates', meta.coordinates))
+  if (meta.visitMinutes !== null) card.append(element('p', 'science-visit', `Planned science activity: ${meta.visitMinutes} min (walking time excluded).${meta.bonus ? ' Visit only if the return trip protects the suit reserve.' : ''}`))
   if (meta.moved) {
     card.append(element('p', 'science-moved', `Route stop relocated ${meta.moved} m onto reachable terrain. Original: ${meta.original || 'coordinates unavailable'}.`))
   }
