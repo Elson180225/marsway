@@ -40,8 +40,10 @@ function mapPoint(point) {
 function prominentWarnings(warnings) {
   return warnings.filter((warning) => {
     if (warning.type !== 'rough_ground') return true
-    const metres = /^About (\d+) m of rocky or uneven ground/.exec(warning.message)?.[1]
-    return metres === undefined || Number(metres) > 15
+    const metres = Number.isFinite(warning.distance_m)
+      ? warning.distance_m
+      : Number(/^About (\d+) m of rocky or uneven ground/.exec(warning.message)?.[1])
+    return !Number.isFinite(metres) || metres > 15
   })
 }
 
