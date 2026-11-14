@@ -54,12 +54,13 @@ export function renderStopDetails(container, stop, { targetStatus = 'pending' } 
   } else if (meta.bonus) {
     heading.append(element('span', 'science-badge science-bonus', 'OPTIONAL BONUS STOP'))
   }
-  const firstSentence = meta.description.match(/^[\s\S]*?[.!?](?=\s|$)/)?.[0] || meta.description
+  const displayDescription = stop.type === 'habitat' ? 'Habitat H1: flat ground, crew base.' : meta.description
+  const firstSentence = displayDescription.match(/^[\s\S]*?[.!?](?=\s|$)/)?.[0] || displayDescription
   const description = element('p', 'science-description science-preview', firstSentence)
   card.append(heading, description)
-  if (firstSentence !== meta.description) {
+  if (firstSentence !== displayDescription) {
     const more = element('details', 'science-more')
-    more.append(element('summary', '', 'More about this stop'), element('p', '', meta.description))
+    more.append(element('summary', '', 'More about this stop'), element('p', '', displayDescription))
     card.append(more)
   }
   card.append(element('p', 'science-coordinates', meta.coordinates))
@@ -102,10 +103,8 @@ export function renderStopDetails(container, stop, { targetStatus = 'pending' } 
     card.append(figure)
     // Set src only after listeners exist, including for already-cached images.
     image.src = meta.photo
-  } else {
-    card.append(element('div', 'science-photo-empty', stop.type === 'habitat' || stop.type === 'home'
-      ? 'Habitat reference image not supplied.'
-      : 'Photo pending. Kelly can add photo_url, photo_credit and the source details for this stop.'))
+  } else if (stop.type !== 'habitat' && stop.type !== 'home') {
+    card.append(element('div', 'science-photo-empty', 'Photo pending. Kelly can add photo_url, photo_credit and the source details for this stop.'))
   }
   container.replaceChildren(card)
 }

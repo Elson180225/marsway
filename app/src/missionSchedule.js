@@ -1,3 +1,6 @@
+import { adjustedTravelMinutes, stormMinutes } from './planningWeather.js'
+import { walkDoseMSv } from './safezone/radiation.js'
+
 const minutesLabel = (minutes) => {
   const rounded = Math.round(minutes)
   return `${Math.floor(rounded / 60)}h ${String(rounded % 60).padStart(2, '0')}m`
@@ -5,13 +8,14 @@ const minutesLabel = (minutes) => {
 const utc = (start, minutes) => new Date(start + Math.round(minutes) * 60000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
 
 // A scenario estimate using the planner's directional walking seconds, not a live suit clock.
-export function calculateMissionSchedule(route) {
+export function calculateMissionSchedule(route, scenario = null) {
   const { stops, legs, mission } = route
   const start = Date.parse(mission.start_time)
   const budget = mission.max_walk_minutes - mission.reserve_minutes
   if (!Array.isArray(stops) || !Array.isArray(legs) || !Number.isFinite(start) || !Number.isFinite(budget) || budget <= 0 || legs.length !== stops.length - 1) throw new Error('Incomplete mission schedule.')
   let walking = 0
   let science = 0
+  let stormExposure = 0
   const rows = legs.map((leg, index) => {
     // Rounding every leg first can lose a minute over a multi-stop EVA.
     // Older route files may only have walk_minutes; use them as a fallback.
@@ -20,16 +24,20 @@ export function calculateMissionSchedule(route) {
     const stop = stops[index + 1]
     const visit = stop.type === 'home' ? 0 : (stop.stop_minutes ?? 0)
     if (!Number.isFinite(visit) || visit < 0) throw new Error(`Invalid visit time for ${stop.id}.`)
-    walking += legSeconds / 60
+    const departForLeg = walking + science
+    const travel = adjustedTravelMinutes(legSeconds / 60, departForLeg, start, scenario)
+    walking += travel
     const arrival = walking + science
+    stormExposure += stormMinutes(departForLeg, arrival, start, scenario)
+    stormExposure += stormMinutes(arrival, arrival + visit, start, scenario)
     science += visit
-    return { id: stop.id, name: stop.name, arrival, visit, departure: arrival + visit, isBonus: stop.is_bonus === true, isHome: stop.type === 'home' }
+    return { id: stop.id, name: stop.name, x: stop.x, y: stop.y, arrival, visit, departure: arrival + visit, travel, isBonus: stop.is_bonus === true, isHome: stop.type === 'home' }
   })
-  return { rows, walking, science, total: walking + science, budget, margin: budget - walking - science, start, hasBonus: rows.some((row) => row.isBonus) }
+  return { rows, walking, science, total: walking + science, budget, margin: budget - walking - science, start, hasBonus: rows.some((row) => row.isBonus), stormExposure, baselineDoseMSv: walkDoseMSv((walking + science) / 60) }
 }
 
-export function renderMissionSchedule(container, route) {
-  const plan = calculateMissionSchedule(route)
+export function renderMissionSchedule(container, route, scenario = null) {
+  const plan = calculateMissionSchedule(route, scenario)
   const el = (tag, className, value) => {
     const node = document.createElement(tag)
     if (className) node.className = className
@@ -37,9 +45,10 @@ export function renderMissionSchedule(container, route) {
     return node
   }
   const panel = el('div', 'mission-schedule')
-  panel.append(el('span', 'eyebrow', 'SIMULATED EVA / UTC'), el('h2', '', 'Planned walk and science time'))
+  panel.append(el('span', 'eyebrow', 'SIMULATED EVA · MISSION TIME (UTC)'), el('h2', '', 'Planned walk and science time'))
   panel.append(el('p', `ms-summary${plan.margin < 0 ? ' ms-over-budget' : ''}`, `${minutesLabel(plan.total)} total · ${plan.margin >= 0 ? `${minutesLabel(plan.margin)} before reserve` : `${minutesLabel(-plan.margin)} into reserve`}`))
   panel.append(el('p', 'ms-breakdown', `${minutesLabel(plan.walking)} walking + ${minutesLabel(plan.science)} science${plan.hasBonus ? ' · Includes bonus stop' : ''}`))
+  panel.append(el('p', 'ms-dose', `Planned surface dose: ${plan.baselineDoseMSv.toFixed(3)} mSv (RAD baseline${scenario ? '; storm radiation excluded' : ''}).${scenario ? ` Simulated storm exposure: ${minutesLabel(plan.stormExposure)}.` : ''}`))
   const list = el('ol', 'ms-list')
   for (const row of plan.rows) {
     const item = el('li', 'ms-row')
