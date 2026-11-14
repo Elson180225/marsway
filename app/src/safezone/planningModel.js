@@ -1,10 +1,10 @@
 import { xyToCell } from '../pathfinding/walkingTime.js'
 import { homeArrows } from './timeHome.js'
 import { safeZone } from './safeZone.js'
-import { turnBackTimer } from './turnBack.js'
+import { turnBackTimer, CAUTION_MINUTES } from './turnBack.js'
 import { stormRoute } from './storm.js'
 import { walkDoseMSv, RAD_SURFACE_MSV_PER_DAY } from './radiation.js'
-import { bonusStopCheck } from './bonusStop.js'
+import { bonusStopCheck, TIGHT_MINUTES } from './bonusStop.js'
 import { ZONE } from './safeZone.js'
 import { adjustedTravelMinutes, latestTurnbackMinutes } from '../planningWeather.js'
 
@@ -14,8 +14,9 @@ function weatherBonus(check, elapsedMinutes, stopMinutes, missionStart, weather,
   const home = adjustedTravelMinutes(check.homeFromBonusMinutes, elapsedMinutes + there + stopMinutes, missionStart, weather)
   const spareMinutes = available - elapsedMinutes - there - stopMinutes - home
   const go = spareMinutes >= 0
-  const level = !go ? 'danger' : spareMinutes < 30 ? 'caution' : 'ok'
-  return { ...check, go, level, spareMinutes, walkThereMinutes: there, homeFromBonusMinutes: home,
+  const level = !go ? 'danger' : spareMinutes < TIGHT_MINUTES ? 'caution' : 'ok'
+  const reason = !go ? 'reserve' : level === 'caution' ? 'tight' : 'fits'
+  return { ...check, go, level, reason, spareMinutes, walkThereMinutes: there, homeFromBonusMinutes: home,
     title: !go ? 'NO-GO: skip the bonus stop' : level === 'caution' ? 'GO, but tight' : 'GO',
     message: `${Math.round(there)} min there + ${stopMinutes} min stop + ${Math.round(home)} min home. ${go ? `${Math.round(spareMinutes)} min before reserve.` : `Would use ${Math.round(-spareMinutes)} min of reserve.`}` }
 }
@@ -81,12 +82,15 @@ export function createPlanningSafety(grid, habitat, mission) {
         const baseHome = timer.homeMinutes
         timer.homeMinutes = adjustedTravelMinutes(timer.homeMinutes, elapsedMinutes, missionStart, weather)
         timer.turnbackIn = latestTurnbackMinutes(baseHome, elapsedMinutes, available, missionStart, weather)
-        timer.level = timer.turnbackIn <= 0 ? 'danger' : timer.turnbackIn <= 30 ? 'caution' : 'ok'
+        timer.level = timer.turnbackIn <= 0 ? 'danger' : timer.turnbackIn <= CAUTION_MINUTES ? 'caution' : 'ok'
         timer.title = timer.level === 'danger' ? 'Turn back now' : timer.level === 'caution' ? 'Turn back soon' : 'On plan'
-        timer.message = timer.level === 'danger' ? 'Heading home now uses the protected reserve.' : timer.level === 'caution' ? 'Less than 30 minutes before heading home.' : 'Enough suit time to reach home with reserve intact.'
+        timer.message = timer.level === 'danger' ? 'Heading home now uses the protected reserve.' : timer.level === 'caution' ? `Less than ${CAUTION_MINUTES} minutes before heading home.` : 'Enough suit time to reach home with reserve intact.'
       }
       const storm = stormRoute(grid, arrows, position)
-      if (weather && storm) storm.seconds = adjustedTravelMinutes(storm.seconds / 60, elapsedMinutes, missionStart, weather) * 60
+      if (weather && storm) {
+        storm.seconds = adjustedTravelMinutes(storm.seconds / 60, elapsedMinutes, missionStart, weather) * 60
+        storm.walk_minutes = Math.round(storm.seconds / 60)
+      }
       return {
         zone: zone.zone, spareMinutes: zone.spareMinutes,
         safeCells: zone.safeCells, reserveCells: zone.reserveCells,
