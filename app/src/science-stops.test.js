@@ -10,6 +10,13 @@ const expected = ['boxwork-lookout', 'ridge-sample', 'hollow-comparison', 'miner
 
 assert.equal(science.status, 'ready')
 assert.deepEqual(science.stops.map((stop) => stop.id), expected)
+assert.deepEqual(science.stops.map((stop) => stop.order), [1, 2, 3, 4])
+assert.deepEqual(science.stops.map((stop) => stop.stop_minutes), [15, 30, 30, 20])
+assert.deepEqual(science.stops.filter((stop) => stop.is_bonus).map((stop) => stop.id), ['mineral-investigation'])
+assert.equal(science.bonus_stop_id, 'mineral-investigation')
+for (const file of ['routes/stops.json', '../../data/processed/stops.json']) {
+  assert.deepEqual(await readJson(file), science, `${file} handoff is out of date`)
+}
 const ids = new Set()
 for (const stop of science.stops) {
   assert.equal(typeof stop.id, 'string')
@@ -53,6 +60,10 @@ assert.equal(route.provenance.target_status, 'ready')
 assert.equal(route.stops[0].x, 447.5)
 assert.equal(route.stops[0].y, 517.5)
 for (const stop of route.stops.filter((stop) => stop.type === 'science_stop')) {
+  const original = science.stops.find((item) => item.id === stop.id)
+  for (const field of ['order', 'stop_minutes', 'is_bonus', 'photo_url', 'photo_credit', 'photo_source_url']) {
+    assert.equal(stop[field], original[field], `${stop.id}: shared route lost ${field}`)
+  }
   assert.equal(stop.moved_m, undefined, `${stop.id} was snapped off its waypoint`)
   const index = xyToCell(grid, stop.x, stop.y)
   assert.equal(grid.blocked[index], 0)

@@ -32,6 +32,21 @@ These are proposed astronaut roles at real rover waypoints, not verified ridge-t
 
 ## Rebuild and check
 
+### Visit times and bonus-stop contract
+
+The array is the EVA visit order, also recorded by `order` (1 through 4). `stop_minutes` is time spent doing science at that stop, excluding walking: lookout 15 min, ridge 30 min, hollow 30 min, mineral investigation 20 min. These are adjustable team estimates for astronauts, not measured rover activity durations. Required-stop science time is 75 min; all four stops total 95 min. Walking-time estimates elsewhere in this document exclude these visits.
+
+Exactly one stop has `is_bonus: true`: `mineral-investigation` (order 4). The top-level `bonus_stop_id` identifies it for data consumers; the shared route retains the stop-level fields. Russell can select it from the loaded route and pass its duration to Mia's existing API:
+
+```js
+const bonus = route.stops.find((stop) => stop.is_bonus === true)
+// bonusStopCheck(grid, timeHome, {
+//   here, bonus, elapsedMinutes, stopMinutes: bonus.stop_minutes
+// })
+```
+
+Include completed science visits in `elapsedMinutes`; the GO/NO-GO check must allow time to walk to the bonus stop, spend its `stop_minutes` there, and walk home before the protected reserve. The current branch's Walk screen still needs Russell's integration to consume visit durations and the bonus marker; adding data does not change its timer automatically.
+
 From the repository root, with Python, NumPy and Pillow installed:
 
 ```powershell

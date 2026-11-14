@@ -24,7 +24,10 @@
       "photo_taken_utc": "2025-09-12T00:50:58Z",
       "sol": "4657",
       "camera": "Right Navigation Camera (Navcam)",
-      "why": "Photograph the boxwork pattern to document ridge directions and the evidence for ancient groundwater."
+      "why": "Photograph the boxwork pattern to document ridge directions and the evidence for ancient groundwater.",
+      "order": 1,
+      "stop_minutes": 15,
+      "is_bonus": false
     },
     {
       "id": "ridge-sample",
@@ -46,7 +49,10 @@
       "photo_taken_utc": "2025-09-26T12:54:44Z",
       "sol": "4671",
       "camera": "Left Navigation Camera (Navcam)",
-      "why": "Compare resistant ridge rock with hollow material to test whether mineral cement helped the ridges survive erosion."
+      "why": "Compare resistant ridge rock with hollow material to test whether mineral cement helped the ridges survive erosion.",
+      "order": 2,
+      "stop_minutes": 30,
+      "is_bonus": false
     },
     {
       "id": "hollow-comparison",
@@ -70,7 +76,10 @@
       "photo_taken_utc": "2025-09-17T05:25:51Z",
       "sol": "4662",
       "camera": "Left Navigation Camera (Navcam)",
-      "why": "Collect a lower-ground comparison sample to investigate how hollows differ from the resistant ridges."
+      "why": "Collect a lower-ground comparison sample to investigate how hollows differ from the resistant ridges.",
+      "order": 3,
+      "stop_minutes": 30,
+      "is_bonus": false
     },
     {
       "id": "mineral-investigation",
@@ -93,7 +102,12 @@
       "photo_taken_utc": "2025-06-08T13:57:45Z",
       "sol": "4564",
       "camera": "Mast Camera (Mastcam)",
-      "why": "Use the nearby Altadena drill investigation as context for checking mineral-bearing bedrock on the ground."
+      "why": "Use the nearby Altadena drill investigation as context for checking mineral-bearing bedrock on the ground.",
+      "order": 4,
+      "stop_minutes": 20,
+      "is_bonus": true
     }
-  ]
+  ],
+  "bonus_stop_id": "mineral-investigation",
+  "visit_time_note": "stop_minutes are proposed astronaut science activity durations in minutes, excluding walking; team estimates, not measured Curiosity activity times."
 }
