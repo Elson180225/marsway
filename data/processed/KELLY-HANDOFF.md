@@ -75,3 +75,7 @@ Use layer labels such as **CTX photo**, **Hydrated mineral signals**, **Alterati
 ## Science review
 
 See `review/2026-11-14/README.md` for Kelly's review of merged main, browser evidence for the four Planning cards and the phone-sized Walk screen, and the science findings from Aaron's draft layer PR #9 (`3e4b836`).
+
+## Submission and recording
+
+`SUBMISSION-SOURCES.md` contains the dataset/photo links, image credits, each photo's sol and camera, and a submission-ready credit paragraph. `DEMO-VIDEO-PLAN.md` provides Kelly's Sunday 15 November recording checklist, with the 14:00 Asia/Singapore feature freeze, shot order and Russell's phone-clip handoff. The final demo video remains to be recorded.
