@@ -1,5 +1,7 @@
 # Kelly science review — 14 November 2026
 
+**Update:** the initial PR #9 findings below were resolved and rechecked at `b064dda`. See [the exact-commit science sign-off and new screenshots](b064dda/README.md). The rest of this page preserves the earlier `3e4b836` review and main snapshot for traceability.
+
 Reviewed merged `main` at `fbc2d4b`, locally at `http://127.0.0.1:5173` in Chrome. Planning viewport: 1440 × 1100; Walk viewport: 390 × 844 (desktop emulation, not a physical phone). This is science-content QA, not a live deployment, navigation or safety approval. No Planning or Walk implementation was changed.
 
 ## Results
