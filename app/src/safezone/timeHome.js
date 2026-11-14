@@ -7,7 +7,7 @@
  * Walking times come from Nigel's stepSeconds() (../pathfinding/walkingTime.js), so the
  * times here always agree with the route planner.
  */
-import { forEachNeighbour, stepSeconds, xyToCell } from '../pathfinding/walkingTime.js'
+import { forEachNeighbour, stepSeconds, xyToCell, cellToXY } from '../pathfinding/walkingTime.js'
 
 /**
  * Dijkstra spreading outward from the habitat.
@@ -27,10 +27,40 @@ export function timeHomeMap(grid, habitatCell) {
  *   timeHome[i]  seconds to walk home from cell i (Infinity = no way home)
  *   nextHome[i]  the neighbour to step to next on the quickest way home (-1 at the habitat
  *                and on cells with no way home). Follow the arrows to get home: see storm.js.
+ *   distHome[i]  metres to walk home along those arrows (Infinity = no way home)
  */
 export function homeArrows(grid, habitatCell) {
   const { time, next } = walkTimeMap(grid, habitatCell, 'to')
-  return { timeHome: time, nextHome: next }
+  return { timeHome: time, nextHome: next, distHome: distanceHome(grid, time, next) }
+}
+
+/**
+ * distHome[i] = metres along the ground (including up and down) when following the arrows home
+ * from cell i. Same distance as Nigel's routeLeg(). Infinity where there is no way home.
+ */
+function distanceHome(grid, time, next) {
+  const n = next.length
+  const dist = new Float32Array(n).fill(NaN)
+  const step = (a, b) => {
+    const a2 = cellToXY(grid, a)
+    const b2 = cellToXY(grid, b)
+    return Math.hypot(b2.x - a2.x, b2.y - a2.y, grid.elevation[b] - grid.elevation[a])
+  }
+  const chain = []
+  for (let i = 0; i < n; i++) {
+    // Walk the arrows until we reach a cell we already know, then fill the chain in backwards.
+    let c = i
+    while (Number.isNaN(dist[c]) && next[c] !== -1) {
+      chain.push(c)
+      c = next[c]
+    }
+    if (Number.isNaN(dist[c])) dist[c] = time[c] === 0 ? 0 : Infinity // no arrow: the habitat, or no way home
+    while (chain.length) {
+      const d = chain.pop()
+      dist[d] = dist[next[d]] + step(d, next[d])
+    }
+  }
+  return dist
 }
 
 /**

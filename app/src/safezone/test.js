@@ -7,6 +7,8 @@ import { timeHomeMap, timeFromMap, homeArrows } from './timeHome.js'
 import { turnBackTimer } from './turnBack.js'
 import { stormRoute } from './storm.js'
 import { walkDoseMSv } from './radiation.js'
+import { encodeHomeFile, decodeHomeFile } from './homeFile.js'
+import { bonusStopCheck } from './bonusStop.js'
 import { safeZone, zoneToPixels, ZONE } from './safeZone.js'
 
 const ok = (msg) => console.log('  ok  ' + msg)
@@ -185,6 +187,57 @@ if (existsSync(dataDir)) {
   for (let k = 0; k < 100; k++) stormRoute(grid, arrows, crew)
   ok(`storm route takes ${((performance.now() - timed) / 100).toFixed(2)} ms (no new search)`)
   assert.equal(stormRoute(grid, arrows, { x: -100, y: 50 }), null)
+
+  // Distance home along the arrows must match Nigel's distance for the same walk.
+  assert.ok(Math.abs(arrows.distHome[box] - nigel.distance_m) <= 1)
+  ok(`distance home from the boxwork: ${arrows.distHome[box].toFixed(0)} m (Nigel: ${nigel.distance_m} m)`)
+
+  // ---------- Pre-calculated home file (for the phone) ----------
+  const { meta, bytes } = encodeHomeFile(grid, arrows, { id: 'H1', ...h1 })
+  const file = decodeHomeFile(meta, bytes.buffer)
+  assert.equal(file.habitatCell, hab)
+  assert.equal(file.stale, false)
+  let worst = 0
+  for (let i = 0; i < arrows.timeHome.length; i++) {
+    if (arrows.timeHome[i] === Infinity) { assert.equal(file.arrows.timeHome[i], Infinity); continue }
+    worst = Math.max(worst, Math.abs(file.arrows.timeHome[i] - arrows.timeHome[i]))
+  }
+  assert.ok(worst <= 0.5)
+  assert.deepEqual(file.arrows.nextHome, arrows.nextHome)
+  ok(`home file: ${(bytes.length / 1e6).toFixed(1)} MB, every time within ${worst.toFixed(2)} s, every arrow identical`)
+  // The phone only has the file (no heights): timer and storm route must still give the same answers.
+  const phoneTb = turnBackTimer(file.grid, file.arrows.timeHome, crew, 270)
+  const phoneStorm = stormRoute(file.grid, file.arrows, crew)
+  assert.ok(Math.abs(phoneTb.turnbackIn - tb.turnbackIn) < 0.01)
+  assert.deepEqual(phoneStorm.path, storm.path)
+  assert.ok(Math.abs(phoneStorm.distance_m - storm.distance_m) <= 1)
+  ok(`phone using only the file: turn back in ${phoneTb.turnbackIn.toFixed(0)} min, storm route ${phoneStorm.walk_minutes} min / ${phoneStorm.distance_m} m (same as live)`)
+  if (existsSync(new URL('../../public/safezone/home-h1.bin', import.meta.url))) {
+    const saved = readFileSync(new URL('../../public/safezone/home-h1.bin', import.meta.url))
+    assert.ok(Buffer.from(bytes).equals(saved), 'public/safezone/home-h1.bin is out of date: run node src/safezone/buildHomeFile.js')
+    ok('saved public/safezone/home-h1.bin is up to date')
+  }
+
+  // ---------- Bonus-stop GO / NO-GO ----------
+  const at = 270 // 4 h 30 m used, crew at the boxwork
+  const zoneHere = safeZone(grid, hab, { here: box, elapsedSeconds: at * 60, stopSeconds: 20 * 60, timeHome: arrows.timeHome })
+  let green = -1, amber = -1
+  for (let i = 0; i < zoneHere.zone.length; i += 997) {
+    if (green < 0 && zoneHere.zone[i] === ZONE.SAFE && zoneHere.spareMinutes[i] > 20) green = i
+    if (amber < 0 && zoneHere.zone[i] === ZONE.RESERVE) amber = i
+  }
+  const goCheck = bonusStopCheck(grid, arrows.timeHome, { here: crew, bonus: cellToXY(grid, green), elapsedMinutes: at })
+  const noCheck = bonusStopCheck(grid, arrows.timeHome, { here: crew, bonus: cellToXY(grid, amber), elapsedMinutes: at })
+  assert.equal(goCheck.go, true)
+  assert.equal(noCheck.go, false)
+  assert.ok(Math.abs(goCheck.spareMinutes - zoneHere.spareMinutes[green]) < 0.02, 'GO/NO-GO must agree with the safe zone map')
+  ok(`green spot: ${goCheck.title} (${goCheck.message})`)
+  ok(`amber spot: ${noCheck.title} (${noCheck.message})`)
+  // Phone version: walking time from the route file, home time from the file, no terrain at all.
+  const phoneGo = bonusStopCheck(file.grid, file.arrows.timeHome, { here: crew, bonus: cellToXY(grid, green), elapsedMinutes: at, walkThereMinutes: goCheck.walkThereMinutes })
+  assert.equal(phoneGo.go, true)
+  assert.ok(Math.abs(phoneGo.spareMinutes - goCheck.spareMinutes) < 0.02)
+  ok('phone version (route-file walking time + home file) gives the same answer')
 
   // Radiation: 0.67 mSv/day from Curiosity's RAD.
   assert.ok(Math.abs(walkDoseMSv(24) - 0.67) < 1e-9)

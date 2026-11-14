@@ -14,10 +14,11 @@ import { homeCellNear } from './timeHome.js'
 
 /**
  * grid       from makeGrid()
- * arrows     homeArrows(grid, habitat), worked out once: { timeHome, nextHome }
+ * arrows     homeArrows(grid, habitat), worked out once, or loadHomeFile() on the phone:
+ *            { timeHome, nextHome, distHome }
  * position   where the crew is, local metres { x, y }
  */
-export function stormRoute(grid, { timeHome, nextHome }, position) {
+export function stormRoute(grid, { timeHome, nextHome, distHome }, position) {
   const start = homeCellNear(grid, timeHome, position)
   if (start < 0) return null
 
@@ -27,11 +28,15 @@ export function stormRoute(grid, { timeHome, nextHome }, position) {
     if (cells.length > timeHome.length) throw new Error('next-step-home arrows go round in a loop')
   }
 
-  let distance = 0 // along the ground, including going up and down (same as Nigel's)
-  for (let k = 1; k < cells.length; k++) {
-    const a = cellToXY(grid, cells[k - 1])
-    const b = cellToXY(grid, cells[k])
-    distance += Math.hypot(b.x - a.x, b.y - a.y, grid.elevation[cells[k]] - grid.elevation[cells[k - 1]])
+  // Along the ground, including going up and down (same as Nigel's). Use the saved number if we
+  // have it (the phone's home file has no heights), otherwise add up the steps.
+  let distance = distHome ? distHome[start] : 0
+  if (!distHome) {
+    for (let k = 1; k < cells.length; k++) {
+      const a = cellToXY(grid, cells[k - 1])
+      const b = cellToXY(grid, cells[k])
+      distance += Math.hypot(b.x - a.x, b.y - a.y, grid.elevation[cells[k]] - grid.elevation[cells[k - 1]])
+    }
   }
 
   const path = cornersOnly(cells).map((i) => cellToXY(grid, i))
