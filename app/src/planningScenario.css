@@ -6,3 +6,7 @@
 .psc-form button:hover,.psc-export button:hover{border-color:#87d6cb}
 .psc-export{margin:10px 0}.psc-note{display:block;margin:10px 0 0;color:#b3c5c6;font-size:12px;line-height:1.5}
 .ms-dose{margin:0 0 12px;color:#c9d6d4;font-size:13px}
+.eva-picker { display:flex; gap:.5rem; flex-wrap:wrap; margin: 1rem 0; }
+.eva-picker a { padding:.55rem .8rem; border:1px solid #40545a; border-radius:.6rem; color:#b5cbd0; text-decoration:none; font-weight:700; }
+.eva-picker a[aria-current="page"] { border-color:#f6b77c; background:#483327; color:#ffe3c5; }
+.eva-picker a:focus-visible { outline:2px solid #8ce0d6; outline-offset:3px; }

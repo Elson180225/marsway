@@ -13,10 +13,14 @@ export function validateTerrain({ elevation, slope, roughness }) {
 export function buildTerrainRoute(template, area, terrain, science = { status: 'pending', stops: [] }) {
   validateTerrain(terrain)
   const grid = makeGrid(terrain)
-  // Confirmed team decision: H1 is (447.5, 517.5), rounded to (448, 518) in chat.
-  // Candidate order and optional names must never select a different habitat.
-  const h1 = area?.habitatCandidates?.find((item) => Number.isFinite(item?.x) && Number.isFinite(item?.y) && Math.abs(item.x - 447.5) < 1e-6 && Math.abs(item.y - 517.5) < 1e-6)
-  if (!h1) throw new Error('Confirmed H1 (447.5, 517.5) is missing from area.json. Review the habitat decision; no alternative was selected.')
+  // H1 is fixed in projected metres. The 6 km crop changes its local x/y,
+  // and its automatically generated candidate list need not contain H1.
+  const projected = area?.boundsProjected
+  const expected = projected
+    ? { x: 8142047.5 - projected.west, y: -286082.5 - projected.south }
+    : { x: 447.5, y: 517.5 } // synthetic/legacy fixtures
+  const h1 = area?.habitatCandidates?.find((item) => Math.abs(item?.x - expected.x) < 1e-6 && Math.abs(item?.y - expected.y) < 1e-6) ?? (projected ? expected : null)
+  if (!h1 || !Number.isFinite(h1.x) || !Number.isFinite(h1.y) || h1.x < 0 || h1.x >= grid.sizeX || h1.y <= 0 || h1.y > grid.sizeY) throw new Error('Confirmed H1 is outside this terrain crop.')
   if (!template?.mission || template.schema_version !== 1) throw new Error('Mission template is missing or unsupported.')
   const mission = template.mission
   if (!Number.isFinite(Date.parse(mission.start_time)) || !Number.isFinite(mission.max_walk_minutes) || mission.max_walk_minutes <= 0 || !Number.isFinite(mission.reserve_minutes) || mission.reserve_minutes < 0 || mission.reserve_minutes >= mission.max_walk_minutes) throw new Error('Invalid mission start, suit budget or protected reserve.')
@@ -69,6 +73,34 @@ export async function loadTerrainRoute(fetcher = fetch) {
     json('/routes/sample-route.json'), json('/terrain/area.json'), json('/terrain/elevation.json'), json('/terrain/slope.json'), json('/terrain/roughness.json'), json('/routes/science-stops.json'),
   ])
   return buildTerrainRoute(template, area, { elevation, slope, roughness }, science)
+}
+
+// EVA-08 starts and ends on foot at the parked open rover, G2. The two
+// H1/G2 drive legs are labelled assumptions in the Planning schedule.
+export function buildGedizRoute(template, area, terrain, science) {
+  validateTerrain(terrain)
+  const grid = makeGrid(terrain)
+  if (area?.sizeMetres !== 6000 || science?.stops?.length !== 4) throw new Error('EVA-08 needs the 6 km terrain and four Gediz stops.')
+  const g2 = { id: 'g2', name: 'Rover staging (G2)', type: 'habitat', x: 3192.5, y: 3542.5, description: 'Open-rover staging point. The rover is not storm shelter.' }
+  const result = planRoute(grid, [g2, ...science.stops, { ...g2, id: 'home', name: 'Return to rover (G2)', type: 'home' }])
+  const mission = { ...template.mission, id: 'EVA-08', name: 'The Gediz Vallis Walk', data_status: 'TERRAIN_ESTIMATE', latest_turnback_time: null,
+    drive_out_minutes: 55, drive_home_minutes: 55, drive_distance_m: 3800 }
+  return { grid, route: { ...template, mission, ...result,
+    coordinate_system: { ...template.coordinate_system, unit: 'meter', origin_note: area.localCoords, description: '6 km terrain grid; local metres x east, y north. Leaflet [y,x].' },
+    map: { bounds: [[0, 0], [grid.sizeY, grid.sizeX]], basemap_url: '/terrain/basemap.png' },
+    provenance: { terrain: area.source, routing: 'Nigel pathfinding from G2', target_status: 'draft', targets: 'Kelly Gediz stops; science review pending', safety: 'Simulation. Rover is open, not storm shelter. Suited drives use the 8 h budget; 2 h reserve protected.' } } }
+}
+
+export async function loadGedizRoute(fetcher = fetch) {
+  const json = async (url) => {
+    const response = await fetcher(url)
+    if (!response.ok) throw new Error(`${url} unavailable (${response.status}).`)
+    return response.json()
+  }
+  const [template, area, elevation, slope, roughness, science] = await Promise.all([
+    json('/routes/sample-route.json'), json('/terrain/area.json'), json('/terrain/elevation.json'), json('/terrain/slope.json'), json('/terrain/roughness.json'), json('/routes/gediz-stops.json'),
+  ])
+  return buildGedizRoute(template, area, { elevation, slope, roughness }, science)
 }
 
 export function roughnessImage(grid) {

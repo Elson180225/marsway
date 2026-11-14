@@ -9,7 +9,7 @@ import { showScienceLayerInfo } from './scienceLayerInfo.js'
 import { mountPlanningSafety } from './safezone/planningPanel.js'
 import './stopDetails.css'
 import { renderStopDetails } from './stopDetails.js'
-import { loadTerrainRoute, roughnessImage } from './terrainRoute.js'
+import { loadTerrainRoute, loadGedizRoute, roughnessImage } from './terrainRoute.js'
 
 const root = document.querySelector('#app')
 
@@ -79,9 +79,10 @@ function render(route, grid) {
       </aside>
       <main id="planning" class="main">
         <header class="topbar"><div><span class="eyebrow">MISSION / ${safe(mission.id)}</span><h1>Plan the walk. <em>Get home safely.</em></h1><p>${safe(mission.site)} · ${safe(mission.name)}</p></div><div class="top-badge"><span class="sample-pulse"></span> TERRAIN ROUTING DEMO</div></header>
-        <div class="notice" role="note"><span>Demo mission · ${route.provenance.target_status === 'ready' ? 'terrain estimates' : 'test target'} · no live telemetry</span></div>
+        <div class="notice" role="note"><span>Demo mission · ${route.provenance.target_status === 'draft' ? 'proposed Gediz stops' : route.provenance.target_status === 'ready' ? 'terrain estimates' : 'test target'} · no live telemetry</span></div>
+        <nav class="eva-picker" aria-label="Select EVA"><a href="/?eva=07" aria-current="${mission.id === 'EVA-07' ? 'page' : 'false'}">EVA-07 · Boxwork</a><a href="/?eva=08" aria-current="${mission.id === 'EVA-08' ? 'page' : 'false'}">EVA-08 · Gediz</a></nav>
         <section class="metrics" aria-label="Mission summary">
-          <div class="metric"><span>DISTANCE</span><strong>${distance(totalDistance)}</strong><small>Round trip</small></div>
+          <div class="metric"><span>${mission.drive_out_minutes ? 'WALK DISTANCE' : 'DISTANCE'}</span><strong>${distance(totalDistance)}</strong><small>${mission.drive_out_minutes ? 'G2 loop; suited drive below' : 'Round trip'}</small></div>
           <div class="metric"><span>WALKING</span><strong id="planning-walking">${duration(totalMinutes)}</strong><small>Science time below</small></div>
           <div class="metric"><span>TURN BACK IN</span><strong id="planning-turnback">Calculating</strong><small id="planning-turnback-note">From selected reference</small></div>
           <div class="metric"><span>TERRAIN NOTES</span><strong>${warnings.length}</strong><small>Across the route</small></div>
@@ -97,7 +98,7 @@ function render(route, grid) {
             <div id="science-layer-note" class="science-layer-note" role="status" aria-live="polite">Orbital layers: select to see legend, credit and source.</div>
           </div>
           <div class="route-panel">
-            <div class="panel-header"><div><span class="eyebrow">EVA-07 / FLIGHT PLAN</span><h2>Route stops</h2></div><span class="count">${stops.length} STOPS</span></div>
+            <div class="panel-header"><div><span class="eyebrow">${safe(mission.id)} / FLIGHT PLAN</span><h2>Route stops</h2></div><span class="count">${stops.length} STOPS</span></div>
             <div id="stop-list" class="stop-list"></div>
             <div id="return-summary" class="return-summary" aria-live="polite"></div>
           </div>
@@ -118,12 +119,13 @@ function render(route, grid) {
   const terrain = L.imageOverlay('/terrain/basemap.png', bounds, { opacity: 0.92, interactive: false }).addTo(map)
   const slope = L.imageOverlay('/terrain/slope.png', bounds, { opacity: 0.55, interactive: false })
   const roughness = L.imageOverlay(roughnessImage(grid), bounds, { opacity: 0.7, interactive: false })
-  // Kelly's 600 px north-up crops fill the same 3 km bounds as the terrain.
+  // Kelly's orbital crops cover the original 3 km square inside the 6 km grid.
+  const scienceBounds = L.latLngBounds([[400, 600], [3400, 3600]])
   const science = {
-    ctx: L.imageOverlay('/terrain/ctx.png', bounds, { opacity: 0.85, interactive: false }),
-    crismHyd: L.imageOverlay('/terrain/crism_hyd.png', bounds, { opacity: 0.7, interactive: false }),
-    crismAlt: L.imageOverlay('/terrain/crism_alt.png', bounds, { opacity: 0.7, interactive: false }),
-    themis: L.imageOverlay('/terrain/themis_night.png', bounds, { opacity: 0.75, interactive: false }),
+    ctx: L.imageOverlay('/terrain/ctx.png', scienceBounds, { opacity: 0.85, interactive: false }),
+    crismHyd: L.imageOverlay('/terrain/crism_hyd.png', scienceBounds, { opacity: 0.7, interactive: false }),
+    crismAlt: L.imageOverlay('/terrain/crism_alt.png', scienceBounds, { opacity: 0.7, interactive: false }),
+    themis: L.imageOverlay('/terrain/themis_night.png', scienceBounds, { opacity: 0.75, interactive: false }),
   }
   const scienceNote = document.querySelector('#science-layer-note')
   for (const [name, layer] of Object.entries(science)) layer.on('error', () => {
@@ -180,7 +182,7 @@ function render(route, grid) {
       return `<button type="button" class="stop-row ${number === index ? 'selected' : ''}" data-stop="${number}" aria-pressed="${number === index}"><span class="timeline-node">${number === 0 || item.type === 'home' ? '⌂' : number}</span><span class="stop-copy"><strong>${safe(item.name)}${item.is_bonus ? ' <span class="bonus-chip" data-bonus-verdict>BONUS</span>' : ''}</strong><small>${safe(item.type.replace('_', ' '))}${next ? ` · ${distance(next.distance_m)} to next` : ''}</small></span><span class="stop-arrow">›</span></button>`
     }).join('')
     document.querySelectorAll('[data-stop]').forEach((button) => button.addEventListener('click', () => selectStop(Number(button.dataset.stop))))
-    document.querySelector('#return-summary').innerHTML = `<span class="eyebrow">HOME FROM ${safe(stop.name.toUpperCase())}</span><strong>${distance(home.distance_m)} · ${duration(home.walk_minutes)}</strong><small>Calm-weather terrain estimate · storm-adjusted time below</small>`
+    document.querySelector('#return-summary').innerHTML = `<span class="eyebrow">${mission.drive_home_minutes ? 'ROVER G2 FROM' : 'HOME FROM'} ${safe(stop.name.toUpperCase())}</span><strong>${distance(home.distance_m)} · ${duration(home.walk_minutes)}</strong><small>${mission.drive_home_minutes ? 'Walking to rover only; add 55 min assumed suited drive to H1.' : 'Calm-weather terrain estimate · storm-adjusted time below'}</small>`
     document.querySelector('#leg-title').textContent = index < legs.length ? `${stop.name} → ${stops[index + 1].name}` : 'EVA complete'
     document.querySelector('#leg-distance').textContent = index < legs.length ? `${distance(leg.distance_m)}  /  ${duration(leg.walk_minutes)}` : ''
     document.querySelector('#warning-list').innerHTML = index < legs.length ? prominentWarnings(leg.warnings || []).map((warning) => `<div class="warning ${safe(warning.level)}"><span>${warning.level === 'danger' ? '!' : '⚑'}</span><div><strong>${safe(warning.type.replaceAll('_', ' '))} · ${safe(warning.level)}</strong><small>${safe(warning.message)}</small></div></div>`).join('') || '<span class="no-warning">No significant terrain notices for this leg. Route safety is estimated.</span>' : '<span class="no-warning">End of planned route.</span>'
@@ -194,6 +196,7 @@ function render(route, grid) {
 }
 
 root.innerHTML = '<div class="loading-screen">Loading terrain and calculating the demo route…</div>'
-loadTerrainRoute()
+const loader = new URLSearchParams(location.search).get('eva') === '08' ? loadGedizRoute : loadTerrainRoute
+loader()
   .then(({ route, grid }) => { assertRoute(route); render(route, grid) })
   .catch((error) => { root.innerHTML = `<div class="error-screen"><h1>Unable to calculate the route</h1><p>${safe(error.message)}</p><p>Check the terrain files in <code>public/terrain/</code> and the mission template in <code>public/routes/sample-route.json</code>. No sample route has been substituted.</p></div>` })

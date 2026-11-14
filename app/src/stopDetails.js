@@ -50,11 +50,11 @@ export function renderStopDetails(container, stop, { targetStatus = 'pending' } 
   title.append(element('span', 'eyebrow', 'SELECTED STOP'), element('h2', '', meta.name))
   heading.append(title)
   if (targetStatus !== 'ready' && stop.type !== 'home' && stop.type !== 'habitat') {
-    heading.append(element('span', 'science-badge', 'DEMO TARGET'))
+    heading.append(element('span', 'science-badge', targetStatus === 'draft' ? 'PROPOSED STOP' : 'DEMO TARGET'))
   } else if (meta.bonus) {
     heading.append(element('span', 'science-badge science-bonus', 'OPTIONAL BONUS STOP'))
   }
-  const displayDescription = stop.type === 'habitat' ? 'Habitat H1: flat ground, crew base.' : meta.description
+  const displayDescription = stop.id === 'g2' ? 'Open-rover staging at G2. Return here on foot, then drive to H1; the rover is not storm shelter.' : stop.type === 'habitat' ? 'Habitat H1: flat ground, crew base.' : meta.description
   const firstSentence = displayDescription.match(/^[\s\S]*?[.!?](?=\s|$)/)?.[0] || displayDescription
   const description = element('p', 'science-description science-preview', firstSentence)
   card.append(heading, description)

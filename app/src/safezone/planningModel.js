@@ -29,9 +29,12 @@ export function createPlanningSafety(grid, habitat, mission) {
   if (!Number.isFinite(habitat?.x) || !Number.isFinite(habitat?.y)) throw new Error('Invalid H1 coordinates.')
   const habitatCell = xyToCell(grid, habitat.x, habitat.y)
   if (habitatCell < 0 || grid.blocked[habitatCell]) throw new Error('H1 is outside walkable terrain.')
-  const settings = { suitHours: suitMinutes / 60, reserveHours: reserveMinutes / 60 }
+  const homeDrive = mission.drive_home_minutes ?? 0
+  if (!Number.isFinite(homeDrive) || homeDrive < 0 || homeDrive + reserveMinutes >= suitMinutes) throw new Error('Invalid return drive time.')
+  // Reserve the suited return drive before calculating any G2 safe zone.
+  const settings = { suitHours: (suitMinutes - homeDrive) / 60, reserveHours: reserveMinutes / 60 }
   const missionStart = Date.parse(mission.start_time)
-  const available = suitMinutes - reserveMinutes
+  const available = suitMinutes - reserveMinutes - homeDrive
   // One reversed Dijkstra per grid/habitat, then reuse its time and next-home arrays.
   const arrows = homeArrows(grid, habitatCell)
   // Mia's bonus-stop GO / NO-GO from the crew reference. The walk there comes from Nigel's
@@ -86,6 +89,7 @@ export function createPlanningSafety(grid, habitat, mission) {
         timer.title = timer.level === 'danger' ? 'Turn back now' : timer.level === 'caution' ? 'Turn back soon' : 'On plan'
         timer.message = timer.level === 'danger' ? 'Heading home now uses the protected reserve.' : timer.level === 'caution' ? `Less than ${CAUTION_MINUTES} minutes before heading home.` : 'Enough suit time to reach home with reserve intact.'
       }
+      if (Number.isFinite(timer.homeMinutes)) timer.homeMinutes += homeDrive
       const storm = stormRoute(grid, arrows, position)
       if (weather && storm) {
         storm.seconds = adjustedTravelMinutes(storm.seconds / 60, elapsedMinutes, missionStart, weather) * 60
