@@ -5,9 +5,11 @@ import { loadRouteForEva, loadScenarioCatalog } from '../../terrainRoute.js'
 import { createTerrainNavigation } from '../../terrainNavigation.js'
 import { loadHomeFile } from '../../safezone/homeFile.js'
 import { stopMetadata } from '../../stopDetails.js'
+import { directionsFor } from '../../pathfinding/directions.js'
 import {
-  ALERT_LEVELS, advance, bearing, bonusStatus, buildReturnTrip, canHeadHome, cardinal, currentTrip, hazardSpots, headHome,
-  minutesBehindPlan, pathLength, photoStop, pointAlong, radiationDose, safetyStatus, segmentLength, shelterFor, sortWarnings,
+  ALERT_LEVELS, advance, arrivalTimes, bearing, bonusStatus, buildReturnTrip, canHeadHome, cardinal, currentTrip, directionLine,
+  hazardSpots, headHome, minutesBehindPlan, pathLength, photoStop, pointAlong, radiationDose, safetyStatus, segmentLength,
+  shelterFor, sortWarnings, walkPace,
 } from './walk-model.js'
 
 const root = document.querySelector('#walk')
@@ -17,6 +19,7 @@ const planningHref = eva ? `/?eva=${encodeURIComponent(eva)}` : '/'
 const SPEEDS = [1, 60, 300] // simulated minutes per real minute
 const TICK_MS = 250
 const STAY_MINUTES = 30 // demo button: the crew stays this much longer at a stop
+const SLOW_PACE = 1.3 // demo button: the crew walks 30% slower than planned
 
 function safe(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -78,9 +81,10 @@ function simulatedStorm(route) {
 function start(route, navigation, grid) {
   const { mission, stops, legs } = route
   const isSample = mission.data_status !== 'VALIDATED'
+  let slowWalk = false // demo: the simulated crew walks slower than planned
   const initialState = () => ({
     mode: 'outbound', legIndex: 0, progress: 0, playing: false, returnTrip: null, scienceLeft: 0, cutShortAt: null,
-    clockMs: Date.parse(mission.start_time),
+    clockMs: Date.parse(mission.start_time), simPace: slowWalk ? SLOW_PACE : 1, paceLog: null,
   })
   let state = initialState()
   let speedIndex = 1
@@ -109,10 +113,11 @@ function start(route, navigation, grid) {
           <div class="walk-compass" aria-hidden="true"><span class="walk-compass-n">N</span><svg id="w-arrow" class="walk-arrow" viewBox="0 0 40 40"><path d="M20 3 L33 35 L20 27 L7 35 Z" /></svg></div>
           <div class="walk-nav-copy">
             <strong id="w-distance">–</strong>
-            <span id="w-heading">–</span>
             <small id="w-eta">–</small>
           </div>
         </div>
+        <p id="w-turn" class="walk-turn" hidden></p>
+        <p id="w-times" class="walk-times" hidden></p>
         <div id="w-stop-row" class="walk-stop-row" hidden>
           <small id="w-plan">On plan</small>
           <button type="button" id="w-stay" class="walk-btn walk-btn-quiet" title="Simulate staying longer at this stop (demo)">+${STAY_MINUTES}m here</button>
@@ -142,6 +147,7 @@ function start(route, navigation, grid) {
         <div class="walk-actions-row">
           <button type="button" id="w-home-btn" class="walk-btn walk-btn-home">⌂ Head home</button>
           <button type="button" id="w-speed" class="walk-btn walk-btn-quiet" title="Simulation speed"></button>
+          <button type="button" id="w-slow" class="walk-btn walk-btn-quiet" title="Simulate the crew walking 30% slower than planned (demo)"></button>
           <button type="button" id="w-storm" class="walk-btn walk-btn-quiet" title="Simulate a solar storm alert (demo)"></button>
         </div>
       </div>
@@ -196,6 +202,8 @@ function start(route, navigation, grid) {
     update()
   })
   $('w-speed').addEventListener('click', () => { speedIndex = (speedIndex + 1) % SPEEDS.length; update() })
+  // The crew really walks slower; the screen notices from the walking (walkPace), not from this switch.
+  $('w-slow').addEventListener('click', () => { slowWalk = !slowWalk; state.simPace = slowWalk ? SLOW_PACE : 1; update() })
   $('w-storm').addEventListener('click', () => { simAlert = simAlert ? null : simulatedStorm(route); update() })
 
   // Map pop-ups: every notice (storm or other alert, turn back, arriving at a stop, hazards ahead,
@@ -318,6 +326,50 @@ function start(route, navigation, grid) {
     if (fresh.length) $('w-announce').textContent = fresh.map((note) => note.text).join(' ')
   }
 
+  // Turn-by-turn steps for the trip being walked (Nigel's directionsFor), worked out once per trip.
+  let stepsPath = null
+  let steps = null
+  function tripSteps(trip) {
+    if (trip.path === stepsPath) return steps
+    stepsPath = trip.path
+    const toName = trip.to.type === 'home' ? stops[0].name : trip.to.name // "Arrive at Habitat (H1)", not "at Return to Habitat"
+    try { steps = directionsFor(grid, trip, { toName }) }
+    catch (error) { steps = null; console.warn(`No turn-by-turn directions for this leg (${error.message}).`) }
+    return steps
+  }
+
+  function renderTurn(trip, complete) {
+    const line = complete ? null : directionLine(tripSteps(trip), state.progress * pathLength(trip.path))
+    const turn = $('w-turn')
+    turn.hidden = !line
+    if (!line) return
+    const html = `<b>${safe(line.lead)}</b>${safe(line.rest)}`
+    if (turn.innerHTML !== html) turn.innerHTML = html
+  }
+
+  // Arrival times at the stops after the next one, and home (Nigel's etaFor, at the measured pace).
+  // Stop numbers match the map. Home turns amber when it would use the reserve, red past the suit limit.
+  function renderTimes(arrivals) {
+    const later = state.mode === 'outbound' ? arrivals.stops.slice(1) : []
+    const times = $('w-times')
+    times.hidden = !later.length
+    if (!later.length) return
+    const suitEnd = Date.parse(mission.start_time) + mission.max_walk_minutes * 60000
+    const reserveFrom = suitEnd - mission.reserve_minutes * 60000
+    const chips = later.map((stop, k) => {
+      const index = state.legIndex + 2 + k
+      const home = index === stops.length - 1
+      const level = home ? (stop.arrive_ms > suitEnd ? 'danger' : stop.arrive_ms > reserveFrom ? 'caution' : '') : ''
+      const mark = home ? '<i class="walk-stop is-home">⌂</i>' : `<i class="walk-stop${stop.is_bonus ? ' is-bonus' : ''}">${index}</i>`
+      const label = home
+        ? `Home ${utcTime(stop.arrive_ms)} UTC${level ? `, ${duration((stop.arrive_ms - reserveFrom) / 60000)} into the reserve` : ''}`
+        : `${stop.name} ${utcTime(stop.arrive_ms)} UTC`
+      return `<span class="walk-time${level ? ` is-${level}` : ''}" title="${safe(label)}" aria-label="${safe(label)}">${mark}${utcTime(stop.arrive_ms)}</span>`
+    }).join('')
+    const html = `<span class="walk-times-label">Then</span>${chips}`
+    if (times.innerHTML !== html) times.innerHTML = html
+  }
+
   // Rendering
   function stopOnRouteError(error) {
     state.playing = false
@@ -339,7 +391,9 @@ function start(route, navigation, grid) {
     const { point, nextIndex } = pointAlong(trip.path, state.progress)
     const remainingPath = [point, ...trip.path.slice(nextIndex)]
     const ahead = trip.path.slice(nextIndex).find((p) => p.x !== point.x || p.y !== point.y)
-    const leftMinutes = trip.walk_minutes * (1 - state.progress)
+    const pace = walkPace(state)
+    const leftMinutes = trip.walk_minutes * (1 - state.progress) * pace
+    const arrivals = arrivalTimes(route, state)
     let safety = safetyStatus(route, state, state.clockMs, navigation)
     // A danger alert (e.g. a solar storm) outranks the suit-time status.
     const urgent = [...(route.alerts || []), ...(simAlert ? [simAlert] : [])].find((a) => a.level === 'danger')
@@ -367,12 +421,18 @@ function start(route, navigation, grid) {
       const deg = bearing(point, ahead)
       $('w-arrow').style.transform = `rotate(${deg}deg)`
       $('w-arrow').toggleAttribute('hidden', false)
-      $('w-heading').textContent = `${cardinal(deg)} · ${Math.round(deg)}°`
+      $('w-arrow').parentElement.title = `Heading ${cardinal(deg)}, ${Math.round(deg)}°`
     } else {
       $('w-arrow').toggleAttribute('hidden', true)
-      $('w-heading').textContent = complete ? 'Back at the habitat' : '–'
+      $('w-arrow').parentElement.title = ''
     }
-    $('w-eta').textContent = complete ? '' : `${scienceLeft ? `${duration(scienceLeft)} science + ` : ''}${duration(leftMinutes)} walk · arrive ${utcTime(state.clockMs + (scienceLeft + leftMinutes) * 60000)}`
+    const arrive = arrivals.stops[0]?.arrive_ms ?? state.clockMs
+    const slower = Math.round((pace - 1) * 100)
+    $('w-eta').innerHTML = complete ? 'Back at the habitat'
+      : `${scienceLeft ? `${duration(scienceLeft)} science + ` : ''}${duration(leftMinutes)} walk · arrive ${utcTime(arrive)}${slower >= 5
+        ? ` <span class="walk-pace" title="Walking about ${slower}% slower than planned over the last few minutes. All times here use this pace.">${slower}% slower</span>` : ''}`
+    renderTurn(trip, complete)
+    renderTimes(arrivals)
 
     // Turn-back = suit deadline − reserve − time home from here, so it shrinks faster while walking away.
     const outbound = state.mode === 'outbound'
@@ -421,6 +481,8 @@ function start(route, navigation, grid) {
     homeBtn.textContent = armed ? 'Tap again to head home' : '⌂ Head home'
     homeBtn.classList.toggle('is-armed', armed)
     $('w-speed').textContent = `${SPEEDS[speedIndex]}×`
+    $('w-slow').textContent = slowWalk ? '✕ Slow' : 'Slow'
+    $('w-slow').setAttribute('aria-pressed', String(slowWalk))
     $('w-storm').textContent = simAlert ? '✕ Storm' : '☀︎ Storm'
     $('w-storm').setAttribute('aria-pressed', String(Boolean(simAlert)))
   }
