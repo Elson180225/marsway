@@ -100,7 +100,9 @@ button { font: inherit; }
 /* Map */
 .walk-map-card { position: relative; background: var(--w-panel); border: 1px solid var(--w-line); border-radius: 14px; overflow: hidden; }
 #w-map { height: 46vh; min-height: 280px; max-height: 500px; background-color: #26333a; background-image: linear-gradient(#d9c4a30f 1px, transparent 1px), linear-gradient(90deg, #d9c4a30f 1px, transparent 1px); background-size: 40px 40px; }
-.walk-recenter { position: absolute; top: 10px; right: 10px; z-index: 500; min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #4a5d63; background: #1b272dee; color: var(--w-text); font-weight: 600; cursor: pointer; }
+.walk-map-wrap { position: relative; }
+/* A small icon in the top-left corner: always above the bottom buttons, and it covers little of the map. */
+.walk-recenter { position: absolute; top: 10px; left: 10px; z-index: 500; width: 44px; height: 44px; padding: 0; border-radius: 10px; border: 1px solid #4a5d63; background: #1b272dee; color: var(--w-text); font-size: 22px; line-height: 1; cursor: pointer; }
 .walk-recenter[hidden] { display: none; }
 .walk-legend { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12px; color: var(--w-muted); }
 .walk-legend-line, .walk-legend-dash { width: 22px; border-top: 4px solid #fff0ce; }
@@ -116,7 +118,7 @@ button { font: inherit; }
 .walk-hazard.is-danger { background: var(--w-danger); color: #2a0c0a; }
 .walk-legend-sign { width: 12px; height: 12px; margin: 0 0 0 10px; cursor: default; }
 .walk-legend-sign i { font-size: 9px; }
-.walk-map-note { position: absolute; left: 10px; top: 10px; z-index: 500; margin: 0; padding: 6px 10px; border-radius: 8px; background: #1b272dee; color: var(--w-muted); font-size: 12px; }
+.walk-map-note { position: absolute; right: 10px; top: 10px; z-index: 500; margin: 0; padding: 6px 10px; border-radius: 8px; background: #1b272dee; color: var(--w-muted); font-size: 12px; }
 /* A storm or "turn back" lights up the map's edge, the one moving thing on the screen. */
 .walk-map-card[data-level="danger"] { border-color: var(--w-danger); animation: walk-pulse 1.4s ease-in-out infinite; }
 .walk-map-card[data-level="caution"] { border-color: var(--w-caution); }
