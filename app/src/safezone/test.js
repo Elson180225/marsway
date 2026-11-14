@@ -239,6 +239,36 @@ if (existsSync(dataDir)) {
   assert.ok(Math.abs(phoneGo.spareMinutes - goCheck.spareMinutes) < 0.02)
   ok('phone version (route-file walking time + home file) gives the same answer')
 
+  // Special cases: each is a NO-GO with its own reason, at the exact spot (no quiet snapping).
+  const check = (bonusXY, extra = {}) => bonusStopCheck(grid, arrows.timeHome, { here: crew, bonus: bonusXY, elapsedMinutes: 0, ...extra })
+  let steep = -1, pocket = -1, steepNearWalkable = -1
+  for (let i = 0; i < grid.blocked.length; i++) {
+    if (steep < 0 && grid.blocked[i]) steep = i
+    if (pocket < 0 && !grid.blocked[i] && !(arrows.timeHome[i] < Infinity)) pocket = i
+    if (steepNearWalkable < 0 && grid.blocked[i] && arrows.timeHome[i + 1] < Infinity) steepNearWalkable = i
+  }
+  const offMap = check({ x: -100, y: -100 })
+  assert.equal(offMap.go, false); assert.equal(offMap.reason, 'off-map')
+  const onSteep = check(cellToXY(grid, steepNearWalkable))
+  assert.equal(onSteep.go, false); assert.equal(onSteep.reason, 'no-go-ground', 'a no-go square next to walkable ground must not be moved onto it')
+  assert.equal(safeZone(grid, hab, { here: box, elapsedSeconds: 0, timeHome: arrows.timeHome }).zone[steepNearWalkable], ZONE.OUT, 'the map shows it as out too')
+  ok(`clicked on a no-go slope: "${onSteep.title}"`)
+  if (pocket >= 0) {
+    const cutOff = check(cellToXY(grid, pocket))
+    assert.equal(cutOff.go, false); assert.equal(cutOff.reason, 'no-way-home')
+    ok(`walkable spot cut off from H1: "${cutOff.title}"`)
+  }
+  // The phone's small grid has no no-go layer: a no-go square still comes out as no way home.
+  const phoneSteep = bonusStopCheck(file.grid, file.arrows.timeHome, { here: crew, bonus: cellToXY(grid, steep), elapsedMinutes: 0, walkThereMinutes: 10 })
+  assert.equal(phoneSteep.go, false)
+  assert.ok(['no-go-ground', 'no-way-home'].includes(phoneSteep.reason))
+  const lost = check(cellToXY(grid, green), { here: { x: -500, y: -500 } })
+  assert.equal(lost.go, false); assert.equal(lost.reason, 'crew-lost')
+  const noRoute = check(cellToXY(grid, green), { walkThereMinutes: Infinity })
+  assert.equal(noRoute.go, false); assert.equal(noRoute.reason, 'cant-reach')
+  assert.equal(goCheck.reason, 'tight'); assert.equal(noCheck.reason, 'reserve')
+  ok(`off the map, crew with no way home, no route there: "${offMap.title}", "${lost.title}", "${noRoute.title}"`)
+
   // Radiation: 0.67 mSv/day from Curiosity's RAD.
   assert.ok(Math.abs(walkDoseMSv(24) - 0.67) < 1e-9)
   ok(`radiation: 6 h walk ≈ ${walkDoseMSv(6).toFixed(3)} mSv, full 8 h suit ≈ ${walkDoseMSv(8).toFixed(3)} mSv`)
