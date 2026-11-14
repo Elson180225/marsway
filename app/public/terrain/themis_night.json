@@ -26,7 +26,7 @@
       3000
     ]
   ],
-  "how_to_read": "Brighter = warmer at night = ground that stores heat (likely bedrock). Darker = cooler at night = likely loose sand or dust.",
+  "how_to_read": "Brighter and darker pixels show relative night infrared brightness only. In comparable observations, brighter night surfaces may retain more heat (for example rockier material), while darker surfaces may be finer sand or dust. This multi-observation 8-bit mosaic does not provide calibrated temperature, thermal inertia, or a reliable material classification.",
   "limitations": [
     "Only about 18 x 18 real pixels cover the 3 km area (~163 m each). Do not read single ridges or stops from it.",
     "Relative 8-bit brightness from a mosaic of many orbits and seasons. It is not a temperature map and not thermal inertia.",

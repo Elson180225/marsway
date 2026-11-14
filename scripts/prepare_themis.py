@@ -98,7 +98,7 @@ def main():
         "output_px": n,
         "bounds_lonlat": {"west": west, "east": east, "south": south, "north": north},
         "leaflet_image_bounds": area["leaflet"]["imageBounds"],
-        "how_to_read": "Brighter = warmer at night = ground that stores heat (likely bedrock). Darker = cooler at night = likely loose sand or dust.",
+        "how_to_read": "Brighter and darker pixels show relative night infrared brightness only. In comparable observations, brighter night surfaces may retain more heat (for example rockier material), while darker surfaces may be finer sand or dust. This multi-observation 8-bit mosaic does not provide calibrated temperature, thermal inertia, or a reliable material classification.",
         "limitations": [
             f"Only about {source_px} x {source_px} real pixels cover the 3 km area (~{m_px:.0f} m each). Do not read single ridges or stops from it.",
             "Relative 8-bit brightness from a mosaic of many orbits and seasons. It is not a temperature map and not thermal inertia.",

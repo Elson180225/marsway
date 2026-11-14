@@ -89,14 +89,14 @@ def alignment_check(ctx, area_dir):
     status = "inconclusive" if on_edge or peak < 0.1 else "measured"
     return {
         "status": status,
-        "reason": "No clear correlation peak: CTX brightness here is dominated by albedo (bright bedrock, dark sand), not slope shading. Visual check instead: km-scale scarps, mesa edges and the Curiosity valley line up; offsets of tens of metres cannot be ruled out." if status == "inconclusive" else "Clear correlation peak inside the search window.",
+        "reason": "No reliable correlation peak was found in the searched window. Albedo differences may contribute. The reported best-search offsets are not a validated registration or an error bound; no shift was applied." if status == "inconclusive" else "Clear correlation peak inside the search window.",
         "method": "FFT cross-correlation of band-passed CTX brightness vs DEM shading (Sun azimuth searched in 30 degree steps), 5 m grid, search +-100 m",
         "sun_azimuth_deg": az,
         "ctx_offset_east_m": float(dx * cell),
         "ctx_offset_north_m": float(-dy * cell),
         "correlation_at_best": round(peak, 3),
         "correlation_at_zero_shift": round(zero, 3),
-        "note": "Positive east/north = CTX features sit east/north of the matching DEM features. Not applied to ctx.png.",
+        "note": "Positive east/north describes the best-search shift direction only. When status is inconclusive, these values must not be used as measured offsets. No correction was applied to ctx.png.",
     }
 
 
@@ -164,7 +164,7 @@ def main():
         "leaflet_image_bounds": area["leaflet"]["imageBounds"],
         "tiles": {"rows": [r0, r1], "cols": [c0, c1]},
         "limitations": [
-            "beta01 is an uncontrolled mosaic: expect positional error of tens of metres relative to the USGS DEM.",
+            "beta01 is an uncontrolled mosaic. Registration to the USGS DEM has not been established; offsets of tens of metres or more are possible. Matching crop bounds do not establish pixel-level alignment.",
             "Esri serves lossy 8-bit JPEG tiles; brightness is not calibrated reflectance.",
             "CTX is 5 m/px: it shows ridges, hollows and dunes, not individual rocks. HiRISE is needed for boulders.",
         ],
