@@ -1,6 +1,6 @@
 # EVA-07 science stops
 
-Four ordered stops for the Boxwork Walk, from habitat H1 toward and through the boxwork Curiosity explored in 2025. The app loads `app/public/routes/science-stops.json`. Photographs are in `app/public/photos/`. Each stop has a one-line `why`. Run `python scripts/export_science_stops.py` to refresh the matching `data/processed/stops.json` and `app/public/routes/stops.json` handoff exports.
+Four ordered stops for the Boxwork Walk, from habitat H1 toward and through the boxwork Curiosity explored in 2025. The app loads `app/public/routes/science-stops.json`. Photographs are in `app/public/photos/`. Each stop has a one-line `why`. Run `python scripts/export_science_stops.py` to refresh the optional offline `data/processed/stops.json` handoff. Edit only `app/public/routes/science-stops.json`; the offline handoff is generated from it.
 
 Stop names are mission roles for a proposed astronaut EVA. They are not official geologic names of these exact coordinates. Every coordinate is a real Curiosity waypoint from `curiosity_track.json` (NASA/JPL MSL waypoints). None of these stops was snapped by the route planner.
 

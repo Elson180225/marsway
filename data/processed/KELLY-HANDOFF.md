@@ -28,7 +28,7 @@ Sources, product URLs, credits, crop windows and limitations are preserved in th
 
 These are proposed astronaut roles at real rover waypoints, not verified ridge-top or hollow-floor sampling locations. Mineral Investigation has not been selected from a quantified CRISM anomaly. Photographs, NASA source links, credits, camera names, photo sols and coordinate sols are retained in the stop records. Full provenance is in `SCIENCE-STOPS.md`.
 
-`app/public/routes/science-stops.json` remains the source the existing Planning and Walk loaders use. The requested `stops.json` is exported with the same object shape (`status`, `source`, `stops`) to `data/processed/stops.json` and `app/public/routes/stops.json`. Each stop now includes `why` as well as the detailed `description` and photo fields. Local x/y use metres east/north from the southwest corner; Leaflet uses `[y, x]`. Longitude/latitude fields are Mars geographic coordinates, not Earth positions.
+`app/public/routes/science-stops.json` remains the source the existing Planning and Walk loaders use. The optional offline handoff is generated at `data/processed/stops.json` with the same object shape (`status`, `source`, `stops`). Treat it as an export, not an editable source. The app has one science-stop file: `app/public/routes/science-stops.json`. Each stop now includes `why` as well as the detailed `description` and photo fields. Local x/y use metres east/north from the southwest corner; Leaflet uses `[y, x]`. Longitude/latitude fields are Mars geographic coordinates, not Earth positions.
 
 ## Rebuild and check
 
