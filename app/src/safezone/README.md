@@ -148,6 +148,20 @@ node src/safezone/buildHomeFile.js --terrain ../data/processed/area-6km/ --home 
 node src/safezone/preview.js zone.png # picture of the safe zone (crew at the boxwork after 4.5 h)
 ```
 
+### Walk screen on the 6 km map: one file per habitat
+
+The Walk screen (`walk.html?eva=07`, `09` … `12`) loads `home-<habitat>-6km.*` for the habitat that
+`public/routes/scenarios.json` gives that EVA. `home-h1.*` above stays on the 3 km map for `test.js`.
+If a file is missing or doesn't match the terrain, the phone works the way home out itself (about 2 s).
+`src/scenarios.test.js` checks every file still matches. Rebuild from `app/` with:
+
+```bash
+node src/safezone/buildHomeFile.js --home 1047.5,917.5  --id H1 --out home-h1-6km   # EVA-07, EVA-09
+node src/safezone/buildHomeFile.js --home 1557.5,3372.5 --id H2 --out home-h2-6km   # EVA-10
+node src/safezone/buildHomeFile.js --home 3672.5,2072.5 --id H3 --out home-h3-6km   # EVA-11
+node src/safezone/buildHomeFile.js --home 4482.5,3492.5 --id H4 --out home-h4-6km   # EVA-12
+```
+
 ## EVA-08: home is the rover at G2
 
 EVA-08 is rover-assisted: the crew drives from H1 to staging point **G2** (x 3192.5, y 3542.5 on the

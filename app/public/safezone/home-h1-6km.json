@@ -1,0 +1,22 @@
+{
+  "format": "marsway-home-v1",
+  "description": "Pre-calculated time and route home to the habitat for every cell. See app/src/safezone/homeFile.js.",
+  "habitat": {
+    "id": "H1",
+    "col": 209,
+    "row": 1016,
+    "x": 1047.5,
+    "y": 917.5
+  },
+  "width": 1200,
+  "height": 1200,
+  "cellSize": 5,
+  "suit": {
+    "speedFactor": 0.5,
+    "slopeWarnDeg": 15,
+    "slopeNoGoDeg": 25,
+    "roughnessPerDeg": 0.02,
+    "roughWarnDeg": 8
+  },
+  "bin": "home-h1-6km.bin"
+}

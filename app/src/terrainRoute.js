@@ -10,6 +10,34 @@ export function validateTerrain({ elevation, slope, roughness }) {
   }
 }
 
+function checkStops(selected, grid) {
+  const ids = new Set(['hab', 'home'])
+  return selected.map((stop) => {
+    if (!stop || typeof stop.id !== 'string' || !stop.id.trim() || ids.has(stop.id) || typeof stop.name !== 'string' || !stop.name.trim() || !Number.isFinite(stop.x) || !Number.isFinite(stop.y) || stop.x < 0 || stop.x >= grid.sizeX || stop.y <= 0 || stop.y > grid.sizeY || stop.type === 'home' || stop.type === 'habitat' || stop.type === 'start') throw new Error('Science stops need unique ids (excluding hab/home), names and in-bounds x/y coordinates. Do not include the habitat.')
+    ids.add(stop.id)
+    return { ...stop, type: stop.type || 'science_stop', description: stop.description || 'Science details pending.' }
+  })
+}
+
+function checkLegs(result) {
+  for (const leg of result.legs) {
+    if (!Number.isFinite(leg.seconds) || leg.seconds <= 0 || leg.path.length < 2) throw new Error('Two consecutive stops occupy the same grid cell. Choose distinct, separated stops.')
+  }
+}
+
+async function getJson(fetcher, url) {
+  const response = await fetcher(url)
+  if (!response.ok) throw new Error(`${url} unavailable (${response.status}).`)
+  return response.json()
+}
+
+/** Projected metres (easting/northing) to this crop's local x/y, using area.json boundsProjected. */
+export function localFromProjected(area, point) {
+  const b = area?.boundsProjected
+  if (!b || !Number.isFinite(point?.easting) || !Number.isFinite(point?.northing)) throw new Error('Scenario points need easting/northing and area.json needs boundsProjected.')
+  return { x: point.easting - b.west, y: point.northing - b.south }
+}
+
 export function buildTerrainRoute(template, area, terrain, science = { status: 'pending', stops: [] }) {
   validateTerrain(terrain)
   const grid = makeGrid(terrain)
@@ -30,20 +58,13 @@ export function buildTerrainRoute(template, area, terrain, science = { status: '
   const selected = science.status === 'ready' ? science.stops : [
     { id: 'boxwork', name: 'Boxwork centre (test target)', type: 'science_stop', x: grid.sizeX / 2, y: grid.sizeY / 2, description: "Grid-centre demonstration target from Nigel's test. Kelly's science stops are pending." },
   ]
-  const ids = new Set(['hab', 'home'])
-  const stops = selected.map((stop) => {
-    if (!stop || typeof stop.id !== 'string' || !stop.id.trim() || ids.has(stop.id) || typeof stop.name !== 'string' || !stop.name.trim() || !Number.isFinite(stop.x) || !Number.isFinite(stop.y) || stop.x < 0 || stop.x >= grid.sizeX || stop.y <= 0 || stop.y > grid.sizeY || stop.type === 'home' || stop.type === 'habitat' || stop.type === 'start') throw new Error('Science stops need unique ids (excluding hab/home), names and in-bounds x/y coordinates. Do not include the habitat.')
-    ids.add(stop.id)
-    return { ...stop, type: stop.type || 'science_stop', description: stop.description || 'Science details pending.' }
-  })
+  const stops = checkStops(selected, grid)
   const result = planRoute(grid, [
     { id: 'hab', name: 'Habitat (H1)', type: 'habitat', x: h1.x, y: h1.y, description: 'Confirmed H1 habitat candidate from area.json.' },
     ...stops,
     { id: 'home', name: 'Return to Habitat', type: 'home', x: h1.x, y: h1.y, description: 'Return to H1.' },
   ])
-  for (const leg of result.legs) {
-    if (!Number.isFinite(leg.seconds) || leg.seconds <= 0 || leg.path.length < 2) throw new Error('Two consecutive stops occupy the same grid cell. Choose distinct, separated stops.')
-  }
+  checkLegs(result)
   if (template.alerts !== undefined) {
     if (!Array.isArray(template.alerts)) throw new Error('Mission alerts must be a list.')
     for (const alert of template.alerts) {
@@ -101,6 +122,51 @@ export async function loadGedizRoute(fetcher = fetch) {
     json('/routes/sample-route.json'), json('/terrain/area.json'), json('/terrain/elevation.json'), json('/terrain/slope.json'), json('/terrain/roughness.json'), json('/routes/gediz-stops.json'),
   ])
   return buildGedizRoute(template, area, { elevation, slope, roughness }, science)
+}
+
+// EVA-09 onward: one walking loop per habitat (H1-H4), listed in public/routes/scenarios.json.
+// Habitats and stops are stored in projected metres, so they survive a change of map crop.
+export function buildScenarioRoute(template, area, terrain, catalog, eva) {
+  validateTerrain(terrain)
+  const grid = makeGrid(terrain)
+  const scenario = catalog?.scenarios?.find((item) => item.eva === eva)
+  if (!scenario || !Array.isArray(scenario.stops) || !scenario.stops.length) throw new Error(`EVA-${eva} has no stop list in scenarios.json.`)
+  const habitat = catalog.habitats?.[scenario.habitat]
+  if (!habitat) throw new Error(`${scenario.id} uses unknown habitat ${scenario.habitat}.`)
+  const h = localFromProjected(area, habitat)
+  if (h.x < 0 || h.x >= grid.sizeX || h.y <= 0 || h.y > grid.sizeY) throw new Error(`${scenario.habitat} is outside this terrain crop.`)
+  if (!template?.mission || template.schema_version !== 1) throw new Error('Mission template is missing or unsupported.')
+  const stops = checkStops(scenario.stops.map((stop) => ({ ...stop, ...localFromProjected(area, stop) })), grid)
+  const label = scenario.habitat
+  const result = planRoute(grid, [
+    { id: 'hab', name: `Habitat (${label})`, type: 'habitat', habitat_id: label, x: h.x, y: h.y, description: habitat.note },
+    ...stops,
+    { id: 'home', name: `Return to Habitat (${label})`, type: 'home', habitat_id: label, x: h.x, y: h.y, description: `Return to ${label}.` },
+  ])
+  checkLegs(result)
+  const mission = { ...template.mission, id: scenario.id, name: scenario.name, home_label: label, latest_turnback_time: null, data_status: 'TERRAIN_ESTIMATE' }
+  return { grid, route: { ...template, mission, ...result,
+    coordinate_system: { ...template.coordinate_system, unit: 'meter', origin_note: area.localCoords, description: '6 km terrain grid; local metres x east, y north. Leaflet [y,x].' },
+    map: { bounds: [[0, 0], [grid.sizeY, grid.sizeX]], basemap_url: '/terrain/basemap.png' },
+    provenance: { terrain: area.source, routing: `Nigel pathfinding from ${label}`, target_status: catalog.status, targets: 'Curiosity waypoints; names, science and photos pending Kelly review', safety: `Simulation. ${label} ${habitat.status === 'confirmed' ? 'is the confirmed habitat' : 'is a candidate habitat site'}; terrain-based estimates under team suit assumptions.` } } }
+}
+
+export function loadScenarioCatalog(fetcher = fetch) {
+  return getJson(fetcher, '/routes/scenarios.json')
+}
+
+export async function loadScenarioRoute(eva, fetcher = fetch) {
+  const [template, area, elevation, slope, roughness, catalog] = await Promise.all([
+    '/routes/sample-route.json', '/terrain/area.json', '/terrain/elevation.json', '/terrain/slope.json', '/terrain/roughness.json', '/routes/scenarios.json',
+  ].map((url) => getJson(fetcher, url)))
+  return buildScenarioRoute(template, area, { elevation, slope, roughness }, catalog, eva)
+}
+
+/** ?eva=07 (or none) is the Boxwork walk, 08 is Gediz, anything else comes from scenarios.json. */
+export function loadRouteForEva(eva, fetcher = fetch) {
+  if (!eva || eva === '07') return loadTerrainRoute(fetcher)
+  if (eva === '08') return loadGedizRoute(fetcher)
+  return loadScenarioRoute(eva, fetcher)
 }
 
 export function roughnessImage(grid) {

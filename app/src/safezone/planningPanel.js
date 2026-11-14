@@ -33,6 +33,7 @@ export function mountPlanningSafety({ root, map, grid, route }) {
   const stormLine = L.polyline([], { color: '#ff7b6e', weight: 5, dashArray: '7 5' })
   const probeMarker = L.circleMarker([0, 0], { radius: 5, color: '#ffffff', fillColor: '#24343a', fillOpacity: 1 })
   let selected = route.stops[0]
+  const homeLabel = route.mission.home_label ?? 'H1'
   let latest = 0
   let result = null
   let stormShown = false
@@ -119,8 +120,8 @@ export function mountPlanningSafety({ root, map, grid, route }) {
     const path = result.storm.path
     if (path.length > 1) stormLine.setLatLngs(path.map((p) => [p.y, p.x])).addTo(map)
     $('ps-storm-note').textContent = path.length > 1
-      ? `SIMULATED storm route to ${route.mission.drive_home_minutes ? 'G2 rover, then assumed 55 min drive to H1' : 'H1'}: ${(result.storm.distance_m / 1000).toFixed(2)} km, ${duration(result.storm.seconds / 60)} on foot. This is a modelled return route, not a live storm alert or shelter certification.`
-      : 'SIMULATED storm: the reference is already in H1\'s grid cell.'
+      ? `SIMULATED storm route to ${route.mission.drive_home_minutes ? 'G2 rover, then assumed 55 min drive to H1' : homeLabel}: ${(result.storm.distance_m / 1000).toFixed(2)} km, ${duration(result.storm.seconds / 60)} on foot. This is a modelled return route, not a live storm alert or shelter certification.`
+      : `SIMULATED storm: the reference is already in ${homeLabel}'s grid cell.`
   }
   function calculate() {
     // Invalidate an in-flight worker response even if the edited scenario is invalid.
@@ -156,8 +157,8 @@ export function mountPlanningSafety({ root, map, grid, route }) {
     const spare = result.spareMinutes[cell]
     const band = result.zone[cell] === ZONE.SAFE ? result.spareMinutes[cell] < 30 ? 'Amber: reserve protected, under 30 min spare' : 'Green: reserve protected' : result.zone[cell] === ZONE.RESERVE ? 'Red: uses reserve' : 'Outside suit budget'
     const zoneText = Number.isFinite(spare)
-      ? `${band}: ${spare.toFixed(1)} min spare before protected reserve after reaching this point, stopping ${result.stopMinutes} min and returning to H1.`
-      : 'This point cannot be reached from the reference or cannot return to H1.'
+      ? `${band}: ${spare.toFixed(1)} min spare before protected reserve after reaching this point, stopping ${result.stopMinutes} min and returning to ${homeLabel}.`
+      : `This point cannot be reached from the reference or cannot return to ${homeLabel}.`
     $('ps-probe').dataset.level = ''
     $('ps-probe').textContent = 'Selected map point: checking GO / NO-GO...'
     const id = ++probeId

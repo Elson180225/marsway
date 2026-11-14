@@ -16,7 +16,7 @@ try {
   ;({ route, grid } = buildTerrainRoute(json('routes/sample-route.json'), json('terrain/area.json'),
     { elevation: json('terrain/elevation.json'), slope: json('terrain/slope.json'), roughness: json('terrain/roughness.json') },
     json('routes/science-stops.json')))
-  homeFile = decodeHomeFile(json('safezone/home-h1.json'), read('safezone/home-h1.bin'))
+  homeFile = decodeHomeFile(json('safezone/home-h1-6km.json'), read('safezone/home-h1-6km.bin'))
 } catch (error) {
   if (error.code !== 'ENOENT') throw error
   console.log('Skipped: terrain or home files not in this workspace.')
