@@ -15,6 +15,8 @@ const terrain = { elevation, slope, roughness }
 const eva07 = buildTerrainRoute(template, area, terrain, boxwork).route
 assert.deepEqual([eva07.stops[0].x, eva07.stops[0].y], [1047.5, 917.5])
 const { grid, route } = buildGedizRoute(template, area, terrain, gediz)
+assert.equal(gediz.status, 'ready')
+assert.equal(route.provenance.target_status, 'ready', 'Science sign-off must reach the Planning photo panel')
 assert.deepEqual([grid.sizeX, grid.sizeY], [6000, 6000])
 assert.deepEqual([route.stops[0].x, route.stops[0].y], [3192.5, 3542.5])
 assert.deepEqual(route.legs.map((leg) => Math.round(leg.seconds / 60)), [17, 13, 4, 11, 10])

@@ -1,6 +1,6 @@
 {
- "status": "draft",
- "notes": "Map Maker 2 draft for the Gediz Vallis EVA on the 5 km map. x/y are local metres on the 5 km map (data/processed/area-5km/area.json): x = easting - 8141000, y = northing + 287000. All four sit at x 3619-3885, y 3233-3660, inside the map (0-5000), each exactly on its Curiosity waypoint. Order and stop_minutes are provisional team estimates until the habitat position is known. Needs Kelly's science check.",
+ "status": "ready",
+ "notes": "Kelly science review complete, 14 November 2026. Four proposed astronaut targets at recorded Curiosity waypoints. Local x/y use the shared southwest origin (west 8141000, south -287000), valid on both the archived 5 km crop and current 6 km app map. Order and stop_minutes are team planning estimates; channel-panorama is the optional bonus. All photos are nearby context views with unverified camera-to-stop offsets. Science readiness does not certify the traverse, rover drive, storm shelter or safety model.",
  "source": "NASA/JPL MSL waypoints (https://mars.nasa.gov/mmgis-maps/MSL/Layers/json/MSL_waypoints.json)",
  "bonus_stop_id": "channel-panorama",
  "stops": [
@@ -18,21 +18,28 @@
    "waypoint_sol": 4102,
    "location_status": "curiosity_waypoint",
    "placement": "proposed_astronaut_target_at_rover_waypoint",
-   "description": "Curiosity's sol 4102 waypoint, on Mt. Sharp bedrock beside the Gediz Vallis channel, with a view of the upper Gediz Vallis ridge. The rover stayed parked here while it drilled \"Mineral King\", its 40th drill hole, on sols 4107 to 4111. This stop is a proposed astronaut target at a real rover waypoint, not a surveyed sample site.",
+   "description": "Proposed astronaut stop at Curiosity's sol 4102 waypoint near the Mineral King drill workspace beside Gediz Vallis. NASA reported successful drilling and sample analysis during the late-February 2024 Mineral King campaign. The nearby Mastcam image from sol 4107 shows the drill hole and tailings. Compare the bedrock context with material inside the channel; the waypoint is not a surveyed position of the drill hole or an astronaut sampling location.",
    "photo_url": "/photos/gediz-mineral-king.jpg",
    "photo_credit": "NASA/JPL-Caltech/MSSS",
    "photo_source_url": "https://science.nasa.gov/blog/sols-4112-4113-in-the-presence-of-royalty/",
-   "photo_caption": "Nearby view, taken while the rover was parked here. Curiosity Mastcam (right) on sol 4107 (25 February 2024, 01:57:05 UTC): the \"Mineral King\" drill hole and its pile of tailings. Sol 4107 has no separate waypoint; it falls between the sol 4102 and sol 4128 waypoints, which are 5.8 m apart.",
+   "photo_caption": "Nearby view. Curiosity Mastcam on sol 4107 shows the Mineral King drill hole and tailings during its February 2024 campaign. The stop is the sol 4102 rover waypoint, not a verified camera or drill-hole position. There is no separate sol 4107 waypoint in the supplied track, so the camera-to-stop distance is unverified.",
    "photo_view": "nearby",
-   "photo_offset_m": 5.8,
+   "photo_offset_m": null,
    "photo_product_id": "4107MR1054040012003650E01_DXXX",
    "photo_taken_utc": "2024-02-25T01:57:05Z",
    "sol": "4107",
    "camera": "Mast Camera (Mastcam)",
-   "why": "Look at a drill hole in Mt. Sharp bedrock at the edge of Gediz Vallis, to compare the bedrock with the debris inside the channel.",
+   "why": "Compare bedrock near the Mineral King drill workspace with channel material to investigate how the local deposits differ.",
    "order": 1,
    "stop_minutes": 20,
-   "is_bonus": false
+   "is_bonus": false,
+   "photo_offset_status": "unverified",
+   "photo_waypoint_bracket": {
+    "before_sol": 4102,
+    "after_sol": 4128,
+    "separation_m": 5.9,
+    "note": "Separation of rounded track waypoints only; not camera-to-stop distance or a bound."
+   }
   },
   {
    "id": "sulfur-crystals",
@@ -48,21 +55,28 @@
    "waypoint_sol": 4200,
    "location_status": "curiosity_waypoint",
    "placement": "proposed_astronaut_target_at_rover_waypoint",
-   "description": "Curiosity's sol 4200 waypoint at Whitebark Pass in the Gediz Vallis channel. On 30 May 2024 (sol 4200) the rover drove over a stone and crushed it, revealing yellow crystals that its arm instrument showed were elemental (pure) sulfur, a first for Mars. Many similar white stones lie in the field around it. The rover drilled the nearby \"Mammoth Lakes\" rock from here in June 2024. How the sulfur formed is still an open question. This stop is a proposed astronaut target at a real rover waypoint.",
+   "description": "Proposed astronaut stop at Curiosity's sol 4200 waypoint near the Whitebark Pass workspace in Gediz Vallis. On 30 May 2024 the rover crushed a rock whose yellow crystals were subsequently identified as elemental sulfur using APXS. NASA described this as the first discovery of pure sulfur on Mars. Mastcam photographed the Convict Lake fragments on sol 4208, 7 June 2024. Similar-looking light-toned rocks are not all independently confirmed as sulfur here; the source of the sulfur remains uncertain.",
    "photo_url": "/photos/gediz-sulfur-crystals.jpg",
    "photo_credit": "NASA/JPL-Caltech/MSSS",
    "photo_source_url": "https://science.nasa.gov/photojournal/curiosity-views-sulfur-crystals-within-a-crushed-rock/",
-   "photo_caption": "Nearby view, taken while the rover was parked here. PIA26309: Curiosity Mastcam on sol 4208 (7 June 2024). Yellow crystals of elemental sulfur inside \"Convict Lake\", the rock the rover crushed on 30 May; the fragments are about 13 cm across. Colour adjusted to Earth-like lighting. Sol 4208 has no separate waypoint; it falls between the sol 4200 and sol 4210 waypoints, which are 0.8 m apart.",
+   "photo_caption": "Nearby view. PIA26309: Curiosity Mastcam on sol 4208 (7 June 2024) shows yellow elemental-sulfur crystals in the Convict Lake fragments, about 13 cm across. Colour is adjusted to Earth-like lighting. The stop uses the sol 4200 waypoint; the exact sol 4208 camera-to-stop offset is unverified.",
    "photo_view": "nearby",
-   "photo_offset_m": 0.8,
+   "photo_offset_m": null,
    "photo_product_id": "PIA26309",
    "photo_taken_utc": null,
    "sol": "4208",
    "camera": "Mast Camera (Mastcam)",
-   "why": "Photograph the first pure sulfur crystals ever found on Mars, and the field of white sulfur stones around them.",
+   "why": "Document the elemental-sulfur discovery context and compare nearby light-toned rocks without assuming that every similar rock contains sulfur.",
    "order": 2,
    "stop_minutes": 30,
-   "is_bonus": false
+   "is_bonus": false,
+   "photo_offset_status": "unverified",
+   "photo_waypoint_bracket": {
+    "before_sol": 4200,
+    "after_sol": 4210,
+    "separation_m": 0.7,
+    "note": "Separation of rounded track waypoints only; not camera-to-stop distance or a bound."
+   }
   },
   {
    "id": "kings-canyon",
@@ -78,21 +92,28 @@
    "waypoint_sol": 4255,
    "location_status": "curiosity_waypoint",
    "placement": "proposed_astronaut_target_at_rover_waypoint",
-   "description": "Curiosity's sol 4255 waypoint on the floor of the Gediz Vallis channel. The rover stayed here until sol 4282 and drilled the \"Kings Canyon\" block on sol 4263 (3 August 2024), just before its 12th landing anniversary, then delivered the sample to CheMin and SAM. This stop is a proposed astronaut target at a real rover waypoint.",
+   "description": "Proposed astronaut stop at Curiosity's sol 4255 waypoint near the Kings Canyon drill workspace within the Gediz Vallis channel. The sol 4263 Mastcam image (3 August 2024) shows the drill hole. NASA's August campaign updates describe analysis of the drilled material, including delivery to SAM. Compare channel-floor material with bedrock outside the channel to investigate the deposits; this waypoint does not by itself establish the exact drill-block position or prove that a particular rock was carried down from higher ground.",
    "photo_url": "/photos/gediz-kings-canyon.jpg",
    "photo_credit": "NASA/JPL-Caltech/MSSS",
    "photo_source_url": "https://science.nasa.gov/blog/sols-4268-4269-admiring-kings-canyon/",
-   "photo_caption": "Nearby view, taken while the rover was parked here. Curiosity Mastcam (right) on sol 4263 (3 August 2024, 07:56:55 UTC): the \"Kings Canyon\" drill hole. Sol 4263 has no separate waypoint; it falls between the sol 4255 and sol 4282 waypoints, which are 1.6 m apart.",
+   "photo_caption": "Nearby view. Curiosity Mastcam on sol 4263 (3 August 2024, 07:56:55 UTC) shows the Kings Canyon drill hole. The stop uses the sol 4255 waypoint. The supplied track has no separate sol 4263 waypoint, so the exact camera-to-stop distance is unverified.",
    "photo_view": "nearby",
-   "photo_offset_m": 1.6,
+   "photo_offset_m": null,
    "photo_product_id": "4263MR1062120011704541E01_DXXX",
    "photo_taken_utc": "2024-08-03T07:56:55Z",
    "sol": "4263",
    "camera": "Mast Camera (Mastcam)",
-   "why": "Sample a block on the channel floor to learn what the Gediz Vallis flows carried down from higher up Mt. Sharp.",
+   "why": "Compare channel-floor material near Kings Canyon with surrounding bedrock to investigate the origin and history of the deposits.",
    "order": 3,
    "stop_minutes": 30,
-   "is_bonus": false
+   "is_bonus": false,
+   "photo_offset_status": "unverified",
+   "photo_waypoint_bracket": {
+    "before_sol": 4255,
+    "after_sol": 4282,
+    "separation_m": 1.6,
+    "note": "Separation of rounded track waypoints only; not camera-to-stop distance or a bound."
+   }
   },
   {
    "id": "channel-panorama",
@@ -108,21 +129,34 @@
    "waypoint_sol": 4350,
    "location_status": "curiosity_waypoint",
    "placement": "proposed_astronaut_target_at_rover_waypoint",
-   "description": "Curiosity's sol 4350 waypoint on the western edge of Gediz Vallis, where the rover drove west out of the channel toward the boxwork. From here the crew can document the channel, the rocky ground it crossed, and the buttes on either side. This stop is a proposed astronaut viewpoint at a real rover waypoint.",
+   "description": "Optional astronaut viewpoint at Curiosity's sol 4350 waypoint on its westward traverse away from Gediz Vallis. Use the nearby sol 4352 Mastcam panorama to compare the rocky channel-exit landscape and the buttes Texoli and Kukenán. The panorama was acquired on 2 November 2024 from an unverified camera position relative to this waypoint. This is a proposed context-photography stop, not a claim that the entire channel is visible or that a climb has been surveyed. Visit only if the return fits the team's time and safety checks.",
    "photo_url": "/photos/gediz-channel-panorama.jpg",
    "photo_credit": "NASA/JPL-Caltech/MSSS",
    "photo_source_url": "https://science.nasa.gov/photojournal/curiosity-makes-rover-tracks-while-heading-west/",
-   "photo_caption": "Nearby view. PIA26471: Curiosity Mastcam panorama on sol 4352 (2 November 2024), made of two mosaics (171 and 169 images) taken around midday while heading west away from Gediz Vallis. The butte on the left is \"Texoli\", on the right \"Kukenán\". Colour adjusted to Earth-like lighting. Sol 4352 has no separate waypoint; it falls between the sol 4350 and 4353 waypoints, which are 19.1 m apart.",
+   "photo_caption": "Nearby view. PIA26471: Curiosity Mastcam on sol 4352 (2 November 2024) while heading west away from Gediz Vallis. Two mosaics contain 171 and 169 frames taken around local midday; Texoli is at left and Kukenán at right. Colour is adjusted to Earth-like lighting. Black areas are mosaic gaps, not terrain or shadow measurements. The stop uses the sol 4350 waypoint; the exact camera-to-stop offset is unverified.",
    "photo_view": "nearby",
-   "photo_offset_m": 19.1,
+   "photo_offset_m": null,
    "photo_product_id": "PIA26471",
    "photo_taken_utc": null,
    "sol": "4352",
    "camera": "Mast Camera (Mastcam)",
-   "why": "Climb onto the western edge and photograph the whole channel, with the buttes Texoli and Kukenán, before heading back.",
+   "why": "Photograph the rocky channel-exit landscape and compare the Texoli and Kukenán butte views with Curiosity's panorama before returning.",
    "order": 4,
    "stop_minutes": 15,
-   "is_bonus": true
+   "is_bonus": true,
+   "photo_offset_status": "unverified",
+   "photo_waypoint_bracket": {
+    "before_sol": 4350,
+    "after_sol": 4353,
+    "separation_m": 19.1,
+    "note": "Separation of rounded track waypoints only; not camera-to-stop distance or a bound."
+   }
   }
- ]
+ ],
+ "science_review": {
+  "reviewer": "Kelly",
+  "date": "2026-11-14",
+  "scope": "Descriptions, photo subjects, sols/cameras/credits, nearby labels and waypoint provenance.",
+  "photo_location_note": "No exact image-sol waypoint is supplied. The distance between temporal bracketing waypoints is not a measured photo offset or a bound on the rover path."
+ }
 }

@@ -12,6 +12,8 @@ const doc = await readJson('data/processed/area-5km/gediz-stops.json')
 const expected = ['mineral-king', 'sulfur-crystals', 'kings-canyon', 'channel-panorama']
 
 assert.deepEqual(doc.stops.map((stop) => stop.id), expected)
+assert.equal(doc.status, 'ready')
+assert.deepEqual(await readJson('app/public/routes/gediz-stops.json'), doc, 'Runtime Gediz stops must match the reviewed data')
 assert.deepEqual(doc.stops.map((stop) => stop.order), [1, 2, 3, 4])
 assert.deepEqual(doc.stops.filter((stop) => stop.is_bonus).map((stop) => stop.id), [doc.bonus_stop_id])
 
@@ -31,10 +33,12 @@ for (const stop of doc.stops) {
   assert.ok(stop.photo_source_url.startsWith('https://science.nasa.gov/'))
   assert.equal(stop.photo_credit, 'NASA/JPL-Caltech/MSSS')
   assert.ok(stop.sol && stop.camera && stop.photo_product_id)
-  // Kelly's rule: a photo from another sol is a "nearby" view and says how far away.
+  // Nearby context is labelled honestly; temporal waypoint gaps are not photo offsets.
   if (stop.photo_view === 'nearby') {
     assert.notEqual(String(stop.sol), String(stop.waypoint_sol), `${stop.id} nearby photo must keep its own sol`)
-    assert.ok(Number.isFinite(stop.photo_offset_m) && stop.photo_offset_m >= 0 && stop.photo_offset_m < 50, `${stop.id} offset`)
+    assert.equal(stop.photo_offset_m, null, `${stop.id}: no measured camera offset is available`)
+    assert.equal(stop.photo_offset_status, 'unverified')
+    assert.ok(stop.photo_waypoint_bracket.before_sol < Number(stop.sol) && Number(stop.sol) < stop.photo_waypoint_bracket.after_sol)
     assert.ok(stop.photo_caption.startsWith('Nearby view'), `${stop.id} caption must say nearby view`)
   } else {
     assert.equal(String(stop.sol), String(stop.waypoint_sol))
@@ -52,8 +56,12 @@ for (let i = 1; i < doc.stops.length; i++) {
 // Terrain: only once the 5 km map is in.
 if (await exists('data/processed/area-5km/area.json')) {
   const area = await readJson('data/processed/area-5km/area.json')
+  const track = await readJson('data/processed/area-5km/curiosity_track.json')
   const { west, south } = area.boundsProjected
   for (const stop of doc.stops) {
+    const waypoint = track.points.find((point) => point.sol === stop.waypoint_sol)
+    assert.ok(waypoint, `${stop.id}: missing real waypoint`)
+    assert.deepEqual([stop.x, stop.y, stop.lon, stop.lat], [waypoint.x, waypoint.y, waypoint.lon, waypoint.lat])
     const x = stop.easting - west
     const y = stop.northing - south
     assert.ok(x >= 0 && x < area.sizeMetres && y > 0 && y <= area.sizeMetres, `${stop.id} is outside the 5 km map`)

@@ -1,9 +1,9 @@
-# Gediz Vallis stops (5 km map, draft)
+# Gediz Vallis stops (science reviewed)
 
 Four science stops for a second EVA on the bigger 5 km map, in and beside the **Gediz Vallis channel** on Mount Sharp. Curiosity drove through this channel in 2024, before it reached the boxwork in 2025.
 
 - Data: `gediz-stops.json` (this folder). Photos: `app/public/photos/gediz-*.jpg`.
-- Status: **draft**, placed on the 5 km map. The app does not load these stops yet (it still uses the 3 km map).
+- Status: **ready** after Kelly's science review, 14 November 2026. This folder retains the 5 km source data; the current Planning app loads the matching `app/public/routes/gediz-stops.json` on the 6 km map. Both crops share the southwest origin. See `SCIENCE-REVIEW.md` for the review and limits.
 - Same format and photo rules as Kelly's EVA-07 stops (see `../SCIENCE-STOPS.md` and `../KELLY-HANDOFF.md`).
 
 Stop names are mission roles for a proposed astronaut EVA. Every coordinate is a real Curiosity waypoint from NASA/JPL's MSL waypoint list.
@@ -13,24 +13,24 @@ Stop names are mission roles for a proposed astronaut EVA. Every coordinate is a
 | Order | ID | Name | Waypoint sol | Visit | Why go |
 |---|---|---|---|---:|---|
 | 1 | `mineral-king` | Mineral King Drill Site | 4102 | 20 min | Drill hole in Mt. Sharp bedrock at the edge of the channel, to compare with the debris inside it |
-| 2 | `sulfur-crystals` | Sulfur Crystal Field | 4200 | 30 min | The first pure sulfur crystals found on Mars, and the field of white sulfur stones around them |
-| 3 | `kings-canyon` | Kings Canyon Drill Site | 4255 | 30 min | A block on the channel floor: what the Gediz Vallis flows carried down from higher up |
+| 2 | `sulfur-crystals` | Sulfur Crystal Field | 4200 | 30 min | Elemental-sulfur discovery context; compare nearby rocks without assuming they all contain sulfur |
+| 3 | `kings-canyon` | Kings Canyon Drill Site | 4255 | 30 min | Compare channel-floor material with surrounding bedrock to investigate the deposits |
 | 4 | `channel-panorama` | Gediz Vallis Panorama (**bonus**) | 4350 | 15 min | View of the whole channel and the buttes Texoli and Kukenán before heading back |
 
-Visit times are team estimates for science work at the stop, not counting walking. Order and visit times are provisional until the habitat for this map is chosen.
+Visit times are team estimates for science work at the stop, not counting walking. Science sign-off covers the descriptions and photo attribution; the order, visit times, rover staging and route safety remain team planning assumptions.
 
 ## Photographs
 
-All four are nearby views from Curiosity's Mastcam, taken while the rover was parked at or just beside the waypoint. Credit for all: NASA/JPL-Caltech/MSSS.
+All four are Mastcam context images associated with the proposed waypoint stops. Exact image-sol camera locations are not supplied. Keep every photo labelled **Nearby view** without claiming a measured offset. Credit for all: NASA/JPL-Caltech/MSSS.
 
-| Stop | Photo sol | Product | Distance from stop | Source |
+| Stop | Photo sol | Product | Camera-to-stop distance | Source |
 |---|---|---|---:|---|
-| Mineral King | 4107 | `4107MR1054040012003650E01_DXXX` | 5.8 m | [Sols 4112–4113: In the Presence of Royalty](https://science.nasa.gov/blog/sols-4112-4113-in-the-presence-of-royalty/) |
-| Sulfur Crystal Field | 4208 | PIA26309 | 0.8 m | [Curiosity Views Sulfur Crystals Within a Crushed Rock](https://science.nasa.gov/photojournal/curiosity-views-sulfur-crystals-within-a-crushed-rock/) |
-| Kings Canyon | 4263 | `4263MR1062120011704541E01_DXXX` | 1.6 m | [Sols 4268–4269: Admiring Kings Canyon](https://science.nasa.gov/blog/sols-4268-4269-admiring-kings-canyon/) |
-| Gediz Vallis Panorama | 4352 | PIA26471 | 19.1 m | [Curiosity Makes Rover Tracks While Heading West](https://science.nasa.gov/photojournal/curiosity-makes-rover-tracks-while-heading-west/) |
+| Mineral King | 4107 | `4107MR1054040012003650E01_DXXX` | Unverified | [Sols 4112–4113: In the Presence of Royalty](https://science.nasa.gov/blog/sols-4112-4113-in-the-presence-of-royalty/) |
+| Sulfur Crystal Field | 4208 | PIA26309 | Unverified | [Curiosity Views Sulfur Crystals Within a Crushed Rock](https://science.nasa.gov/photojournal/curiosity-views-sulfur-crystals-within-a-crushed-rock/) |
+| Kings Canyon | 4263 | `4263MR1062120011704541E01_DXXX` | Unverified | [Sols 4268–4269: Admiring Kings Canyon](https://science.nasa.gov/blog/sols-4268-4269-admiring-kings-canyon/) |
+| Gediz Vallis Panorama | 4352 | PIA26471 | Unverified | [Curiosity Makes Rover Tracks While Heading West](https://science.nasa.gov/photojournal/curiosity-makes-rover-tracks-while-heading-west/) |
 
-The photo sol is not its own waypoint in each case, so every photo is labelled a nearby view. The distance is between the two waypoints either side of the photo sol.
+The supplied track has no waypoint for any of these exact photo sols. `photo_offset_m` is therefore null. `photo_waypoint_bracket` records temporal endpoint separation for provenance only; this is neither a measured photo-to-stop offset nor a bound on the rover path. A different photo sol alone does not establish a different position.
 
 ## Still to do
 
@@ -48,8 +48,8 @@ The photo sol is not its own waypoint in each case, so every photo is labelled a
 - [x] **Safety.** Home file for EVA-08 built: `app/public/safezone/home-g2.*` (home = rover at G2, 5 km grid). The phone loads it with `loadHomeFile('/safezone/home-g2')`. Back to the rover: Mineral King 15 min, Sulfur Crystal Field 18 min, Kings Canyon 19 min, Panorama 10 min. In a solar storm, the storm route leads back to the rover. See `app/src/safezone/README.md`.
 - [x] **6 km map.** `area-6km/` (PR #22) has the same bottom-left corner (west 8141000, south −287000), so the stop x/y and G2 stay the same. Home file rebuilt on the 1200 × 1200 grid as `app/public/safezone/home-g2-6km.*` (7.2 MB); the times back to the rover and every leg are identical to the 5 km map. `home-g2` (5 km) stays until everyone has switched.
 - [ ] **Suit time during the drive.** Team to decide: if the crew is suited for the H1 → G2 drive, that time counts toward the 8 h suit.
-- [ ] **On screen.** Aaron (Planning) and Russell (Walk) add EVA-08 when they switch to the bigger map.
-- [ ] **Science check** by Kelly.
+- [x] **Planning data integration.** The app already loads the runtime copy on the 6 km map. Science readiness now flows into route provenance. Russell owns the EVA-08 Walk integration and physical-phone check.
+- [x] **Science check** by Kelly: descriptions qualified, source/camera/sol/credits checked, unsupported photo distances removed. See `SCIENCE-REVIEW.md`.
 
 ## Test
 

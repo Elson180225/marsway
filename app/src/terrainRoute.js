@@ -88,7 +88,7 @@ export function buildGedizRoute(template, area, terrain, science) {
   return { grid, route: { ...template, mission, ...result,
     coordinate_system: { ...template.coordinate_system, unit: 'meter', origin_note: area.localCoords, description: '6 km terrain grid; local metres x east, y north. Leaflet [y,x].' },
     map: { bounds: [[0, 0], [grid.sizeY, grid.sizeX]], basemap_url: '/terrain/basemap.png' },
-    provenance: { terrain: area.source, routing: 'Nigel pathfinding from G2', target_status: 'draft', targets: 'Kelly Gediz stops; science review pending', safety: 'Simulation. Rover is open, not storm shelter. Suited drives use the 8 h budget; 2 h reserve protected.' } } }
+    provenance: { terrain: area.source, routing: 'Nigel pathfinding from G2', target_status: science.status, targets: science.status === 'ready' ? 'Kelly reviewed Gediz science stops' : 'Gediz stops; science review pending', safety: 'Simulation. Rover is open, not storm shelter. Suited drives use the 8 h budget; 2 h reserve protected.' } } }
 }
 
 export async function loadGedizRoute(fetcher = fetch) {
