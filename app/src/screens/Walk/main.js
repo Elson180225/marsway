@@ -6,8 +6,8 @@ import { createTerrainNavigation } from '../../terrainNavigation.js'
 import { loadHomeFile } from '../../safezone/homeFile.js'
 import { stopMetadata } from '../../stopDetails.js'
 import {
-  ALERT_LEVELS, advance, bearing, bonusStatus, buildReturnTrip, canHeadHome, cardinal, currentTrip, headHome,
-  minutesBehindPlan, photoStop, pointAlong, radiationDose, safetyStatus, segmentLength, shelterFor, sortWarnings,
+  ALERT_LEVELS, advance, bearing, bonusStatus, buildReturnTrip, canHeadHome, cardinal, currentTrip, hazardSpots, headHome,
+  minutesBehindPlan, pathLength, photoStop, pointAlong, radiationDose, safetyStatus, segmentLength, shelterFor, sortWarnings,
 } from './walk-model.js'
 
 const root = document.querySelector('#walk')
@@ -83,8 +83,6 @@ function start(route, navigation, grid) {
   let speedIndex = 1
   let follow = true
   let homeArmedUntil = 0
-  let warningsKey = ''
-  let alertsKey = ''
   let photoKey = ''
   let simAlert = null
 
@@ -94,11 +92,9 @@ function start(route, navigation, grid) {
         <a class="walk-brand" href="/" aria-label="Back to the Planning screen"><span class="walk-brand-mark">✦</span>MARS<span>WAY</span></a>
         <div class="walk-mission"><span>${safe(mission.id)}</span><strong id="w-clock">--:--:--</strong><small>UTC</small></div>
       </header>
-      ${isSample ? '<p class="walk-sample"><span class="walk-dot"></span>Terrain route estimates; simulated clock, suit budget and position. Not live navigation.</p>' : ''}
-
-      <section id="w-alerts" class="walk-alerts" aria-label="Alerts" aria-live="assertive"></section>
 
       <section id="w-status" class="walk-status" role="status" aria-live="polite"></section>
+
 
       <section class="walk-next" aria-label="Next stop">
         <div class="walk-next-head">
@@ -120,6 +116,13 @@ function start(route, navigation, grid) {
         </div>
       </section>
 
+      <section id="w-map-card" class="walk-map-card" aria-label="Route map">
+        <div id="w-map" role="img" aria-label="Map of the current leg, your simulated position, the path home and pop-ups for stops, hazards and alerts"></div>
+        <button type="button" id="w-recenter" class="walk-recenter" hidden>⌖ Recenter</button>
+        <div class="walk-legend"><span class="walk-legend-line"></span>This leg<span class="walk-legend-dash"></span>Path home<span class="walk-hazard is-caution walk-legend-sign"><i>!</i></span>Hazard</div>
+      </section>
+      <p id="w-announce" class="walk-sr" aria-live="assertive"></p>
+
       <section class="walk-tiles" aria-label="Turn-back timer, time home, bonus stop and radiation">
         <div class="walk-tile" id="w-turnback-tile"><span>TURN BACK IN</span><strong id="w-turnback">–</strong><small id="w-turnback-by">–</small></div>
         <div class="walk-tile"><span>HOME FROM HERE</span><strong id="w-home">–</strong><small id="w-reserve">–</small></div>
@@ -127,18 +130,7 @@ function start(route, navigation, grid) {
         <div class="walk-tile" id="w-rad-tile" title="Estimate: about 0.67 mSv a day on the surface at Gale Crater, measured by Curiosity's RAD instrument (Hassler et al. 2014)."><span>RADIATION SO FAR</span><strong id="w-rad">–</strong><small id="w-rad-note">–</small></div>
       </section>
 
-      <section class="walk-map-card" aria-label="Route map">
-        <div id="w-map" role="img" aria-label="Map of the current leg, your simulated position and the path home"></div>
-        <button type="button" id="w-recenter" class="walk-recenter" hidden>⌖ Recenter</button>
-        <div class="walk-legend"><span class="walk-legend-line"></span>This leg<span class="walk-legend-dash"></span>Path home</div>
-      </section>
-
       <section id="w-photo" class="walk-photo" aria-label="Photo and task for this stop" hidden></section>
-
-      <section class="walk-warnings" aria-label="Warnings for this leg">
-        <h2 class="walk-eyebrow">WARNINGS ON THIS LEG</h2>
-        <div id="w-warnings"></div>
-      </section>
 
       <div class="walk-actions">
         <button type="button" id="w-primary" class="walk-btn walk-btn-primary"></button>
@@ -155,8 +147,7 @@ function start(route, navigation, grid) {
   // Map
   const map = L.map('w-map', { crs: L.CRS.Simple, minZoom: -3, maxZoom: 2, zoomSnap: 0.25, zoomControl: false, attributionControl: false })
   L.imageOverlay(route.map.basemap_url, route.map.bounds, { opacity: 0.8, interactive: false }).addTo(map).on('error', () => {
-    const notice = document.querySelector('.walk-sample')
-    if (notice) notice.textContent = 'Basemap unavailable. Terrain routing is still active; position and suit budget are simulated.'
+    $('w-map-card').insertAdjacentHTML('beforeend', '<p class="walk-map-note">No basemap. Routing still uses the terrain.</p>')
   })
   const allPoints = legs.flatMap((leg) => leg.path.map(mapPoint))
   map.fitBounds(L.latLngBounds(allPoints).pad(0.15))
@@ -202,30 +193,124 @@ function start(route, navigation, grid) {
   $('w-speed').addEventListener('click', () => { speedIndex = (speedIndex + 1) % SPEEDS.length; update() })
   $('w-storm').addEventListener('click', () => { simAlert = simAlert ? null : simulatedStorm(route); update() })
 
-  function renderAlerts(point) {
+  // Map pop-ups: every notice (storm or other alert, turn back, arriving at a stop, hazards ahead,
+  // the bonus GO / NO-GO) is a small pop-up pinned where it applies, instead of a text card.
+  const popUp = (direction, offset) => L.tooltip({ permanent: true, direction, offset, opacity: 1, className: 'walk-pop' })
+  const crewPop = popUp('top', [0, -14]) // alerts and turn back, on the crew
+  const stopPop = popUp('bottom', [0, 14]) // the stop the crew is at
+  const bonusPop = popUp('top', [0, -14]) // the bonus decision, on the bonus stop
+  const popHtml = new Map()
+  const hazardLayer = L.layerGroup().addTo(map)
+  let hazards = [] // [{ spot, marker, pinned }] for the trip being walked
+  let hazardsKey = ''
+  let hazardLength = 1
+  let announced = new Set()
+
+  function showPop(pop, latlng, level, title, line = '') {
+    if (!title) { if (map.hasLayer(pop)) pop.remove(); return null }
+    const html = `<b>${safe(title)}</b>${line ? `<span>${safe(line)}</span>` : ''}`
+    pop.setLatLng(latlng)
+    if (popHtml.get(pop) !== html) { pop.setContent(html); popHtml.set(pop, html) }
+    if (!map.hasLayer(pop)) pop.addTo(map)
+    pop.getElement().dataset.level = level
+    return { id: title, text: `${title}. ${line}` }
+  }
+
+  const alertName = (alert) => {
+    const name = String(alert.type || 'alert').replaceAll('_', ' ')
+    return `${alert.type === 'solar_storm' ? '☀︎ ' : '⚠︎ '}${name[0].toUpperCase()}${name.slice(1)}${alert.simulated ? ' (sim)' : ''}`
+  }
+
+  function shelterLine(point, shelter) {
+    if (!shelter) return 'No shelter nearby'
+    const metres = segmentLength(point, shelter)
+    if (metres < 1) return `Shelter here: ${shelter.name}`
+    return `Go to ${shelter.name}, ${distance(metres)} ${cardinal(bearing(point, shelter))}`
+  }
+
+  // Hazard signs for the leg being walked, at the worst spot of each planner warning on it.
+  function placeHazards(trip) {
+    const key = `${state.mode}:${state.legIndex}`
+    if (key === hazardsKey) return
+    hazardsKey = key
+    hazardLayer.clearLayers()
+    hazardLength = Math.max(1, pathLength(trip.path))
+    hazards = state.mode === 'complete' ? [] : hazardSpots(grid, trip).map((spot) => {
+      const steep = spot.type === 'steep_slope'
+      const icon = L.divIcon({ className: 'walk-stop-icon', html: `<span class="walk-hazard is-${safe(spot.level)}"><i>${steep ? '!' : '≈'}</i></span>`, iconSize: [24, 24], iconAnchor: [12, 12] })
+      const marker = L.marker(mapPoint(spot.point), { icon, keyboard: false, title: steep ? 'Steep ground' : 'Rough ground' }).addTo(hazardLayer)
+      marker.bindTooltip('', { permanent: true, direction: 'right', offset: [12, 0], opacity: 1, className: 'walk-pop' }).closeTooltip()
+      const hazard = { spot, marker, pinned: false, title: steep ? 'Steep ground' : 'Rough ground' }
+      marker.on('click', () => { hazard.pinned = !hazard.pinned; update() }) // tap a sign to show or hide it
+      return hazard
+    })
+  }
+
+  // While walking, the most serious sign within 300 m ahead (or just passed) opens by itself, one at
+  // a time so pop-ups don't pile up. Any sign opens with a tap.
+  function renderHazards() {
+    const walked = state.progress * hazardLength
+    const notes = []
+    const onTheMove = state.mode !== 'complete' && !atStop()
+    const near = hazards.filter((hazard) => onTheMove && hazard.spot.along - walked >= -25 && hazard.spot.along - walked <= 300)
+    const rank = (hazard) => (hazard.spot.level === 'danger' ? 0 : hazard.spot.level === 'caution' ? 1 : 2)
+    const auto = near.sort((a, b) => rank(a) - rank(b) || Math.abs(a.spot.along - walked) - Math.abs(b.spot.along - walked))[0]
+    for (const hazard of hazards) {
+      const ahead = hazard.spot.along - walked
+      const tooltip = hazard.marker.getTooltip()
+      if (hazard !== auto && !hazard.pinned) { hazard.marker.closeTooltip(); continue }
+      const line = ahead > 25 ? `${distance(ahead)} ahead` : ahead >= -25 ? 'Here, take care' : 'Passed'
+      const html = `<b>${hazard.title}</b><span>${line}</span>`
+      if (tooltip.getContent() !== html) tooltip.setContent(html)
+      if (!hazard.marker.isTooltipOpen()) hazard.marker.openTooltip()
+      tooltip.getElement().dataset.level = hazard.spot.level
+      if (hazard === auto) notes.push({ id: hazard.title, text: `${hazard.title}. ${line}` })
+    }
+    return notes
+  }
+
+  function renderNotices(trip, point, safety, bonus) {
+    const notes = []
+    // On the crew: the most serious alert (storm first), else "turn back" when the suit time is short.
     const alerts = sortWarnings([...(route.alerts || []), ...(simAlert ? [simAlert] : [])])
-    const key = `${alerts.length}:${simAlert ? 1 : 0}:${Math.round(point.x / 25)}:${Math.round(point.y / 25)}`
-    if (key === alertsKey) return
-    alertsKey = key
-    const shelterStops = []
-    $('w-alerts').innerHTML = alerts.map((alert) => {
-      const shelter = shelterFor(route, alert)
-      if (shelter && alert.level !== 'info') shelterStops.push(shelter)
-      let shelterLine = '<small class="walk-alert-shelter">No shelter identified.</small>'
-      if (shelter) {
-        const deg = bearing(point, shelter)
-        const metres = segmentLength(point, shelter)
-        shelterLine = metres < 1
-          ? `<small class="walk-alert-shelter">Shelter: ${safe(shelter.name)} · you are here</small>`
-          : `<small class="walk-alert-shelter">Shelter: <b>${safe(shelter.name)}</b> · ${distance(metres)} ${cardinal(deg)} in a straight line (not a planned route)</small>`
-      }
-      return `<div class="walk-alert is-${safe(alert.level)}">
-        <div class="walk-alert-head"><strong>${safe(String(alert.type).replaceAll('_', ' '))}</strong>${alert.simulated ? '<span class="walk-alert-sim">SIMULATED</span>' : ''}</div>
-        <p>${safe(alert.message)}</p>${shelterLine}
-      </div>`
-    }).join('')
-    if (shelterStops.length) shelterRing.setLatLng(mapPoint(shelterStops[0])).addTo(map)
+    const alert = state.mode === 'complete' ? null : alerts[0]
+    const shelter = alert ? shelterFor(route, alert) : null
+    let crewLevel = ''
+    if (alert) {
+      crewLevel = alert.level
+      notes.push(showPop(crewPop, mapPoint(point), alert.level, alertName(alert), shelterLine(point, shelter)))
+    } else if (safety.level === 'danger' && state.mode !== 'complete') {
+      crewLevel = 'danger'
+      notes.push(showPop(crewPop, mapPoint(point), 'danger', safety.title, `Home ${duration(safety.homeMinutes)}`))
+    } else showPop(crewPop)
+    if (shelter && alert.level !== 'info') shelterRing.setLatLng(mapPoint(shelter)).addTo(map)
     else shelterRing.remove()
+    $('w-map-card').dataset.level = crewLevel
+
+    // On a stop: arriving, the science countdown, then "walk on"; and "home" at the end.
+    const scienceLeft = state.scienceLeft || 0
+    if (atStop()) {
+      const here = trip.from
+      notes.push(showPop(stopPop, mapPoint(here), here.is_bonus ? 'caution' : 'info', here.name,
+        scienceLeft ? `Science, ${duration(scienceLeft)} left` : 'Science done, walk on'))
+    } else if (state.mode === 'complete') {
+      notes.push(showPop(stopPop, mapPoint(trip.to), 'ok', 'Back home', 'EVA complete'))
+    } else showPop(stopPop)
+
+    // On the bonus stop, while it is the next stop: GO, tight or NO-GO from Mia's check.
+    if (bonus?.phase === 'ahead' && bonus.decideNow && Number.isFinite(bonus.spareMinutes)) {
+      const tight = bonus.go && bonus.level === 'caution'
+      notes.push(showPop(bonusPop, mapPoint(bonus.stop), bonus.go ? (tight ? 'caution' : 'ok') : 'danger',
+        `Bonus ${bonus.go ? (tight ? 'tight' : 'GO') : 'NO-GO'}`,
+        bonus.spareMinutes >= 0 ? `${duration(bonus.spareMinutes)} to spare` : `Skip it, uses ${duration(-bonus.spareMinutes)} of reserve`))
+    } else showPop(bonusPop)
+
+    notes.push(...renderHazards())
+    // Read each new pop-up aloud once for screen readers (the map itself is a picture to them).
+    const shown = notes.filter(Boolean)
+    const fresh = shown.filter((note) => !announced.has(note.id))
+    announced = new Set(shown.map((note) => note.id))
+    if (fresh.length) $('w-announce').textContent = fresh.map((note) => note.text).join(' ')
   }
 
   // Rendering
@@ -255,16 +340,16 @@ function start(route, navigation, grid) {
     const urgent = [...(route.alerts || []), ...(simAlert ? [simAlert] : [])].find((a) => a.level === 'danger')
     if (urgent && state.mode !== 'complete') {
       const shelter = shelterFor(route, urgent)
-      safety = { ...safety, level: 'danger', title: shelter ? `Go to shelter: ${shelter.name}` : 'Danger alert', message: shelter?.id === stops[0].id ? 'Shelter is the habitat. Use Head home to follow the planned return path.' : 'See the alert above.' }
+      safety = { ...safety, level: 'danger', title: shelter ? `Go to shelter: ${shelter.name}` : 'Danger alert', message: shelter?.id === stops[0].id ? 'Shelter is the habitat. Use Head home to follow the planned return path.' : 'See the alert on the map.' }
     }
     const complete = state.mode === 'complete'
-    renderAlerts(point)
 
     $('w-clock').textContent = utcTime(state.clockMs, true)
 
     const status = $('w-status')
     status.className = `walk-status is-${safety.level}`
-    status.innerHTML = `<span class="walk-status-icon">${safety.level === 'ok' ? '✓' : safety.level === 'info' ? '⌂' : '!'}</span><div><strong>${safe(safety.title)}</strong><small>${safe(safety.message)}</small></div>`
+    status.innerHTML = `<span class="walk-status-icon">${safety.level === 'ok' ? '✓' : safety.level === 'info' ? '⌂' : '!'}</span><strong>${safe(safety.title)}</strong><span class="walk-sr">${safe(safety.message)}</span>${isSample ? '<span class="walk-sim" title="Simulated clock, suit budget and position on terrain route estimates. Not live navigation.">Simulation</span>' : ''}`
+    status.title = safety.message
 
     const scienceLeft = state.scienceLeft || 0
     $('w-next-label').textContent = complete ? 'EVA COMPLETE' : state.mode === 'return' ? 'HEADING HOME' : trip.to.is_bonus ? 'NEXT STOP · BONUS' : 'NEXT STOP'
@@ -277,30 +362,33 @@ function start(route, navigation, grid) {
       const deg = bearing(point, ahead)
       $('w-arrow').style.transform = `rotate(${deg}deg)`
       $('w-arrow').toggleAttribute('hidden', false)
-      $('w-heading').textContent = `Head ${cardinal(deg)} · ${Math.round(deg)}°`
+      $('w-heading').textContent = `${cardinal(deg)} · ${Math.round(deg)}°`
     } else {
       $('w-arrow').toggleAttribute('hidden', true)
       $('w-heading').textContent = complete ? 'Back at the habitat' : '–'
     }
-    $('w-eta').textContent = complete ? '' : `${scienceLeft ? `${duration(scienceLeft)} science, then ` : ''}${duration(leftMinutes)} walking · arrive ${utcTime(state.clockMs + (scienceLeft + leftMinutes) * 60000)} UTC`
+    $('w-eta').textContent = complete ? '' : `${scienceLeft ? `${duration(scienceLeft)} science + ` : ''}${duration(leftMinutes)} walk · arrive ${utcTime(state.clockMs + (scienceLeft + leftMinutes) * 60000)}`
 
     // Turn-back = suit deadline − reserve − time home from here, so it shrinks faster while walking away.
     const outbound = state.mode === 'outbound'
     const turnbackIn = safety.turnbackIn
     $('w-turnback').textContent = outbound ? (turnbackIn > 0 ? duration(turnbackIn) : 'NOW') : '—'
     $('w-turnback-by').textContent = outbound
-      ? (turnbackIn > 0 ? `start home by ${utcTime(state.clockMs + turnbackIn * 60000)} UTC` : 'start heading home')
-      : complete ? 'walk finished' : 'already heading home'
+      ? (turnbackIn > 0 ? `by ${utcTime(state.clockMs + turnbackIn * 60000)} UTC` : 'head home now')
+      : complete ? 'walk finished' : 'heading home'
     $('w-turnback-tile').className = `walk-tile ${outbound && turnbackIn <= 0 ? 'is-danger' : outbound && turnbackIn <= 30 ? 'is-caution' : ''}`
     $('w-home').textContent = complete ? '0m' : duration(safety.homeMinutes)
-    $('w-reserve').textContent = `${duration(safety.reserveAtHome)} suit time left at home`
+    $('w-reserve').textContent = `${duration(safety.reserveAtHome)} suit left at home`
 
     // At a stop: how the crew is doing against the planned times, and the demo "+30m here" button.
     $('w-stop-row').hidden = !atStop()
     const behind = minutesBehindPlan(route, state, state.clockMs) ?? 0
     $('w-plan').textContent = behind < 0.5 ? 'On schedule' : `${duration(behind)} behind schedule`
     $('w-plan').classList.toggle('is-late', behind >= 0.5)
-    renderBonus()
+    let bonus
+    try { bonus = bonusStatus(route, state, state.clockMs, { grid, timeHome: navigation.timeHome }) }
+    catch (error) { bonus = { phase: 'error', error } }
+    renderBonus(bonus)
     renderRadiation()
     renderPhoto()
 
@@ -310,18 +398,8 @@ function start(route, navigation, grid) {
     homeLine.setLatLngs(homePath.map(mapPoint))
     me.setLatLng(mapPoint(point))
     if (follow) map.panTo(mapPoint(point), { animate: false })
-
-    // Warnings only re-render when the leg changes.
-    const key = `${state.mode}:${state.legIndex}`
-    if (key !== warningsKey) {
-      warningsKey = key
-      const items = sortWarnings(trip.warnings)
-      $('w-warnings').innerHTML = complete
-        ? '<p class="walk-none">Route finished.</p>'
-        : items.length
-          ? items.map((w) => `<div class="walk-warning is-${safe(w.level)}"><span>${w.level === 'info' ? 'i' : '!'}</span><div><strong>${safe(String(w.type).replaceAll('_', ' '))} · ${safe(w.level)}</strong><small>${safe(w.message)}</small></div></div>`).join('')
-          : '<p class="walk-none">No warnings on this leg.</p>'
-    }
+    placeHazards(trip)
+    renderNotices(trip, point, safety, bonus)
 
     // Buttons
     const primary = $('w-primary')
@@ -343,10 +421,7 @@ function start(route, navigation, grid) {
   }
 
   // Bonus stop GO / NO-GO from Mia's check. Before the stop it answers "if we keep to the plan".
-  function renderBonus() {
-    let bonus
-    try { bonus = bonusStatus(route, state, state.clockMs, { grid, timeHome: navigation.timeHome }) }
-    catch (error) { bonus = { phase: 'error', error } }
+  function renderBonus(bonus) {
     const tile = $('w-bonus-tile')
     tile.hidden = !bonus
     $('w-rad-tile').classList.toggle('is-wide', !bonus)
@@ -399,7 +474,7 @@ function start(route, navigation, grid) {
       ${meta.photo ? `<figure>
         <img alt="${safe(meta.caption || `Photo near ${meta.name}`)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">
         <p class="walk-photo-missing" hidden>Photo could not load.</p>
-        <figcaption>${meta.nearby ? `<strong class="walk-photo-nearby">Nearby view${away}, not taken at this exact spot.</strong>` : ''}
+        <figcaption>${meta.nearby ? `<strong class="walk-photo-nearby">Nearby view${away}</strong>` : ''}
           ${shot ? `${safe(shot)} · ` : ''}Image: ${safe(meta.credit || 'credit pending')}${meta.source ? ` · <a href="${safe(meta.source)}" target="_blank" rel="noopener noreferrer">Source ↗</a>` : ''}</figcaption>
       </figure>` : '<p class="walk-photo-missing">No photo for this stop yet.</p>'}
       <details><summary>More about this stop</summary><p>${safe(meta.description)}</p>${meta.caption ? `<p>${safe(meta.caption)}</p>` : ''}</details>`
@@ -414,7 +489,7 @@ function start(route, navigation, grid) {
     const dose = radiationDose(route, state.clockMs)
     const hours = Number.isInteger(dose.walkHours) ? `${dose.walkHours}h` : duration(dose.walkHours * 60)
     $('w-rad').textContent = `${dose.soFarMSv.toFixed(2)} mSv`
-    $('w-rad-note').textContent = `${dose.fullWalkMSv.toFixed(2)} mSv for a full ${hours} walk`
+    $('w-rad-note').textContent = `full ${hours} walk: ${dose.fullWalkMSv.toFixed(2)} mSv`
   }
 
   let last = performance.now()
