@@ -1,0 +1,8 @@
+{
+  "appId": "com.marsway.app",
+  "appName": "MarsWay",
+  "webDir": "dist",
+  "server": {
+    "appStartPath": "/walk.html"
+  }
+}
