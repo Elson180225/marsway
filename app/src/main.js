@@ -1,6 +1,7 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './style.css'
+import './scienceLayers.css'
 import { mountPlanningSafety } from './safezone/planningPanel.js'
 import './stopDetails.css'
 import { renderStopDetails } from './stopDetails.js'
@@ -75,9 +76,10 @@ function render(route, grid) {
         <section class="workspace" aria-label="Route planner">
           <div class="map-panel">
             <div class="panel-header"><div><span class="eyebrow">GALE CRATER / LOCAL GRID</span><h2>Route overview</h2></div><span class="map-scale">LOCAL METRES · TERRAIN GRID</span></div>
-            <div class="layer-toolbar" role="group" aria-label="Terrain map layers"><span>LAYERS</span><button type="button" data-layer="terrain" aria-pressed="true">◈ Basemap</button><button type="button" data-layer="slope" aria-pressed="false">▥ Slope</button><button type="button" data-layer="roughness" aria-pressed="false">⁙ Roughness</button><button type="button" data-layer="safety" aria-pressed="true">Safe zone</button></div>
+            <div class="layer-toolbar" role="group" aria-label="Terrain map layers"><span>LAYERS</span><button type="button" data-layer="terrain" aria-pressed="true">◈ Basemap</button><button type="button" data-layer="slope" aria-pressed="false">▥ Slope</button><button type="button" data-layer="roughness" aria-pressed="false">⁙ Roughness</button><button type="button" data-layer="safety" aria-pressed="true">Safe zone</button><button type="button" data-layer="ctx" aria-pressed="false">CTX photo</button><button type="button" data-layer="crismHyd" aria-pressed="false">CRISM hydrated</button><button type="button" data-layer="crismAlt" aria-pressed="false">CRISM alteration</button><button type="button" data-layer="themis" aria-pressed="false">THEMIS night</button></div>
             <div id="map" role="img" aria-label="Terrain map showing the ordered demo stops and calculated return path"></div>
             <div class="map-footer"><div><span class="legend-line"></span> Planned path <span class="legend-dash"></span> Return from selected stop</div><span>Drag to explore · scroll to zoom</span></div>
+            <p id="science-layer-note" class="science-layer-note" role="status">Select an orbital layer for source and resolution notes. The basemap remains the terrain reference.</p>
           </div>
           <div class="route-panel">
             <div class="panel-header"><div><span class="eyebrow">EVA-07 / FLIGHT PLAN</span><h2>Route stops</h2></div><span class="count">${stops.length} STOPS</span></div>
@@ -98,18 +100,48 @@ function render(route, grid) {
   const terrain = L.imageOverlay('/terrain/basemap.png', bounds, { opacity: 0.92, interactive: false }).addTo(map)
   const slope = L.imageOverlay('/terrain/slope.png', bounds, { opacity: 0.55, interactive: false })
   const roughness = L.imageOverlay(roughnessImage(grid), bounds, { opacity: 0.7, interactive: false })
+  // Kelly's 600 px north-up crops fill the same 3 km bounds as the terrain.
+  const science = {
+    ctx: L.imageOverlay('/terrain/ctx.png', bounds, { opacity: 0.85, interactive: false }),
+    crismHyd: L.imageOverlay('/terrain/crism_hyd.png', bounds, { opacity: 0.7, interactive: false }),
+    crismAlt: L.imageOverlay('/terrain/crism_alt.png', bounds, { opacity: 0.7, interactive: false }),
+    themis: L.imageOverlay('/terrain/themis_night.png', bounds, { opacity: 0.75, interactive: false }),
+  }
+  const scienceNotes = {
+    ctx: 'CTX orbital context (~5 m source pixels). The uncontrolled mosaic may be misaligned with the DEM by tens of metres.',
+    crismHyd: 'CRISM hydrated-mineral signals (~19 m source pixels). Colours are qualitative; transparent areas do not prove mineral absence.',
+    crismAlt: 'CRISM alteration signals (~19 m source pixels). Colours are qualitative and cannot identify minerals on an individual ridge.',
+    themis: 'THEMIS relative night infrared brightness (~163 m source pixels). This is not a live or calibrated temperature map.',
+  }
+  const scienceNote = document.querySelector('#science-layer-note')
+  for (const [name, layer] of Object.entries(science)) layer.on('error', () => {
+    scienceNote.textContent = `Could not load the ${name} image. Check Kelly's files in public/terrain/.`
+  })
   for (const layer of [terrain, slope]) layer.on('error', () => {
     const notice = document.querySelector('.notice span')
     notice.textContent = 'A terrain image failed to load. Check public/terrain/basemap.png and slope.png. Route calculations use the JSON grids.'
   })
   const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route })
-  const layerMap = { terrain, slope, roughness, safety: safety.layer }
+  const layerMap = { terrain, slope, roughness, safety: safety.layer, ...science }
   document.querySelectorAll('[data-layer]').forEach((button) => button.addEventListener('click', () => {
-    const layer = layerMap[button.dataset.layer]
+    const key = button.dataset.layer
+    const layer = layerMap[key]
     const enabled = button.getAttribute('aria-pressed') !== 'true'
+    if (enabled && science[key]) for (const [other, otherLayer] of Object.entries(science)) {
+      if (other === key) continue
+      map.removeLayer(otherLayer)
+      document.querySelector(`[data-layer="${other}"]`).setAttribute('aria-pressed', 'false')
+    }
     button.setAttribute('aria-pressed', String(enabled))
     if (enabled) layer.addTo(map)
     else map.removeLayer(layer)
+    scienceNote.textContent = Object.entries(science).find(([, value]) => map.hasLayer(value))
+      ? scienceNotes[Object.entries(science).find(([, value]) => map.hasLayer(value))[0]]
+      : 'Select an orbital layer for source and resolution notes. The basemap remains the terrain reference.'
+    // Re-toggling imagery must not cover the route or the selected return path.
+    if (map.hasLayer(terrain)) terrain.bringToBack()
+    lineLayers.forEach((line) => line.bringToFront())
+    returnLayer.bringToFront()
   }))
   const lineLayers = legs.map((leg) => L.polyline(leg.path.map(mapPoint), { color: '#f6b77c', weight: 5, opacity: 0.86, lineCap: 'round' }).addTo(map))
   const returnLayer = L.polyline([], { color: '#8ce0d6', weight: 3, opacity: 0.92, dashArray: '8 9' }).addTo(map)
