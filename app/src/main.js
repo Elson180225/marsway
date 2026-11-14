@@ -1,60 +1,139 @@
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import './style.css'
-import heroImg from './assets/hero.png'
-import javascriptLogo from './assets/javascript.svg'
-import viteLogo from './assets/vite.svg'
-import { setupCounter } from './counter.js'
 
-document.querySelector('#app').innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${javascriptLogo}" class="framework" alt="JavaScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.js</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+const root = document.querySelector('#app')
 
-<div class="ticks"></div>
+function safe(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character])
+}
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank">
-          <img class="button-icon" src="${javascriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+function duration(minutes) {
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return hours ? `${hours}h ${rest ? `${rest}m` : ''}`.trim() : `${rest}m`
+}
 
-<div class="ticks"></div>
-<section id="spacer"></section>
-`
+function distance(metres) {
+  return metres >= 1000 ? `${(metres / 1000).toFixed(1)} km` : `${metres} m`
+}
 
-setupCounter(document.querySelector('#counter'))
+function localTime(iso) {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', timeZone: 'UTC', timeZoneName: 'short' })
+}
+
+function mapPoint(point) {
+  return [point.y, point.x] // Leaflet CRS.Simple uses [northing, easting].
+}
+
+function assertRoute(route) {
+  if (route.schema_version !== 1 || route.coordinate_system?.unit !== 'meter') throw new Error('Unsupported route data format.')
+  if (!Array.isArray(route.stops) || !Array.isArray(route.legs) || !Array.isArray(route.returns)) throw new Error('Route data is incomplete.')
+  const stops = new Map(route.stops.map((stop) => [stop.id, stop]))
+  if (stops.size !== route.stops.length || route.stops.length < 2) throw new Error('Route stops are missing or repeated.')
+  for (const [index, leg] of route.legs.entries()) {
+    if (leg.from_stop_id !== route.stops[index]?.id || leg.to_stop_id !== route.stops[index + 1]?.id) throw new Error('Route legs are out of order.')
+    if (!Array.isArray(leg.path) || leg.path.length < 2 || !Number.isFinite(leg.distance_m) || !Number.isFinite(leg.walk_minutes)) throw new Error('A route leg is incomplete.')
+  }
+  if (route.legs.length !== route.stops.length - 1) throw new Error('A route leg is missing.')
+  for (const stop of route.stops) {
+    const home = route.returns.find((item) => item.from_stop_id === stop.id)
+    if (!home || !Array.isArray(home.path) || !home.path.length) throw new Error(`No return route for ${stop.id}.`)
+  }
+}
+
+function render(route) {
+  const { mission, stops, legs } = route
+  const totalDistance = legs.reduce((sum, leg) => sum + leg.distance_m, 0)
+  const totalMinutes = legs.reduce((sum, leg) => sum + leg.walk_minutes, 0)
+  const warnings = legs.flatMap((leg) => leg.warnings || [])
+  root.innerHTML = `
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand"><span class="brand-symbol">✦</span><span>MARS<span class="brand-accent">WAY</span><small>EXPEDITION CONTROL</small></span></div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-label">MISSION CONTROL</div>
+        <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a><span class="nav-item quiet"><span>⌖</span> Walk screen <small>Russell's view</small></span></nav>
+        <div class="sidebar-bottom"><div class="sample-pulse"></div><div><strong>Prototype mode</strong><span>Illustrative route data</span></div></div>
+      </aside>
+      <main id="planning" class="main">
+        <header class="topbar"><div><span class="eyebrow">MISSION / ${safe(mission.id)}</span><h1>Plan the walk. <em>Get home safely.</em></h1><p>${safe(mission.site)} · ${safe(mission.name)}</p></div><div class="top-badge"><span class="sample-pulse"></span> SAMPLE SCENARIO</div></header>
+        <div class="notice" role="note"><strong>Illustrative planning route</strong><span>Coordinates, hazards, timing and terrain are sample data. This is not a navigable Mars map or a live suit telemetry feed.</span></div>
+        <section class="metrics" aria-label="Mission summary">
+          <div class="metric"><span>ROUTE DISTANCE</span><strong>${distance(totalDistance)}</strong><small>Round trip · ${legs.length} legs</small></div>
+          <div class="metric"><span>WALKING TIME</span><strong>${duration(totalMinutes)}</strong><small>Excludes science and rest stops</small></div>
+          <div class="metric"><span>TURN BACK BY</span><strong>${safe(localTime(mission.latest_turnback_time))}</strong><small>${duration(mission.reserve_minutes)} suit reserve</small></div>
+          <div class="metric"><span>ROUTE NOTICES</span><strong>${warnings.length}</strong><small>Scenario warnings to review</small></div>
+        </section>
+        <section class="workspace" aria-label="Route planner">
+          <div class="map-panel">
+            <div class="panel-header"><div><span class="eyebrow">GALE CRATER / LOCAL GRID</span><h2>Route overview</h2></div><span class="map-scale">LOCAL METRES · SCHEMATIC</span></div>
+            <div class="layer-toolbar" role="group" aria-label="Illustrative map layers"><span>LAYERS</span><button type="button" data-layer="terrain" aria-pressed="true">◈ Mock terrain</button><button type="button" data-layer="slope" aria-pressed="false">▥ Slope</button><button type="button" data-layer="roughness" aria-pressed="false">⁙ Roughness</button></div>
+            <div id="map" role="img" aria-label="Schematic map showing the ordered EVA stops and return path"></div>
+            <div class="map-footer"><div><span class="legend-line"></span> Planned path <span class="legend-dash"></span> Return from selected stop</div><span>Drag to explore · scroll to zoom</span></div>
+          </div>
+          <div class="route-panel">
+            <div class="panel-header"><div><span class="eyebrow">EVA-07 / FLIGHT PLAN</span><h2>Route stops</h2></div><span class="count">${stops.length} STOPS</span></div>
+            <div id="stop-list" class="stop-list"></div>
+            <div id="return-summary" class="return-summary" aria-live="polite"></div>
+          </div>
+        </section>
+        <section class="details"><div class="details-heading"><div><span class="eyebrow">SELECTED LEG</span><h2 id="leg-title">Route details</h2></div><span id="leg-distance"></span></div><p id="leg-description"></p><div id="warning-list" class="warning-list"></div></section>
+        <footer>Built for the NASA Space Apps Challenge · MarsWay planning prototype · No official NASA route or hazard assessment</footer>
+      </main>
+    </div>`
+
+  const map = L.map('map', { crs: L.CRS.Simple, minZoom: -1.7, maxZoom: 1.2, zoomSnap: 0.25, zoomControl: false })
+  L.control.zoom({ position: 'bottomright' }).addTo(map)
+  const bounds = L.latLngBounds([[-280, -380], [1050, 2110]])
+  L.rectangle(bounds, { color: '#b68f65', weight: 1, opacity: 0.2, fillOpacity: 0 }).addTo(map)
+  // All three layers are schematic placeholders, not NASA imagery or measured terrain.
+  const terrain = L.imageOverlay('/mock-terrain.svg', bounds, { opacity: 0.82, interactive: false }).addTo(map)
+  const slope = L.polygon([[300, 570], [440, 870], [920, 1630], [720, 1980], [480, 1320]], { color: '#ee8a67', weight: 2, fillColor: '#bd654b', fillOpacity: 0.27, interactive: false })
+  const roughness = L.polygon([[-120, 430], [130, 770], [240, 1330], [60, 1800], [-170, 1000]], { color: '#eec285', weight: 2, dashArray: '5 6', fillColor: '#e4b982', fillOpacity: 0.23, interactive: false })
+  const layerMap = { terrain, slope, roughness }
+  document.querySelectorAll('[data-layer]').forEach((button) => button.addEventListener('click', () => {
+    const layer = layerMap[button.dataset.layer]
+    const enabled = button.getAttribute('aria-pressed') !== 'true'
+    button.setAttribute('aria-pressed', String(enabled))
+    if (enabled) layer.addTo(map)
+    else map.removeLayer(layer)
+  }))
+  const lineLayers = legs.map((leg) => L.polyline(leg.path.map(mapPoint), { color: '#f6b77c', weight: 5, opacity: 0.86, lineCap: 'round' }).addTo(map))
+  const returnLayer = L.polyline([], { color: '#8ce0d6', weight: 3, opacity: 0.92, dashArray: '8 9' }).addTo(map)
+  const markers = stops.slice(0, -1).map((stop, index) => {
+    const icon = L.divIcon({ className: 'stop-icon', html: `<span class="stop-marker ${index === 0 ? 'home-marker' : ''}">${index === 0 ? '⌂' : index}</span>`, iconSize: [36, 36], iconAnchor: [18, 18] })
+    return L.marker(mapPoint(stop), { icon }).addTo(map).on('click', () => selectStop(index))
+  })
+  map.fitBounds(bounds.pad(0.03), { padding: [18, 18] })
+
+  function selectStop(index, pan = true) {
+    const stop = stops[index]
+    const leg = legs[index] || legs[legs.length - 1]
+    const home = route.returns.find((item) => item.from_stop_id === stop.id)
+    document.querySelector('#stop-list').innerHTML = stops.map((item, number) => {
+      const next = legs[number]
+      return `<button type="button" class="stop-row ${number === index ? 'selected' : ''}" data-stop="${number}" aria-pressed="${number === index}"><span class="timeline-node">${number === 0 || item.type === 'home' ? '⌂' : number}</span><span class="stop-copy"><strong>${safe(item.name)}</strong><small>${safe(item.type.replace('_', ' '))}${next ? ` · ${distance(next.distance_m)} to next` : ''}</small></span><span class="stop-arrow">›</span></button>`
+    }).join('')
+    document.querySelectorAll('[data-stop]').forEach((button) => button.addEventListener('click', () => selectStop(Number(button.dataset.stop))))
+    document.querySelector('#return-summary').innerHTML = `<span class="eyebrow">RETURN FROM ${safe(stop.name.toUpperCase())}</span><strong>${distance(home.distance_m)} · ${duration(home.walk_minutes)}</strong><small>Illustrative return route to habitat</small>`
+    document.querySelector('#leg-title').textContent = index < legs.length ? `${stop.name} → ${stops[index + 1].name}` : 'EVA complete'
+    document.querySelector('#leg-distance').textContent = index < legs.length ? `${distance(leg.distance_m)}  /  ${duration(leg.walk_minutes)}` : ''
+    document.querySelector('#leg-description').textContent = index < legs.length ? `${stop.description} Select a stop above to inspect its next leg and return route.` : 'Return to habitat.'
+    document.querySelector('#warning-list').innerHTML = index < legs.length ? (leg.warnings || []).map((warning) => `<div class="warning ${safe(warning.level)}"><span>${warning.level === 'danger' ? '!' : '⚑'}</span><div><strong>${safe(warning.type.replaceAll('_', ' '))} · ${safe(warning.level)}</strong><small>${safe(warning.message)}</small></div></div>`).join('') || '<span class="no-warning">No scenario warnings for this leg.</span>' : '<span class="no-warning">End of planned route.</span>'
+    lineLayers.forEach((layer, number) => layer.setStyle({ color: number === index ? '#fff0ce' : '#f6b77c', weight: number === index ? 7 : 5, opacity: number === index ? 1 : 0.55 }))
+    returnLayer.setLatLngs(home.path.map(mapPoint))
+    markers.forEach((marker, number) => marker.setZIndexOffset(number === index ? 1000 : 0))
+    if (pan) map.panTo(mapPoint(stop), { animate: true, duration: 0.4 })
+  }
+
+  selectStop(0, false)
+}
+
+root.innerHTML = '<div class="loading-screen">Loading the MarsWay planning scenario…</div>'
+fetch('/routes/sample-route.json')
+  .then((response) => { if (!response.ok) throw new Error(`Route file unavailable (${response.status}).`); return response.json() })
+  .then((route) => { assertRoute(route); render(route) })
+  .catch((error) => { root.innerHTML = `<div class="error-screen"><h1>Unable to load the route</h1><p>${safe(error.message)}</p><p>Check <code>public/routes/sample-route.json</code> and reload.</p></div>` })

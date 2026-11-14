@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "coordinate_system": {
+    "type": "local_cartesian",
+    "unit": "meter",
+    "x_axis": "east",
+    "y_axis": "north",
+    "origin_note": "Illustrative local grid near Mount Sharp; no georeferencing or NASA terrain is supplied yet."
+  },
+  "mission": {
+    "id": "EVA-07",
+    "name": "The Boxwork Walk",
+    "site": "Gale Crater · Mount Sharp",
+    "start_time": "2026-11-14T08:00:00Z",
+    "max_walk_minutes": 480,
+    "latest_turnback_time": "2026-11-14T14:00:00Z",
+    "reserve_minutes": 120,
+    "data_status": "ILLUSTRATIVE_SAMPLE"
+  },
+  "stops": [
+    { "id": "hab", "name": "Habitat", "x": 0, "y": 0, "type": "start", "description": "EVA departure point and return shelter." },
+    { "id": "ridge-a", "name": "Boxwork Ridge A", "x": 600, "y": 200, "type": "science_stop", "description": "Survey the first raised mineral ridge." },
+    { "id": "hollow", "name": "Sheltered Hollow", "x": 1100, "y": 450, "type": "rest", "description": "Pause and check suit reserves." },
+    { "id": "ridge-b", "name": "Boxwork Ridge B", "x": 1750, "y": 700, "type": "science_stop", "description": "Collect the final planned sample." },
+    { "id": "home", "name": "Return to Habitat", "x": 0, "y": 0, "type": "home", "description": "Complete the EVA at the habitat." }
+  ],
+  "legs": [
+    {
+      "id": "leg-1", "from_stop_id": "hab", "to_stop_id": "ridge-a", "distance_m": 700, "walk_minutes": 35,
+      "path": [{"x":0,"y":0},{"x":170,"y":80},{"x":370,"y":100},{"x":600,"y":200}],
+      "warnings": [{"type":"rough_ground","level":"info","message":"Scattered rocks near the ridge approach."}]
+    },
+    {
+      "id": "leg-2", "from_stop_id": "ridge-a", "to_stop_id": "hollow", "distance_m": 620, "walk_minutes": 31,
+      "path": [{"x":600,"y":200},{"x":760,"y":320},{"x":940,"y":330},{"x":1100,"y":450}],
+      "warnings": [{"type":"steep_slope","level":"caution","message":"Illustrative slope warning on the hollow approach."}]
+    },
+    {
+      "id": "leg-3", "from_stop_id": "hollow", "to_stop_id": "ridge-b", "distance_m": 750, "walk_minutes": 38,
+      "path": [{"x":1100,"y":450},{"x":1280,"y":520},{"x":1510,"y":540},{"x":1750,"y":700}],
+      "warnings": [{"type":"shadow","level":"caution","message":"Low light may affect the final ridge approach."}]
+    },
+    {
+      "id": "leg-4", "from_stop_id": "ridge-b", "to_stop_id": "home", "distance_m": 2100, "walk_minutes": 105,
+      "path": [{"x":1750,"y":700},{"x":1430,"y":510},{"x":1080,"y":370},{"x":720,"y":270},{"x":350,"y":130},{"x":0,"y":0}],
+      "warnings": [{"type":"low_oxygen","level":"info","message":"Illustrative suit reserve reminder; no live oxygen sensor is connected."}]
+    }
+  ],
+  "returns": [
+    {"from_stop_id":"hab","distance_m":0,"walk_minutes":0,"path":[{"x":0,"y":0}]},
+    {"from_stop_id":"ridge-a","distance_m":700,"walk_minutes":35,"path":[{"x":600,"y":200},{"x":370,"y":100},{"x":170,"y":80},{"x":0,"y":0}]},
+    {"from_stop_id":"hollow","distance_m":1320,"walk_minutes":66,"path":[{"x":1100,"y":450},{"x":940,"y":330},{"x":760,"y":320},{"x":600,"y":200},{"x":370,"y":100},{"x":170,"y":80},{"x":0,"y":0}]},
+    {"from_stop_id":"ridge-b","distance_m":2100,"walk_minutes":105,"path":[{"x":1750,"y":700},{"x":1430,"y":510},{"x":1080,"y":370},{"x":720,"y":270},{"x":350,"y":130},{"x":0,"y":0}]},
+    {"from_stop_id":"home","distance_m":0,"walk_minutes":0,"path":[{"x":0,"y":0}]}
+  ]
+}
