@@ -46,7 +46,7 @@ The photo sol is not its own waypoint in each case, so every photo is labelled a
   | Kings Canyon → Gediz Vallis Panorama (bonus) | 402 m | 11 min |
   | Gediz Vallis Panorama → back to the rover | 438 m | 10 min |
 - [x] **Safety.** Home file for EVA-08 built: `app/public/safezone/home-g2.*` (home = rover at G2, 5 km grid). The phone loads it with `loadHomeFile('/safezone/home-g2')`. Back to the rover: Mineral King 15 min, Sulfur Crystal Field 18 min, Kings Canyon 19 min, Panorama 10 min. In a solar storm, the storm route leads back to the rover. See `app/src/safezone/README.md`.
-- [ ] **6 km map.** When `area-6km/` lands (same bottom-left corner, so x/y stay the same), rebuild the home file on the new grid as `home-g2-6km`, keeping `home-g2` until everyone has switched.
+- [x] **6 km map.** `area-6km/` (PR #22) has the same bottom-left corner (west 8141000, south −287000), so the stop x/y and G2 stay the same. Home file rebuilt on the 1200 × 1200 grid as `app/public/safezone/home-g2-6km.*` (7.2 MB); the times back to the rover and every leg are identical to the 5 km map. `home-g2` (5 km) stays until everyone has switched.
 - [ ] **Suit time during the drive.** Team to decide: if the crew is suited for the H1 → G2 drive, that time counts toward the 8 h suit.
 - [ ] **On screen.** Aaron (Planning) and Russell (Walk) add EVA-08 when they switch to the bigger map.
 - [ ] **Science check** by Kelly.
