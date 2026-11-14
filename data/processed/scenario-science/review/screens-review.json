@@ -1,0 +1,279 @@
+{
+  "date": "2026-11-14",
+  "base": "PR35 c16a75e",
+  "scope": "Local desktop Planning and 390px Chrome Walk emulation; not a physical-phone test",
+  "planning": [
+    {
+      "eva": "09",
+      "id": "sol-4752",
+      "name": "Southern Outcrop Survey",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-4752-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4752.jpg"
+    },
+    {
+      "eva": "09",
+      "id": "sol-4893",
+      "name": "Campo Marte Context",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-4893-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4893.jpg"
+    },
+    {
+      "eva": "09",
+      "id": "sol-4977",
+      "name": "Layer Relationships",
+      "nearby": true,
+      "source": "https://science.nasa.gov/blog/curiosity-blog-sols-4975-4981-happy-14th-landing-anniversary/",
+      "photo": "/photos/scenarios/sol-4977-context.jpg"
+    },
+    {
+      "eva": "09",
+      "id": "sol-5021",
+      "name": "Disc Texture Comparison",
+      "nearby": true,
+      "source": "https://science.nasa.gov/blog/curiosity-blog-sols-5016-5021-fantastic-minerals-and-how-to-detect-them/",
+      "photo": "/photos/scenarios/sol-5021-context.jpg"
+    },
+    {
+      "eva": "10",
+      "id": "sol-4456",
+      "name": "Western Bedrock Survey",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-4456-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4456.png"
+    },
+    {
+      "eva": "10",
+      "id": "sol-4417",
+      "name": "Butte and Bedrock Context",
+      "nearby": true,
+      "source": "https://science.nasa.gov/resource/sol-4423-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4417.png"
+    },
+    {
+      "eva": "10",
+      "id": "sol-3974",
+      "name": "Sequoia Drill Context",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-3974-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-3974.png"
+    },
+    {
+      "eva": "11",
+      "id": "sol-4507",
+      "name": "Boxwork Approach Panorama",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-4507-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4507.png"
+    },
+    {
+      "eva": "11",
+      "id": "sol-4527",
+      "name": "Fracture Pattern Survey",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-4527-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4527.png"
+    },
+    {
+      "eva": "11",
+      "id": "sol-4548",
+      "name": "Bedrock Texture Comparison",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-4548-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4548.png"
+    },
+    {
+      "eva": "11",
+      "id": "sol-4575",
+      "name": "Boxwork Trough Context",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-4575-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4575.png"
+    },
+    {
+      "eva": "12",
+      "id": "sol-3878",
+      "name": "Rock and Sand Comparison",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-3878-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-3878.png"
+    },
+    {
+      "eva": "12",
+      "id": "sol-3815",
+      "name": "Layered Block Survey",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-3815-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-3815.png"
+    },
+    {
+      "eva": "12",
+      "id": "sol-3749",
+      "name": "Ripple and Bedrock Context",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-3749-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-3749.png"
+    },
+    {
+      "eva": "12",
+      "id": "sol-3608",
+      "name": "Northern Surface Panorama",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-3608-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-3608.png"
+    }
+  ],
+  "walk": [
+    {
+      "eva": "09",
+      "id": "sol-4752",
+      "name": "Southern Outcrop Survey",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-4752-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4752.jpg",
+      "bonus": null,
+      "overflow": false
+    },
+    {
+      "eva": "09",
+      "id": "sol-4893",
+      "name": "Campo Marte Context",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-4893-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4893.jpg",
+      "bonus": null,
+      "overflow": false
+    },
+    {
+      "eva": "09",
+      "id": "sol-4977",
+      "name": "Layer Relationships",
+      "nearby": true,
+      "source": "https://science.nasa.gov/blog/curiosity-blog-sols-4975-4981-happy-14th-landing-anniversary/",
+      "photo": "/photos/scenarios/sol-4977-context.jpg",
+      "bonus": null,
+      "overflow": false
+    },
+    {
+      "eva": "09",
+      "id": "sol-5021",
+      "name": "Disc Texture Comparison",
+      "nearby": true,
+      "source": "https://science.nasa.gov/blog/curiosity-blog-sols-5016-5021-fantastic-minerals-and-how-to-detect-them/",
+      "photo": "/photos/scenarios/sol-5021-context.jpg",
+      "bonus": "OPTIONAL BONUS",
+      "overflow": false
+    },
+    {
+      "eva": "10",
+      "id": "sol-4456",
+      "name": "Western Bedrock Survey",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-4456-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4456.png",
+      "bonus": null,
+      "overflow": false
+    },
+    {
+      "eva": "10",
+      "id": "sol-4417",
+      "name": "Butte and Bedrock Context",
+      "nearby": true,
+      "source": "https://science.nasa.gov/resource/sol-4423-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4417.png",
+      "bonus": null,
+      "overflow": false
+    },
+    {
+      "eva": "10",
+      "id": "sol-3974",
+      "name": "Sequoia Drill Context",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-3974-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-3974.png",
+      "bonus": "OPTIONAL BONUS",
+      "overflow": false
+    },
+    {
+      "eva": "11",
+      "id": "sol-4507",
+      "name": "Boxwork Approach Panorama",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-4507-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4507.png",
+      "bonus": null,
+      "overflow": false
+    },
+    {
+      "eva": "11",
+      "id": "sol-4527",
+      "name": "Fracture Pattern Survey",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-4527-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4527.png",
+      "bonus": null,
+      "overflow": false
+    },
+    {
+      "eva": "11",
+      "id": "sol-4548",
+      "name": "Bedrock Texture Comparison",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-4548-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4548.png",
+      "bonus": null,
+      "overflow": false
+    },
+    {
+      "eva": "11",
+      "id": "sol-4575",
+      "name": "Boxwork Trough Context",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-4575-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-4575.png",
+      "bonus": "OPTIONAL BONUS",
+      "overflow": false
+    },
+    {
+      "eva": "12",
+      "id": "sol-3878",
+      "name": "Rock and Sand Comparison",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-3878-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-3878.png",
+      "bonus": null,
+      "overflow": false
+    },
+    {
+      "eva": "12",
+      "id": "sol-3815",
+      "name": "Layered Block Survey",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-3815-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-3815.png",
+      "bonus": null,
+      "overflow": false
+    },
+    {
+      "eva": "12",
+      "id": "sol-3749",
+      "name": "Ripple and Bedrock Context",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-3749-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-3749.png",
+      "bonus": null,
+      "overflow": false
+    },
+    {
+      "eva": "12",
+      "id": "sol-3608",
+      "name": "Northern Surface Panorama",
+      "nearby": false,
+      "source": "https://science.nasa.gov/resource/sol-3608-right-navigation-camera-cylindrical-projection/",
+      "photo": "/photos/scenarios/sol-3608.png",
+      "bonus": "OPTIONAL BONUS",
+      "overflow": false
+    }
+  ]
+}
