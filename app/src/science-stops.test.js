@@ -57,8 +57,9 @@ const [area, elevation, slope, roughness] = await Promise.all([
 const { route, grid } = buildTerrainRoute(template, area, { elevation, slope, roughness }, science)
 assert.deepEqual(route.stops.map((stop) => stop.id), ['hab', ...expected, 'home'])
 assert.equal(route.provenance.target_status, 'ready')
-assert.equal(route.stops[0].x, 447.5)
-assert.equal(route.stops[0].y, 517.5)
+// H1 on the 6 km map (447.5, 517.5 on the old 3 km map).
+assert.equal(route.stops[0].x, 1047.5)
+assert.equal(route.stops[0].y, 917.5)
 for (const stop of route.stops.filter((stop) => stop.type === 'science_stop')) {
   const original = science.stops.find((item) => item.id === stop.id)
   for (const field of ['order', 'stop_minutes', 'is_bonus', 'photo_url', 'photo_credit', 'photo_source_url']) {
