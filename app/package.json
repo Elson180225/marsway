@@ -17,6 +17,7 @@
   "dependencies": {
     "@capacitor/android": "^8.6.2",
     "@capacitor/core": "^8.6.2",
-    "leaflet": "^1.9.4"
+    "leaflet": "^1.9.4",
+    "three": "^0.160.0"
   }
 }
