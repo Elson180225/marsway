@@ -77,7 +77,7 @@ export function buildTerrainRoute(template, area, terrain, science = { status: '
       ...template,
       coordinate_system: { ...template.coordinate_system, unit: 'meter', origin_note: area.localCoords || 'Local terrain grid; origin at southwest edge.', description: 'Local metres: x east from west edge, y north from south edge. Leaflet [y,x].' },
       mission: { ...template.mission, latest_turnback_time: null, data_status: 'TERRAIN_ESTIMATE' },
-      map: { bounds: [[0, 0], [grid.sizeY, grid.sizeX]], basemap_url: '/terrain/basemap.png' },
+      map: { bounds: [[0, 0], [grid.sizeY, grid.sizeX]], basemap_url: '/terrain/basemap.webp' },
       ...result,
       provenance: { terrain: area.source || 'Elson processed terrain', routing: 'Nigel pathfinding', target_status: science.status, targets: science.status === 'ready' ? 'Kelly science stops' : 'H1 and grid-centre demo target; Kelly stops pending', safety: 'Terrain-based estimates under team suit assumptions. Position, clock and suit budget are a simulation; Mia safe-zone integration is pending.' },
     },
@@ -108,7 +108,7 @@ export function buildGedizRoute(template, area, terrain, science) {
     drive_out_minutes: 55, drive_home_minutes: 55, drive_distance_m: 3800 }
   return { grid, route: { ...template, mission, ...result,
     coordinate_system: { ...template.coordinate_system, unit: 'meter', origin_note: area.localCoords, description: '6 km terrain grid; local metres x east, y north. Leaflet [y,x].' },
-    map: { bounds: [[0, 0], [grid.sizeY, grid.sizeX]], basemap_url: '/terrain/basemap.png' },
+    map: { bounds: [[0, 0], [grid.sizeY, grid.sizeX]], basemap_url: '/terrain/basemap.webp' },
     provenance: { terrain: area.source, routing: 'Nigel pathfinding from G2', target_status: science.status, targets: science.status === 'ready' ? 'Kelly reviewed Gediz science stops' : 'Gediz stops; science review pending', safety: 'Simulation. Rover is open, not storm shelter. Suited drives use the 8 h budget; 2 h reserve protected.' } } }
 }
 
@@ -147,7 +147,7 @@ export function buildScenarioRoute(template, area, terrain, catalog, eva) {
   const mission = { ...template.mission, id: scenario.id, name: scenario.name, home_label: label, latest_turnback_time: null, data_status: 'TERRAIN_ESTIMATE' }
   return { grid, route: { ...template, mission, ...result,
     coordinate_system: { ...template.coordinate_system, unit: 'meter', origin_note: area.localCoords, description: '6 km terrain grid; local metres x east, y north. Leaflet [y,x].' },
-    map: { bounds: [[0, 0], [grid.sizeY, grid.sizeX]], basemap_url: '/terrain/basemap.png' },
+    map: { bounds: [[0, 0], [grid.sizeY, grid.sizeX]], basemap_url: '/terrain/basemap.webp' },
     provenance: { terrain: area.source, routing: `Nigel pathfinding from ${label}`, target_status: catalog.status, targets: 'Curiosity waypoints; names, science and photos pending Kelly review', safety: `Simulation. ${label} ${habitat.status === 'confirmed' ? 'is the confirmed habitat' : 'is a candidate habitat site'}; terrain-based estimates under team suit assumptions.` } } }
 }
 
