@@ -1,0 +1,31 @@
+{
+ "schema_version": 1,
+ "status": "draft",
+ "notes": "Rover parking spot for the 'With rover' version of each EVA. Nigel picks each spot (flat, near the stops, reachable by rover on slopes up to about 15°) and fills in spot and drive_distance_m. Positions are projected metres (Mars 2000 equidistant cylindrical), like scenarios.json. Mia then runs: node src/safezone/buildRoverHomeFiles.js (home file, home = the rover) and node src/safezone/checkEvaVersions.js (safety checks for both versions). spot null = not chosen yet. EVA-08 uses the existing G2 staging point.",
+ "rules": {
+  "speed_kmh": 5,
+  "on_off_minutes": 10,
+  "max_slope_deg": 15,
+  "note": "Open rover with suits on: drives count against the 8 h suit and the 2 h reserve stays protected. Storm plan: back to the rover, then drive home. The rover is not a storm shelter."
+ },
+ "evas": [
+  { "eva": "07", "habitat": "H1", "spot": null },
+  {
+   "eva": "08",
+   "habitat": "H1",
+   "spot": {
+    "id": "G2",
+    "name": "Rover staging (G2)",
+    "easting": 8144192.5,
+    "northing": -283457.5,
+    "drive_distance_m": 3800,
+    "home_file": "home-g2-6km",
+    "note": "Existing EVA-08 staging point (local x 3192.5, y 3542.5). Drive distance from the EVA-08 plan."
+   }
+  },
+  { "eva": "09", "habitat": "H1", "spot": null },
+  { "eva": "10", "habitat": "H2", "spot": null },
+  { "eva": "11", "habitat": "H3", "spot": null },
+  { "eva": "12", "habitat": "H4", "spot": null }
+ ]
+}

@@ -134,6 +134,10 @@ walkDoseMSv(6) // → 0.168 mSv (0.67 mSv/day, Curiosity RAD)
 | `radiation.js` | Radiation dose for a walk |
 | `homeFile.js` | Save / load the pre-calculated home file for the phone |
 | `buildHomeFile.js` | Makes `public/safezone/home-h1.*` (EVA-07), `home-g2.*` (EVA-08, 5 km map) and `home-g2-6km.*` (EVA-08, 6 km map). **Re-run if the terrain or `SUIT` changes.** |
+| `buildRoverHomeFiles.js` | Makes the home file for every rover parking spot in `public/routes/rover-parking.json` (home = the rover) |
+| `roverSafety.js` | Safety checks for the on-foot and with-rover versions: plan fits, storm plan, walk-back, parking slope |
+| `checkEvaVersions.js` | Runs those checks for EVA-07 to 12 and prints a report |
+| `evaSetup.js` | Habitat, stops and parking spot for each EVA, in local metres |
 | `test.js` | All checks, on a toy grid and on the real terrain against Nigel's planner |
 | `preview.js` | Draws the safe zone over the terrain as a PNG, for checking |
 
@@ -188,4 +192,62 @@ Both maps share the same bottom-left corner, so x/y are the same and the times b
 Whole walk from G2 and back: about 55 min walking + 95 min science = 2 h 30 min, out of 6 h usable.
 These assume suit time starts at G2. If the crew wears suits during the drive from H1, add the drive
 time to `elapsedMinutes`.
+
+## On foot and with rover: every EVA (EVA-07 to 12)
+
+Every EVA now has two versions:
+- **On foot:** walk from the habitat to the stops and back.
+- **With rover:** drive (open rover, suits on) to a parking spot, walk the stops from the rover, then
+  drive home. Home on the walk is the parked rover, like EVA-08 at G2.
+
+Team rules, same as EVA-08:
+- The drive counts against the 8 h suit, and the 2 h reserve stays protected.
+- Rover: 5 km/h average plus 10 min on/off per drive, only on slopes up to about 15°.
+- Walk-back check: if the rover breaks down, the crew can still walk home.
+- Storm plan: back to the rover, then drive home. The rover is not a shelter.
+
+### Who does what
+
+| Step | Who | File |
+| --- | --- | --- |
+| Pick a parking spot per EVA (flat, near the stops, reachable by rover), plus drive route and distance | Nigel | `public/routes/rover-parking.json` (fill `spot`) |
+| Build the home file for each spot (home = the rover) | Mia | `node src/safezone/buildRoverHomeFiles.js` |
+| Safety checks for both versions | Mia | `node src/safezone/checkEvaVersions.js` |
+
+`rover-parking.json` already has EVA-08 (G2). The other five are `null` until Nigel adds them:
+
+```json
+{ "eva": "09", "habitat": "H1", "spot": { "id": "P09", "name": "Rover parking (P09)",
+  "easting": 8143000.5, "northing": -285000.5, "drive_distance_m": 2400 } }
+```
+
+Positions are projected metres, like `scenarios.json`. The home file is saved as `home-<id>-6km.*`
+(7.2 MB each) unless `home_file` says otherwise.
+
+### What the safety checks look at
+
+| Check | On foot | With rover | Pass when |
+| --- | --- | --- | --- |
+| Plan fits | walking + science | drive out + walking + science + drive home | within 6 h (reserve untouched) |
+| Storm plan | from each stop, walk home | from each stop, walk to the rover + drive home | within 8 h (⚠️ if it needs the reserve) |
+| Walk-back | – | rover found broken when the crew gets back to it: walk from the parking spot to the habitat | within 8 h (⚠️ if it needs the reserve) |
+| Parking spot | – | walkable and no steeper than 15° | |
+
+The drive route itself (slopes up to 15° along the way) is Nigel's check.
+
+### Results now (15 Nov 2026)
+
+| EVA | On foot | With rover |
+| --- | --- | --- |
+| EVA-07 (H1) | ✅ 3 h 57 m, 2 h 03 m spare | waiting for a parking spot |
+| EVA-08 (H1) | ✅ but **tight**: 5 h 57 m, 3 min spare (21 min without the bonus) | ✅ via G2: 4 h 21 m, 1 h 39 m spare; walk-back 1 h 54 m, home at 5 h 20 m |
+| EVA-09 (H1) | ✅ 3 h 57 m, 2 h 03 m spare | waiting for a parking spot |
+| EVA-10 (H2) | ✅ 3 h 32 m, 2 h 28 m spare | waiting for a parking spot |
+| EVA-11 (H3) | ✅ 4 h 07 m, 1 h 53 m spare | waiting for a parking spot |
+| EVA-12 (H4) | ✅ 4 h 18 m, 1 h 42 m spare | waiting for a parking spot |
+
+EVA-08 drive: by the rule, 3.8 km is 55.6 min (shown as 56 min here); the Planning screen still uses
+55 min.
+
+Tests: `node src/safezone/roverSafety.test.js` (from `app/`).
 
