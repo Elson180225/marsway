@@ -4,7 +4,7 @@ import './style.css'
 import './scienceLayers.css'
 import './planningCompact.css'
 import './missionSchedule.css'
-import { renderMissionSchedule } from './missionSchedule.js'
+import { mountPlanningScenario } from './planningScenario.js'
 import { showScienceLayerInfo } from './scienceLayerInfo.js'
 import { mountPlanningSafety } from './safezone/planningPanel.js'
 import './stopDetails.css'
@@ -80,7 +80,7 @@ function render(route, grid) {
         <div class="notice" role="note"><span>Demo mission · ${route.provenance.target_status === 'ready' ? 'terrain estimates' : 'test target'} · no live telemetry</span></div>
         <section class="metrics" aria-label="Mission summary">
           <div class="metric"><span>DISTANCE</span><strong>${distance(totalDistance)}</strong><small>Round trip</small></div>
-          <div class="metric"><span>WALKING</span><strong>${duration(totalMinutes)}</strong><small>Science time below</small></div>
+          <div class="metric"><span>WALKING</span><strong id="planning-walking">${duration(totalMinutes)}</strong><small>Science time below</small></div>
           <div class="metric"><span>TURN BACK IN</span><strong id="planning-turnback">Calculating</strong><small id="planning-turnback-note">From selected reference</small></div>
           <div class="metric"><span>TERRAIN NOTES</span><strong>${warnings.length}</strong><small>Across the route</small></div>
         </section>
@@ -108,7 +108,6 @@ function render(route, grid) {
 
   // Bring the map and ordered stops above the deeper safety and schedule sections.
   document.querySelector('.metrics').after(document.querySelector('.workspace'))
-  renderMissionSchedule(document.querySelector('#mission-schedule'), route)
 
   const map = L.map('map', { crs: L.CRS.Simple, minZoom: -1.7, maxZoom: 1.2, zoomSnap: 0.25, zoomControl: false })
   L.control.zoom({ position: 'bottomright' }).addTo(map)
@@ -133,6 +132,7 @@ function render(route, grid) {
     notice.textContent = 'A terrain image failed to load. Check public/terrain/basemap.png and slope.png. Route calculations use the JSON grids.'
   })
   const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route })
+  mountPlanningScenario(document.querySelector('#mission-schedule'), route, (scenario) => safety.setWeather(scenario))
   const safetyNotes = document.createElement('details')
   safetyNotes.className = 'planning-model-notes'
   const safetyNotesTitle = document.createElement('summary')
@@ -178,7 +178,7 @@ function render(route, grid) {
       return `<button type="button" class="stop-row ${number === index ? 'selected' : ''}" data-stop="${number}" aria-pressed="${number === index}"><span class="timeline-node">${number === 0 || item.type === 'home' ? '⌂' : number}</span><span class="stop-copy"><strong>${safe(item.name)}${item.is_bonus ? ' <span class="bonus-chip" data-bonus-verdict>BONUS</span>' : ''}</strong><small>${safe(item.type.replace('_', ' '))}${next ? ` · ${distance(next.distance_m)} to next` : ''}</small></span><span class="stop-arrow">›</span></button>`
     }).join('')
     document.querySelectorAll('[data-stop]').forEach((button) => button.addEventListener('click', () => selectStop(Number(button.dataset.stop))))
-    document.querySelector('#return-summary').innerHTML = `<span class="eyebrow">HOME FROM ${safe(stop.name.toUpperCase())}</span><strong>${distance(home.distance_m)} · ${duration(home.walk_minutes)}</strong><small>Terrain estimate</small>`
+    document.querySelector('#return-summary').innerHTML = `<span class="eyebrow">HOME FROM ${safe(stop.name.toUpperCase())}</span><strong>${distance(home.distance_m)} · ${duration(home.walk_minutes)}</strong><small>Calm-weather terrain estimate · storm-adjusted time below</small>`
     document.querySelector('#leg-title').textContent = index < legs.length ? `${stop.name} → ${stops[index + 1].name}` : 'EVA complete'
     document.querySelector('#leg-distance').textContent = index < legs.length ? `${distance(leg.distance_m)}  /  ${duration(leg.walk_minutes)}` : ''
     document.querySelector('#warning-list').innerHTML = index < legs.length ? prominentWarnings(leg.warnings || []).map((warning) => `<div class="warning ${safe(warning.level)}"><span>${warning.level === 'danger' ? '!' : '⚑'}</span><div><strong>${safe(warning.type.replaceAll('_', ' '))} · ${safe(warning.level)}</strong><small>${safe(warning.message)}</small></div></div>`).join('') || '<span class="no-warning">No significant terrain notices for this leg. Route safety is estimated.</span>' : '<span class="no-warning">End of planned route.</span>'
