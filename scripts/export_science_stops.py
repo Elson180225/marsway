@@ -1,7 +1,8 @@
-"""Export Kelly's stops.json handoff from the app's existing science-stop file.
+"""Export the offline data/processed/stops.json handoff from science-stops.json.
 
 Run from any directory: python scripts/export_science_stops.py
-The app continues to load science-stops.json; edit that file, then rerun this.
+The app loads only app/public/routes/science-stops.json; edit that file, then
+rerun this. No second stops.json is generated in the app's public routes.
 """
 import json
 from pathlib import Path
@@ -35,9 +36,9 @@ def main():
         photo = ROOT / "app/public" / stop["photo_url"].lstrip("/")
         if not photo.is_file():
             raise ValueError(f"{stop['id']}: photo missing")
-    for target in (ROOT / "data/processed/stops.json", ROOT / "app/public/routes/stops.json"):
-        target.write_text(json.dumps(science, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        print(f"Exported {target.relative_to(ROOT)}")
+    target = ROOT / "data/processed/stops.json"
+    target.write_text(json.dumps(science, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"Exported {target.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

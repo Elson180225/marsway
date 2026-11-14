@@ -107,6 +107,16 @@ marsway/
 
 _Coming during the hackathon._
 
+### Android app
+
+The phone app is the web app wrapped with [Capacitor](https://capacitorjs.com/). It opens on the Walk screen.
+
+1. Install [Android Studio](https://developer.android.com/studio). In **Settings → Build Tools → Gradle → Gradle JDK**, pick or download **Java 21** (Gradle 8.14 does not run on the Java 25 built into new Android Studio).
+2. From `app/`: `npm install`, then `npm run android` (builds the website and copies it into the Android project).
+3. `npm run android:open`, pick a phone or emulator, and press **Run ▶**.
+
+Run `npm run android` again after every change to the website.
+
 ## Team
 
 | Name | Role |
