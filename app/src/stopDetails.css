@@ -2,6 +2,8 @@
 .science-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
 .science-heading h2 { margin: 6px 0 0; font-size: 22px; }
 .science-badge { padding: 6px 9px; border: 1px solid #b28654; border-radius: 7px; color: #f2c066; font-size: 10px; letter-spacing: .08em; }
+.science-bonus { border-color: #df9c60; background: #3c2d22; color: #ffc991; font-weight: 700; }
+.science-visit { display: inline-block; margin: 8px 0; padding: 9px 12px; border-radius: 8px; background: #253b3d; color: #b8e4d5; font-size: 13px; line-height: 1.5; }
 .science-description { margin: 14px 0 8px; line-height: 1.6; }
 .science-coordinates { color: #9db0b4; font-size: 13px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .science-moved { padding: 12px; border-left: 3px solid #f2c066; background: #352e22; color: #eadcbf; line-height: 1.5; }
