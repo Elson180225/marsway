@@ -29,6 +29,8 @@ export const TIGHT_MINUTES = 30 // GO, but with less than this to spare: show it
  *   walkThereMinutes  optional: walking time to the bonus stop if you already know it (e.g. from a
  *                     route-file leg). If left out, Nigel's planner works it out on the terrain.
  *   settings          override SAFE_ZONE (suit hours, reserve hours)
+ *   paceFactor        1 = walking as planned (default), 1.3 = 30% slower (Nigel's paceFactor()). Scales
+ *                     the walk home from the bonus stop, and the walk there when the planner works it out.
  *
  * Returns { go, level, title, message, reason, walkThereMinutes, stopMinutes, homeFromBonusMinutes, spareMinutes }
  *   go      true = there is time, false = skip it
@@ -43,7 +45,7 @@ export const TIGHT_MINUTES = 30 // GO, but with less than this to spare: show it
  * safe-zone map shows that square as out, and the answer must agree with the map.
  */
 export function bonusStopCheck(grid, timeHome, options) {
-  const { here, bonus, elapsedMinutes, stopMinutes = 20, settings = SAFE_ZONE } = options
+  const { here, bonus, elapsedMinutes, stopMinutes = 20, settings = SAFE_ZONE, paceFactor = 1 } = options
   const result = (go, level, reason, title, message, extra = {}) => ({
     go, level, reason, title, message, walkThereMinutes: null, stopMinutes, homeFromBonusMinutes: null, spareMinutes: null, ...extra,
   })
@@ -63,11 +65,11 @@ export function bonusStopCheck(grid, timeHome, options) {
     if (hereCell < 0) return noGo('crew-lost', 'no way home from here', 'The crew position has no walkable way back home, so no extra stop can be planned from it.')
     const found = findPathCells(grid, hereCell, bonusCell)
     if (!found) return noGo('cant-reach', 'can\'t reach it', 'There is no safe walking route from the crew to the bonus stop.')
-    walkThereMinutes = found.seconds / 60
+    walkThereMinutes = (found.seconds / 60) * paceFactor
   }
   if (!Number.isFinite(walkThereMinutes) || walkThereMinutes < 0) return noGo('cant-reach', 'can\'t reach it', 'There is no safe walking route from the crew to the bonus stop.')
 
-  const homeFromBonusMinutes = timeHome[bonusCell] / 60
+  const homeFromBonusMinutes = (timeHome[bonusCell] / 60) * paceFactor
   const leftMinutes = (settings.suitHours - settings.reserveHours) * 60 - elapsedMinutes
   const spareMinutes = leftMinutes - walkThereMinutes - stopMinutes - homeFromBonusMinutes
   const numbers = { walkThereMinutes, homeFromBonusMinutes, spareMinutes }

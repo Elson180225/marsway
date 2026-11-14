@@ -7,9 +7,10 @@ import { createTerrainNavigation } from '../../terrainNavigation.js'
 import { bonusStopCheck, TIGHT_MINUTES } from '../../safezone/bonusStop.js'
 import { xyToCell } from '../../pathfinding/walkingTime.js'
 import { stopMetadata } from '../../stopDetails.js'
+import { directionsFor } from '../../pathfinding/directions.js'
 import {
-  advance, bonusStatus, canHeadHome, currentTrip, hazardSpots, headHome, minutesBehindPlan, pathLength, photoStop, pointAlong,
-  radiationDose, safetyStatus,
+  advance, arrivalTimes, bonusStatus, canHeadHome, currentTrip, directionLine, hazardSpots, headHome, minutesBehindPlan, minutesHome,
+  pathLength, photoStop, pointAlong, radiationDose, safetyStatus, walkPace,
 } from './walk-model.js'
 
 const close = (a, b, tolerance, message) => assert.ok(Math.abs(a - b) <= tolerance, `${message}: ${a} vs ${b}`)
@@ -149,7 +150,60 @@ assert.ok(Math.abs(pin.along - pathLength(firstLeg.path) / 2) <= grid.cellSize, 
 assert.deepEqual(hazardSpots(steepGrid, { ...firstLeg, warnings: [] }), [], 'no warning from the planner, no pin')
 assert.deepEqual(hazardSpots(grid, { ...firstLeg, warnings: [{ type: 'steep_slope', level: 'caution' }] }), [], 'flat ground, no pin')
 
-console.log(`Walk screen passed: science time at stops, bonus GO / tight / NO-GO matching the status line, skipped / here / done / incomplete, photo panel stop, hazard pins, radiation ${dose.fullWalkMSv.toFixed(2)} mSv for ${dose.walkHours} h.`)
+// 9. Walking slower (demo "Slow"): the crew really walks 30% slower, the screen measures it from the
+//    walking (walkPace), and every walking time it shows (home, turn back, bonus, arrivals) uses it.
+const slow = at(0, 0, { playing: true, simPace: 1.3 })
+advance(route, slow, 4)
+assert.equal(walkPace(slow), 1, 'not trusted before about 5 planned minutes of walking')
+close(slow.progress, 4 / (walk[0] * 1.3), 1e-9, 'the leg takes 30% longer')
+advance(route, slow, 20)
+close(walkPace(slow), 1.3, 1e-9, 'measured pace')
+// Walk on (science skipped here: it is not walking, so it doesn't change the pace).
+const walkOn = (state, minutes) => { for (let t = 0; t < minutes; t += 0.25) { state.scienceLeft = 0; state.playing = true; advance(route, state, 0.25) } }
+slow.simPace = 1 // back to the planned speed: the measured pace follows within about 10 planned minutes
+walkOn(slow, 4)
+assert.ok(walkPace(slow) > 1.05 && walkPace(slow) < 1.3, `easing back: ${walkPace(slow)}`)
+walkOn(slow, 40)
+assert.ok(walkPace(slow) < 1.01, `back on pace: ${walkPace(slow)}`)
+assert.equal(slow.mode, 'outbound', 'fixture: still walking')
+const paced = (state, pace) => ({ ...state, paceLog: { planned: 10, actual: 10 * pace } })
+const mid = at(1, 60, { progress: 0.4 })
+close(minutesHome(route, paced(mid, 1.3), navigation), minutesHome(route, mid, navigation) * 1.3, 1e-9, 'time home at 1.3x')
+const midSafety = safetyStatus(route, mid, mid.clockMs, navigation)
+close(safetyStatus(route, paced(mid, 1.3), mid.clockMs, navigation).turnbackIn, midSafety.turnbackIn - midSafety.homeMinutes * 0.3, 1e-9, 'turn back comes sooner')
+// The bonus check at stop B: walking there and home from it both take 30% longer.
+close(bonusStatus(route, paced(decide(0), 1.3), decide(0).clockMs, safezone).spareMinutes, planSpare - 0.3 * (walk[2] + homeFromBonus), 1e-6, 'bonus spare time at 1.3x')
+for (let late = planSpare - 30; late < planSpare; late += 0.5) {
+  const state = paced(decide(late), 1.3)
+  assert.equal(safetyStatus(route, state, state.clockMs, navigation).nextStopOk, bonusStatus(route, state, state.clockMs, safezone).go, `status and GO / NO-GO agree at 1.3x, ${late.toFixed(2)} min late`)
+}
+
+// 10. Arrival times: every stop left and home, with the science at each stop; walking only scales with pace.
+const plan = arrivalTimes(route, at(0, 0))
+assert.deepEqual(plan.stops.map((stop) => stop.id), route.stops.slice(1).map((stop) => stop.id))
+close((plan.stops[1].arrive_ms - start) / 60000, walk[0] + 15 + walk[1], 1e-9, 'arrive at B')
+close((plan.home_ms - start) / 60000, walk.reduce((sum, m) => sum + m) + 15 + 30 + 20, 1e-9, 'home on plan')
+close((arrivalTimes(route, paced(at(0, 0), 1.3)).home_ms - start) / 60000, walk.reduce((sum, m) => sum + m) * 1.3 + 65, 1e-9, 'home at 1.3x')
+const atA = arrivalTimes(route, at(1, walk[0], { scienceLeft: 15 }))
+close((atA.stops[0].arrive_ms - start) / 60000, walk[0] + 15 + walk[1], 1e-9, 'science left at A, then walk to B')
+const homeward = headHome(route, at(1, 70, { progress: 0.5 }), navigation)
+close((arrivalTimes(route, homeward).home_ms - homeward.clockMs) / 60000, homeward.returnTrip.walk_minutes, 1e-9, 'on the way home: just home')
+assert.deepEqual(arrivalTimes(route, at(3, 300, { mode: 'complete', progress: 1 })).stops, [])
+
+// 11. Turn-by-turn line: the first step before setting off, then the next turn, then arriving.
+const legSteps = directionsFor(grid, firstLeg, { toName: 'Stop A' })
+const legLength = pathLength(firstLeg.path)
+assert.match(directionLine(legSteps, 0).text, /^Head /)
+assert.equal(directionLine(legSteps, legLength - 5).text, 'Arriving at Stop A')
+for (const metres of [0, legLength * 0.3, legLength * 0.7, legLength]) {
+  const line = directionLine(legSteps, metres)
+  assert.equal(line.lead + line.rest, line.text, 'lead + rest is the whole line')
+}
+const turnLine = directionLine([{ turn: 'start', start_m: 0, text: 'Head east, on fairly flat ground, for 300 m' }, { turn: 'slight_left', start_m: 300, text: 'Bear left to head north-east, gently uphill, for 200 m' }, { turn: 'arrive', start_m: 500, text: 'Arrive at Stop A' }], 100)
+assert.deepEqual([turnLine.turn, turnLine.lead, turnLine.rest], ['slight_left', 'In 200 m, bear left', ' to head north-east, gently uphill, for 200 m'])
+assert.equal(directionLine(null, 0), null)
+
+console.log(`Walk screen passed: science time at stops, bonus GO / tight / NO-GO matching the status line, skipped / here / done / incomplete, photo panel stop, hazard pins, radiation ${dose.fullWalkMSv.toFixed(2)} mSv for ${dose.walkHours} h, measured pace 1.3x in times home / turn back / bonus / arrivals, turn-by-turn line.`)
 
 // 8. The real route with Kelly's stops (skipped if the terrain files are not in this workspace).
 const json = (path) => JSON.parse(readFileSync(new URL(`../../../public/${path}`, import.meta.url)))
@@ -201,6 +255,13 @@ if (real) {
   assert.deepEqual(pins.map((p) => p.type).sort(), leg0.warnings.map((w) => w.type).sort())
   for (const p of pins) assert.ok(p.along >= 0 && p.along <= pathLength(leg0.path) + 1e-6, `${p.type} pin is on the leg`)
   const planned = legs.reduce((sum, m) => sum + m) + kelly.stops.reduce((sum, stop) => sum + (stop.stop_minutes || 0), 0)
+  // Directions and arrival times on the real terrain: every leg has turn-by-turn steps that end at its stop.
+  kelly.legs.forEach((leg, k) => {
+    const legSteps = directionsFor(kellyGrid, leg, { toName: kelly.stops[k + 1].name })
+    assert.equal(legSteps.at(-1).text, `Arrive at ${kelly.stops[k + 1].name}`)
+    assert.match(directionLine(legSteps, 0).text, /^(Head |Arriv)/, `leg ${k + 1} starts with a heading`)
+  })
+  close((arrivalTimes(kelly, { mode: 'outbound', legIndex: 0, progress: 0, scienceLeft: 0, clockMs: kellyStart }).home_ms - kellyStart) / 60000, planned, 1e-6, 'home on plan')
   console.log(`Real route passed: ${kelly.stops[b].name} is GO with ${Math.round(ours.spareMinutes)} min to spare on plan `
     + `(NO-GO once ${Math.round(ours.spareMinutes)} min behind); full plan ${Math.round(planned)} min, radiation ${radiationDose(kelly, kellyStart + planned * 60000).soFarMSv.toFixed(2)} mSv; `
     + `${science.length} stop photos with credits.`)
