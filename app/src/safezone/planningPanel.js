@@ -19,6 +19,9 @@ function spareOverlayUrl(result, grid) {
   return canvas.toDataURL('image/png')
 }
 
+// Short label for Mia's bonus-stop verdict: 'ok' GO, 'caution' GO but tight, 'danger' NO-GO.
+const verdictLabel = (check) => check.level === 'danger' ? 'NO-GO' : check.level === 'caution' ? 'GO (tight)' : 'GO'
+
 const duration = (minutes) => {
   if (!Number.isFinite(minutes)) return 'Unavailable'
   const value = Math.max(0, Math.round(minutes))
@@ -33,12 +36,16 @@ export function mountPlanningSafety({ root, map, grid, route }) {
   let latest = 0
   let result = null
   let stormShown = false
+  let weather = null
   let worker = null
+  let probeId = 0
+  const bonus = route.stops.find((stop) => stop.is_bonus)
+  const bonusStop = bonus ? { x: bonus.x, y: bonus.y, name: bonus.name, stopMinutes: Number.isFinite(bonus.stop_minutes) ? bonus.stop_minutes : undefined } : null
   root.classList.add('planning-safety')
   root.innerHTML = `
     <span class="eyebrow">PLANNING SCENARIO / SIMULATED</span>
     <h2>Can we still get home?</h2>
-    <p class="ps-note">Crew reference: <strong id="ps-reference"></strong>. Select a route stop to move this reference. These controls do not change the Walk screen's clock.</p>
+    <p class="ps-note">Reference: <strong id="ps-reference"></strong>. Select a route stop to change it.</p>
     <form class="ps-form">
       <label>Elapsed suit time (hours)<input id="ps-elapsed" type="number" min="0" step="0.25" value="0" required></label>
       <label>Time at a candidate stop (min)<input id="ps-stop" type="number" min="0" max="120" step="1" value="20" required></label>
@@ -46,17 +53,18 @@ export function mountPlanningSafety({ root, map, grid, route }) {
       <button id="ps-storm" type="button" aria-pressed="false" disabled>Simulate storm route</button>
     </form>
     <p id="ps-status" class="ps-status" role="status" aria-live="polite">Calculating safety estimates...</p>
+    <div id="ps-bonus" class="ps-bonus" role="status" aria-live="polite" hidden></div>
     <div class="ps-summary">
-      <div><small>HOME FROM REFERENCE</small><strong id="ps-home">Calculating</strong><small>Terrain-grid estimate</small></div>
+      <div title="Time home from the selected route stop, calculated on the terrain grid."><small>TIME HOME</small><strong id="ps-home">Calculating</strong></div>
       <div><small>TURN BACK IN</small><strong id="ps-turnback">Calculating</strong><small>Before protected reserve</small></div>
-      <div><small>SUIT TIME LEFT AT HOME</small><strong id="ps-reserve">Calculating</strong><small>Includes protected reserve</small></div>
-      <div><small>ELAPSED SURFACE DOSE</small><strong id="ps-dose">Calculating</strong><small>Baseline model estimate</small></div>
+      <div title="Suit time remaining on arrival home, including the protected reserve."><small>SUIT LEFT AT HOME</small><strong id="ps-reserve">Calculating</strong></div>
+      <div title="Estimate from Curiosity RAD baseline (0.67 mSv/day), not a measured personal dose. Storm radiation and shielding are excluded."><small>DOSE ESTIMATE</small><strong id="ps-dose">Calculating</strong></div>
     </div>
-    <div class="ps-legend"><span><i style="background:#46c878"></i>Green: 30+ min before reserve</span><span><i style="background:#f0af3c"></i>Amber: under 30 min, reserve protected</span><span><i style="background:#ff7068"></i>Red: return uses reserve</span><span>Transparent: outside suit budget or unreachable</span></div>
-    <p id="ps-probe" class="ps-probe" role="status">Click the map to inspect spare time at a candidate point.</p>
+    <div class="ps-legend" aria-label="Safe zone legend"><span title="30 or more minutes before reserve"><i style="background:#46c878"></i>30+ min spare</span><span title="Under 30 minutes before reserve"><i style="background:#f0af3c"></i>&lt;30 min spare</span><span title="Return uses protected reserve"><i style="background:#ff7068"></i>Uses reserve</span></div>
+    <p id="ps-probe" class="ps-probe" role="status">Click a map point to check it.</p>
     <p id="ps-storm-note" class="ps-storm-note" role="status"></p>
     <p id="ps-budget" class="ps-note"></p>
-    <p class="ps-note">The zone includes the candidate-stop duration. The turn-back timer does not include an extra stop. Radiation uses Mia's 0.67 mSv/day baseline; storm effects and shielding are not modelled.</p>`
+    <p class="ps-note">Map colours include the candidate-stop time; turn-back excludes it. Transparent areas are unreachable or outside the suit budget. Walk uses its own simulated clock.</p>`
   const $ = (id) => root.querySelector(`#${id}`)
   const form = root.querySelector('form')
   $('ps-elapsed').max = String(route.mission.max_walk_minutes / 60)
@@ -72,8 +80,31 @@ export function mountPlanningSafety({ root, map, grid, route }) {
     for (const id of ['ps-home', 'ps-turnback', 'ps-reserve', 'ps-dose']) $(id).textContent = label
     $('ps-storm').disabled = true
     if (metric) metric.textContent = label
+    ++probeId
+    $('ps-bonus').hidden = true
+    paintBonusChips(null)
     $('ps-probe').textContent = 'Click the map to inspect spare time after calculation.'
     $('ps-storm-note').textContent = ''
+  }
+  function paintBonusChips(check) {
+    document.querySelectorAll('[data-bonus-verdict]').forEach((chip) => {
+      chip.textContent = check ? `BONUS · ${verdictLabel(check)}` : 'BONUS'
+      if (check) chip.dataset.level = check.level
+      else delete chip.dataset.level
+    })
+  }
+  function showBonus(check) {
+    const box = $('ps-bonus')
+    if (!check) { box.hidden = true; return }
+    box.hidden = false
+    box.dataset.level = check.level
+    box.innerHTML = '<small>PLANNED BONUS STOP / GO-NO-GO</small><strong></strong><span></span>'
+    box.querySelector('strong').textContent = `${check.name}: ${verdictLabel(check)}`
+    box.querySelector('span').textContent = check.spareMinutes == null
+      ? check.message
+      : `${Math.round(check.walkThereMinutes)} + ${check.stopMinutes} + ${Math.round(check.homeFromBonusMinutes)} min · ${check.spareMinutes < 0 ? `${Math.round(-check.spareMinutes)} min into reserve` : `${Math.round(check.spareMinutes)} min spare`}`
+    box.title = `From ${selected.name}: ${check.message}`
+    paintBonusChips(check)
   }
   function error(message) {
     clearResult('Unavailable')
@@ -101,7 +132,7 @@ export function mountPlanningSafety({ root, map, grid, route }) {
     $('ps-status').dataset.level = 'info'
     $('ps-status').textContent = 'Calculating the safe-to-go zone from this reference...'
     if (!worker) { error('The background safety worker could not start.'); return }
-    worker.postMessage({ type: 'calculate', id, scenario: { position: { x: selected.x, y: selected.y }, elapsedMinutes, stopMinutes } })
+    worker.postMessage({ type: 'calculate', id, scenario: { position: { x: selected.x, y: selected.y }, elapsedMinutes, stopMinutes, bonusStop, weather } })
   }
   form.addEventListener('submit', (event) => { event.preventDefault(); calculate() })
   form.addEventListener('input', () => {
@@ -117,20 +148,38 @@ export function mountPlanningSafety({ root, map, grid, route }) {
   })
   const probe = ({ latlng }) => {
     if (!result) return
+    // Inspect one GO / NO-GO at a time: a clicked point replaces the bonus card.
+    $('ps-bonus').hidden = true
     const cell = xyToCell(grid, latlng.lng, latlng.lat)
     if (cell < 0) { $('ps-probe').textContent = 'Outside the terrain grid.'; probeMarker.remove(); return }
     probeMarker.setLatLng(latlng).addTo(map)
     const spare = result.spareMinutes[cell]
     const band = result.zone[cell] === ZONE.SAFE ? result.spareMinutes[cell] < 30 ? 'Amber: reserve protected, under 30 min spare' : 'Green: reserve protected' : result.zone[cell] === ZONE.RESERVE ? 'Red: uses reserve' : 'Outside suit budget'
-    $('ps-probe').textContent = Number.isFinite(spare)
+    const zoneText = Number.isFinite(spare)
       ? `${band}: ${spare.toFixed(1)} min spare before protected reserve after reaching this point, stopping ${result.stopMinutes} min and returning to H1.`
       : 'This point cannot be reached from the reference or cannot return to H1.'
+    $('ps-probe').dataset.level = ''
+    $('ps-probe').textContent = 'Selected map point: checking GO / NO-GO...'
+    const id = ++probeId
+    // Same stop time and suit time as the zone on screen, so the verdict matches the colour.
+    worker.postMessage({ type: 'bonus', id, scenario: { position: result.position, bonus: { x: latlng.lng, y: latlng.lat }, elapsedMinutes: result.elapsedMinutes, stopMinutes: result.stopMinutes, weather } })
+    probeText = zoneText
+  }
+  let probeText = ''
+  function showProbe(data) {
+    if (data.id !== probeId || !result) return
+    const probe = $('ps-probe')
+    if (data.type === 'error') { probe.textContent = `Selected map point: unavailable (${data.message})`; return }
+    probe.dataset.level = data.check.level
+    probe.textContent = `Selected map point: ${verdictLabel(data.check)}${data.check.spareMinutes == null ? '' : data.check.spareMinutes < 0 ? ` · ${Math.round(-data.check.spareMinutes)} min into reserve` : ` · ${Math.round(data.check.spareMinutes)} min spare`}`
+    probe.title = `${data.check.message} ${probeText}`
   }
   map.on('click', probe)
   try {
     worker = new Worker(new URL('./planningWorker.js', import.meta.url), { type: 'module' })
     worker.onmessage = ({ data }) => {
       if (data.type === 'ready') return
+      if (data.type === 'bonus' || data.request === 'bonus') { showProbe(data); return }
       if (data.id !== 0 && data.id !== latest) return
       if (data.type === 'error') { ++latest; error(data.message); return }
       if (data.type !== 'result') return
@@ -140,13 +189,16 @@ export function mountPlanningSafety({ root, map, grid, route }) {
       $('ps-home').textContent = duration(result.timer.homeMinutes)
       $('ps-turnback').textContent = result.timer.turnbackIn > 0 ? duration(result.timer.turnbackIn) : 'NOW'
       $('ps-reserve').textContent = result.reserveAtHomeMinutes >= 0 ? duration(result.reserveAtHomeMinutes) : `${duration(-result.reserveAtHomeMinutes)} short`
-      $('ps-dose').textContent = `${result.elapsedDoseMSv.toFixed(3)} mSv`
+      $('ps-dose').textContent = `${result.elapsedDoseMSv.toFixed(2)} mSv`
       $('ps-status').dataset.level = result.timer.level
-      $('ps-status').textContent = `${result.timer.title}: ${result.timer.message}`
+      $('ps-status').textContent = result.timer.level === 'ok' ? '✓ On plan: home with reserve intact' : `${result.timer.title}: ${result.timer.message}`
+      $('ps-status').title = `${result.timer.title}: ${result.timer.message}`
       $('ps-storm').disabled = false
       if (metric) metric.textContent = $('ps-turnback').textContent
       if (metricLabel) metricLabel.textContent = `From ${selected.name} at simulated elapsed time`
-      $('ps-probe').textContent = 'Click the map to inspect spare time. Green has a wide margin, amber is tight, and red uses the reserve.'
+      $('ps-probe').dataset.level = ''
+      $('ps-probe').textContent = 'Click a map point to check it.'
+      showBonus(result.bonusCheck)
       drawStorm()
     }
     worker.onerror = () => error('The background safety worker failed. Reload and check the browser console.')
@@ -155,6 +207,10 @@ export function mountPlanningSafety({ root, map, grid, route }) {
   window.addEventListener('pagehide', () => { worker?.terminate(); map.off('click', probe) }, { once: true })
   return {
     layer,
+    setWeather(scenario) {
+      weather = scenario
+      calculate()
+    },
     selectStop(stop) {
       selected = stop
       $('ps-reference').textContent = stop.name

@@ -93,11 +93,27 @@ bonusStopCheck(home.grid, home.arrows.timeHome, {
 })
 // → { go: true, level: 'ok', title: 'GO', message: '45 min there + 20 min stop + 5 min home. 20 min to spare...',
 //     walkThereMinutes, stopMinutes, homeFromBonusMinutes, spareMinutes }
-//   level: 'ok' (GO) | 'caution' (GO, under 15 min spare) | 'danger' (NO-GO)
+//   level: 'ok' (GO) | 'caution' (GO, under 30 min spare, the amber band on the map) | 'danger' (NO-GO)
 ```
 
 On the Planning screen, leave out `walkThereMinutes` and pass the full `grid`: Nigel's planner
 works out the walk there on the terrain.
+
+`reason` says why. Everything except `fits` and `tight` is a NO-GO:
+
+| `reason` | Title | When |
+| --- | --- | --- |
+| `fits` / `tight` | GO / GO, but tight | 30+ min / under 30 min to spare |
+| `reserve` | NO-GO: skip the bonus stop | The trip would eat into the reserve |
+| `off-map` | NO-GO: off the map | The bonus stop is outside the terrain |
+| `no-go-ground` | NO-GO: no-go ground | The bonus stop is on a too-steep or too-rough square |
+| `no-way-home` | NO-GO: no safe way home | The bonus stop is walkable but cut off from H1 |
+| `crew-lost` | NO-GO: no way home from here | The crew position has no way back to H1 |
+| `cant-reach` | NO-GO: can't reach it | No walking route from the crew to the stop |
+
+The bonus stop is checked at its exact square (a target on a cliff is a NO-GO, the same as the map
+shows). Only the crew position is moved to the nearest safe square, for GPS that lands on a ridge edge.
+The phone's home file has no no-go layer, so there a no-go square comes out as `no-way-home`.
 
 ## Radiation
 
@@ -117,13 +133,34 @@ walkDoseMSv(6) // → 0.168 mSv (0.67 mSv/day, Curiosity RAD)
 | `bonusStop.js` | Bonus-stop GO / NO-GO |
 | `radiation.js` | Radiation dose for a walk |
 | `homeFile.js` | Save / load the pre-calculated home file for the phone |
-| `buildHomeFile.js` | Makes `public/safezone/home-h1.*`. **Re-run if the terrain or `SUIT` changes.** |
+| `buildHomeFile.js` | Makes `public/safezone/home-h1.*` (EVA-07) and `home-g2.*` (EVA-08). **Re-run if the terrain or `SUIT` changes.** |
 | `test.js` | All checks, on a toy grid and on the real terrain against Nigel's planner |
 | `preview.js` | Draws the safe zone over the terrain as a PNG, for checking |
 
 ```bash
 # from app/
 node src/safezone/test.js             # run all checks
-node src/safezone/buildHomeFile.js    # rebuild the phone file
+node src/safezone/buildHomeFile.js    # rebuild the phone file for EVA-07 (home = H1, 3 km map)
+node src/safezone/buildHomeFile.js --terrain ../data/processed/area-5km/ --home 3192.5,3542.5 --id G2 --out home-g2
+                                      # EVA-08 (home = rover at G2, 5 km map)
 node src/safezone/preview.js zone.png # picture of the safe zone (crew at the boxwork after 4.5 h)
 ```
+
+## EVA-08: home is the rover at G2
+
+EVA-08 is rover-assisted: the crew drives from H1 to staging point **G2** (x 3192.5, y 3542.5 on the
+5 km map, flat, about 4°), parks, walks the four Gediz Vallis stops and comes back to the rover. So for
+EVA-08, "home" is the rover at G2, not H1. Load it on the phone with `loadHomeFile('/safezone/home-g2')`;
+everything else (turn-back timer, storm route, bonus GO / NO-GO) works the same.
+
+| Back to the rover from | Walk |
+| --- | --- |
+| Mineral King Drill Site | 15 min |
+| Sulfur Crystal Field | 18 min |
+| Kings Canyon Drill Site | 19 min |
+| Gediz Vallis Panorama (bonus) | 10 min |
+
+Whole walk from G2 and back: about 55 min walking + 95 min science = 2 h 30 min, out of 6 h usable.
+These assume suit time starts at G2. If the crew wears suits during the drive from H1, add the drive
+time to `elapsedMinutes`.
+
