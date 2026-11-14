@@ -3,6 +3,7 @@ import 'leaflet/dist/leaflet.css'
 import './walk.css'
 import { loadTerrainRoute } from '../../terrainRoute.js'
 import { createTerrainNavigation } from '../../terrainNavigation.js'
+import { loadHomeFile } from '../../safezone/homeFile.js'
 import {
   ALERT_LEVELS, bearing, buildReturnTrip, cardinal, currentTrip, pointAlong, safetyStatus, segmentLength, shelterFor, sortWarnings,
 } from './walk-model.js'
@@ -351,6 +352,16 @@ function start(route, navigation) {
 }
 
 root.innerHTML = '<div class="walk-loading">Loading the walk route…</div>'
-loadTerrainRoute()
-  .then(({ route, grid }) => { assertRoute(route); start(route, createTerrainNavigation(route, grid)) })
+// Mia's pre-calculated way home saves the phone a search. Without it, the terrain is enough.
+const homeFile = loadHomeFile().catch((error) => {
+  console.warn(`Home file unavailable (${error.message}). Working out the way home on the phone.`)
+  return null
+})
+Promise.all([loadTerrainRoute(), homeFile])
+  .then(([{ route, grid }, file]) => {
+    assertRoute(route)
+    const navigation = createTerrainNavigation(route, grid, { homeFile: file })
+    if (file && navigation.source !== 'home file') console.warn('Home file does not match this terrain, so the phone worked out the way home itself. Rebuild it: node src/safezone/buildHomeFile.js')
+    start(route, navigation)
+  })
   .catch((error) => { root.innerHTML = `<div class="walk-loading is-error"><h1>Unable to load the route</h1><p>${safe(error.message)}</p></div>` })
