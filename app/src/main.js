@@ -2,6 +2,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './style.css'
 import './scienceLayers.css'
+import { showScienceLayerInfo } from './scienceLayerInfo.js'
 import { mountPlanningSafety } from './safezone/planningPanel.js'
 import './stopDetails.css'
 import { renderStopDetails } from './stopDetails.js'
@@ -79,7 +80,7 @@ function render(route, grid) {
             <div class="layer-toolbar" role="group" aria-label="Terrain map layers"><span>LAYERS</span><button type="button" data-layer="terrain" aria-pressed="true">◈ Basemap</button><button type="button" data-layer="slope" aria-pressed="false">▥ Slope</button><button type="button" data-layer="roughness" aria-pressed="false">⁙ Roughness</button><button type="button" data-layer="safety" aria-pressed="true">Safe zone</button><button type="button" data-layer="ctx" aria-pressed="false">CTX photo</button><button type="button" data-layer="crismHyd" aria-pressed="false">CRISM hydrated</button><button type="button" data-layer="crismAlt" aria-pressed="false">CRISM alteration</button><button type="button" data-layer="themis" aria-pressed="false">THEMIS night</button></div>
             <div id="map" role="img" aria-label="Terrain map showing the ordered demo stops and calculated return path"></div>
             <div class="map-footer"><div><span class="legend-line"></span> Planned path <span class="legend-dash"></span> Return from selected stop</div><span>Drag to explore · scroll to zoom</span></div>
-            <p id="science-layer-note" class="science-layer-note" role="status">Select an orbital layer for source and resolution notes. The basemap remains the terrain reference.</p>
+            <div id="science-layer-note" class="science-layer-note" role="status" aria-live="polite">Select an orbital layer for its source, colour key and limits. The basemap remains the terrain reference.</div>
           </div>
           <div class="route-panel">
             <div class="panel-header"><div><span class="eyebrow">EVA-07 / FLIGHT PLAN</span><h2>Route stops</h2></div><span class="count">${stops.length} STOPS</span></div>
@@ -107,15 +108,9 @@ function render(route, grid) {
     crismAlt: L.imageOverlay('/terrain/crism_alt.png', bounds, { opacity: 0.7, interactive: false }),
     themis: L.imageOverlay('/terrain/themis_night.png', bounds, { opacity: 0.75, interactive: false }),
   }
-  const scienceNotes = {
-    ctx: 'CTX orbital context (~5 m source pixels). The uncontrolled mosaic may be misaligned with the DEM by tens of metres.',
-    crismHyd: 'CRISM hydrated-mineral signals (~19 m source pixels). Colours are qualitative; transparent areas do not prove mineral absence.',
-    crismAlt: 'CRISM alteration signals (~19 m source pixels). Colours are qualitative and cannot identify minerals on an individual ridge.',
-    themis: 'THEMIS relative night infrared brightness (~163 m source pixels). This is not a live or calibrated temperature map.',
-  }
   const scienceNote = document.querySelector('#science-layer-note')
   for (const [name, layer] of Object.entries(science)) layer.on('error', () => {
-    scienceNote.textContent = `Could not load the ${name} image. Check Kelly's files in public/terrain/.`
+    if (map.hasLayer(layer)) showScienceLayerInfo(scienceNote, name, true)
   })
   for (const layer of [terrain, slope]) layer.on('error', () => {
     const notice = document.querySelector('.notice span')
@@ -135,9 +130,8 @@ function render(route, grid) {
     button.setAttribute('aria-pressed', String(enabled))
     if (enabled) layer.addTo(map)
     else map.removeLayer(layer)
-    scienceNote.textContent = Object.entries(science).find(([, value]) => map.hasLayer(value))
-      ? scienceNotes[Object.entries(science).find(([, value]) => map.hasLayer(value))[0]]
-      : 'Select an orbital layer for source and resolution notes. The basemap remains the terrain reference.'
+    const active = Object.entries(science).find(([, value]) => map.hasLayer(value))
+    showScienceLayerInfo(scienceNote, active?.[0] ?? null)
     // Re-toggling imagery must not cover the route or the selected return path.
     if (map.hasLayer(terrain)) terrain.bringToBack()
     lineLayers.forEach((line) => line.bringToFront())
