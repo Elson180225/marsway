@@ -1,0 +1,9 @@
+.mission-schedule{margin:0 0 18px;padding:20px;border:1px solid #42545a;border-radius:14px;background:#1b272d;color:#f1f0eb}
+.mission-schedule h2{font-size:21px;margin:6px 0 10px}.ms-summary{color:#b8e4d5;line-height:1.5;margin:0 0 14px}
+.ms-list{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ms-row{padding:11px 13px;background:#111f25;border-radius:9px;display:grid;gap:6px;min-width:0}
+.ms-row strong{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ms-row>span,.ms-note{font-size:12px;line-height:1.45;color:#afc0c2}
+.ms-bonus{font-size:10px;color:#ffc991;border:1px solid #df9c60;border-radius:5px;padding:3px 5px}
+.ms-note{margin:14px 0 0}
+.ms-summary.ms-over-budget{color:#ffb9a3}
+@media(max-width:600px){.ms-list{grid-template-columns:1fr}.mission-schedule{padding:15px}}
