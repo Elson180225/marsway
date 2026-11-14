@@ -1,0 +1,79 @@
+{
+  "name": "MarsWay EVA area: Mount Sharp boxwork, Gale Crater",
+  "source": "USGS Astrogeology, Mars MSL Gale Merged DEM 1m v3 (Parker & Calef)",
+  "sizeMetres": 6000,
+  "cellSize": 5,
+  "width": 1200,
+  "height": 1200,
+  "localCoords": "x = metres east of the WEST edge (0..size), y = metres north of the SOUTH edge (0..size). Grid cell (col,row) centre: x = (col+0.5)*cellSize, y = size - (row+0.5)*cellSize. Row 0 = north edge.",
+  "leaflet": {
+    "crs": "L.CRS.Simple",
+    "imageBounds": [
+      [
+        0,
+        0
+      ],
+      [
+        6000,
+        6000
+      ]
+    ],
+    "note": "Leaflet uses [y, x] order. basemap.png and slope.png both fill imageBounds exactly."
+  },
+  "boundsProjected": {
+    "west": 8141000.0,
+    "east": 8147000.0,
+    "south": -287000.0,
+    "north": -281000.0,
+    "crs": "Mars 2000 sphere, Equidistant Cylindrical, centre lon 0 (metres)"
+  },
+  "boundsLonLat": {
+    "west": 137.34359,
+    "east": 137.44482,
+    "south": -4.84186,
+    "north": -4.74064
+  },
+  "elevation": {
+    "min": -4226.6,
+    "max": -2998.7
+  },
+  "suggestedLimits": {
+    "slopeWarnDeg": 15,
+    "slopeNoGoDeg": 25
+  },
+  "habitatCandidates": [
+    {
+      "col": 311,
+      "row": 525,
+      "x": 1557.5,
+      "y": 3372.5,
+      "meanSlopeDeg": 3.7,
+      "distanceToBoxworkM": 1490
+    },
+    {
+      "col": 734,
+      "row": 785,
+      "x": 3672.5,
+      "y": 2072.5,
+      "meanSlopeDeg": 4.1,
+      "distanceToBoxworkM": 1146
+    },
+    {
+      "col": 896,
+      "row": 501,
+      "x": 4482.5,
+      "y": 3492.5,
+      "meanSlopeDeg": 4.4,
+      "distanceToBoxworkM": 1562
+    }
+  ],
+  "curiosityPointsInArea": 535,
+  "files": {
+    "elevation": "elevation.json",
+    "slope": "slope.json",
+    "roughness": "roughness.json",
+    "basemap": "basemap.png",
+    "slopeOverlay": "slope.png",
+    "curiosityTrack": "curiosity_track.json"
+  }
+}

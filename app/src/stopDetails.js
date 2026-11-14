@@ -54,7 +54,7 @@ export function renderStopDetails(container, stop, { targetStatus = 'pending' } 
   } else if (meta.bonus) {
     heading.append(element('span', 'science-badge science-bonus', 'OPTIONAL BONUS STOP'))
   }
-  const displayDescription = stop.type === 'habitat' ? 'Habitat H1: flat ground, crew base.' : meta.description
+  const displayDescription = stop.type === 'habitat' ? (stop.name === 'Habitat (H1)' ? 'Habitat H1: flat ground, crew base.' : stop.description) : meta.description
   const firstSentence = displayDescription.match(/^[\s\S]*?[.!?](?=\s|$)/)?.[0] || displayDescription
   const description = element('p', 'science-description science-preview', firstSentence)
   card.append(heading, description)

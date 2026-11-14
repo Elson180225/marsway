@@ -9,9 +9,12 @@ import { showScienceLayerInfo } from './scienceLayerInfo.js'
 import { mountPlanningSafety } from './safezone/planningPanel.js'
 import './stopDetails.css'
 import { renderStopDetails } from './stopDetails.js'
-import { loadTerrainRoute, roughnessImage } from './terrainRoute.js'
+import { loadTerrainRoute, roughnessImage, MISSIONS, DEFAULT_MISSION } from './terrainRoute.js'
 
 const root = document.querySelector('#app')
+// Which EVA to plan: ?eva=EVA-08 shows the Gediz Vallis walk on the 6 km map. Default: EVA-07.
+const missionId = MISSIONS[new URLSearchParams(location.search).get('eva')?.toUpperCase()] ? new URLSearchParams(location.search).get('eva').toUpperCase() : DEFAULT_MISSION
+const files = MISSIONS[missionId]
 
 function safe(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -73,6 +76,8 @@ function render(route, grid) {
         <div class="sidebar-divider"></div>
         <div class="sidebar-label">MISSION CONTROL</div>
         <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a><a class="nav-item" href="/walk.html"><span>⌖</span> Walk screen <small>Russell's view</small></a><a class="nav-item" href="/terrain-lab.html"><span>◇</span> Explore terrain in 3D <small>5 km view</small></a></nav>
+        <div class="sidebar-label mission-label">MISSIONS</div>
+        <nav class="mission-switch" aria-label="Choose EVA">${Object.entries(MISSIONS).map(([id, item]) => `<a class="nav-item ${id === missionId ? 'active' : ''}" href="?eva=${id}"${id === missionId ? ' aria-current="page"' : ''}><span>${id === 'EVA-07' ? '⌂' : '⛟'}</span> ${safe(item.label)}</a>`).join('')}</nav>
         <div class="sidebar-bottom"><div class="sample-pulse"></div><div><strong>Prototype mode</strong><span>Terrain route estimates</span></div></div>
       </aside>
       <main id="planning" class="main">
@@ -95,7 +100,7 @@ function render(route, grid) {
             <div id="science-layer-note" class="science-layer-note" role="status" aria-live="polite">Orbital layers: select to see legend, credit and source.</div>
           </div>
           <div class="route-panel">
-            <div class="panel-header"><div><span class="eyebrow">EVA-07 / FLIGHT PLAN</span><h2>Route stops</h2></div><span class="count">${stops.length} STOPS</span></div>
+            <div class="panel-header"><div><span class="eyebrow">${safe(mission.id)} / FLIGHT PLAN</span><h2>Route stops</h2></div><span class="count">${stops.length} STOPS</span></div>
             <div id="stop-list" class="stop-list"></div>
             <div id="return-summary" class="return-summary" aria-live="polite"></div>
           </div>
@@ -109,15 +114,20 @@ function render(route, grid) {
   // Bring the map and ordered stops above the deeper safety and schedule sections.
   document.querySelector('.metrics').after(document.querySelector('.workspace'))
 
-  const map = L.map('map', { crs: L.CRS.Simple, minZoom: -1.7, maxZoom: 1.2, zoomSnap: 0.25, zoomControl: false })
+  // Science layers are 3 km crops: only offer them on the map they were cut for.
+  if (!files.scienceLayers) document.querySelectorAll('[data-layer="ctx"], [data-layer="crismHyd"], [data-layer="crismAlt"], [data-layer="themis"], #science-layer-note').forEach((item) => item.remove())
+
+  // Bigger maps need to zoom further out (EVA-07's 3 km map keeps its original -1.7).
+  const minZoom = -1.7 - Math.max(0, Math.log2(Math.max(grid.sizeX, grid.sizeY) / 3000))
+  const map = L.map('map', { crs: L.CRS.Simple, minZoom, maxZoom: 1.2, zoomSnap: 0.25, zoomControl: false })
   L.control.zoom({ position: 'bottomright' }).addTo(map)
   const bounds = L.latLngBounds([[0, 0], [grid.sizeY, grid.sizeX]])
   L.rectangle(bounds, { color: '#b68f65', weight: 1, opacity: 0.2, fillOpacity: 0 }).addTo(map)
-  const terrain = L.imageOverlay('/terrain/basemap.png', bounds, { opacity: 0.92, interactive: false }).addTo(map)
-  const slope = L.imageOverlay('/terrain/slope.png', bounds, { opacity: 0.55, interactive: false })
+  const terrain = L.imageOverlay(`${files.terrain}basemap.png`, bounds, { opacity: 0.92, interactive: false }).addTo(map)
+  const slope = L.imageOverlay(`${files.terrain}slope.png`, bounds, { opacity: 0.55, interactive: false })
   const roughness = L.imageOverlay(roughnessImage(grid), bounds, { opacity: 0.7, interactive: false })
   // Kelly's 600 px north-up crops fill the same 3 km bounds as the terrain.
-  const science = {
+  const science = !files.scienceLayers ? {} : {
     ctx: L.imageOverlay('/terrain/ctx.png', bounds, { opacity: 0.85, interactive: false }),
     crismHyd: L.imageOverlay('/terrain/crism_hyd.png', bounds, { opacity: 0.7, interactive: false }),
     crismAlt: L.imageOverlay('/terrain/crism_alt.png', bounds, { opacity: 0.7, interactive: false }),
@@ -129,7 +139,7 @@ function render(route, grid) {
   })
   for (const layer of [terrain, slope]) layer.on('error', () => {
     const notice = document.querySelector('.notice span')
-    notice.textContent = 'A terrain image failed to load. Check public/terrain/basemap.png and slope.png. Route calculations use the JSON grids.'
+    notice.textContent = `A terrain image failed to load. Check public${files.terrain}basemap.png and slope.png. Route calculations use the JSON grids.`
   })
   const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route })
   mountPlanningScenario(document.querySelector('#mission-schedule'), route, (scenario) => safety.setWeather(scenario))
@@ -165,7 +175,10 @@ function render(route, grid) {
     const icon = L.divIcon({ className: 'stop-icon', html: `<span class="stop-marker ${index === 0 ? 'home-marker' : ''}">${index === 0 ? '⌂' : index}</span>`, iconSize: [36, 36], iconAnchor: [18, 18] })
     return L.marker(mapPoint(stop), { icon }).addTo(map).on('click', () => selectStop(index))
   })
-  map.fitBounds(bounds.pad(0.03), { padding: [18, 18] })
+  // The 3 km map shows all of it; on a bigger map, start zoomed in on the walk itself.
+  const routeBounds = L.latLngBounds([...legs.flatMap((leg) => leg.path.map(mapPoint)), ...stops.map(mapPoint)])
+  if (Math.max(grid.sizeX, grid.sizeY) > 3000) map.fitBounds(routeBounds.pad(0.35), { padding: [18, 18] })
+  else map.fitBounds(bounds.pad(0.03), { padding: [18, 18] })
 
   function selectStop(index, pan = true) {
     const stop = stops[index]
@@ -191,7 +204,7 @@ function render(route, grid) {
   selectStop(0, false)
 }
 
-root.innerHTML = '<div class="loading-screen">Loading terrain and calculating the demo route…</div>'
-loadTerrainRoute()
+root.innerHTML = `<div class="loading-screen">Loading ${safe(files.label)} terrain and calculating the route…</div>`
+loadTerrainRoute(fetch, missionId)
   .then(({ route, grid }) => { assertRoute(route); render(route, grid) })
   .catch((error) => { root.innerHTML = `<div class="error-screen"><h1>Unable to calculate the route</h1><p>${safe(error.message)}</p><p>Check the terrain files in <code>public/terrain/</code> and the mission template in <code>public/routes/sample-route.json</code>. No sample route has been substituted.</p></div>` })

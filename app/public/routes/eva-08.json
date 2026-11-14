@@ -1,0 +1,27 @@
+{
+ "schema_version": 1,
+ "coordinate_system": {
+  "type": "local_cartesian",
+  "unit": "meter",
+  "x_axis": "east",
+  "y_axis": "north",
+  "origin_note": "6 km terrain grid (data/processed/area-6km): x metres east of easting 8141000, y metres north of northing -287000."
+ },
+ "mission": {
+  "id": "EVA-08",
+  "name": "The Sulfur Walk",
+  "site": "Gale Crater · Gediz Vallis channel",
+  "start_time": "2026-11-14T08:00:00Z",
+  "max_walk_minutes": 480,
+  "latest_turnback_time": null,
+  "reserve_minutes": 120,
+  "data_status": "ILLUSTRATIVE_SAMPLE",
+  "home": {
+   "id": "hab",
+   "name": "Rover at G2",
+   "x": 3192.5,
+   "y": 3542.5,
+   "description": "Rover-assisted EVA: the crew drives from H1 to staging point G2, parks the rover and walks the four Gediz Vallis stops from there. Home for this walk is the rover."
+  }
+ }
+}
