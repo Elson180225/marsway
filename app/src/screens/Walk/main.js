@@ -6,8 +6,8 @@ import { createTerrainNavigation } from '../../terrainNavigation.js'
 import { loadHomeFile } from '../../safezone/homeFile.js'
 import { stopMetadata } from '../../stopDetails.js'
 import {
-  ALERT_LEVELS, advance, bearing, bonusStatus, buildReturnTrip, cardinal, currentTrip, minutesBehindPlan, photoStop, pointAlong, radiationDose,
-  safetyStatus, segmentLength, shelterFor, sortWarnings,
+  ALERT_LEVELS, advance, bearing, bonusStatus, buildReturnTrip, canHeadHome, cardinal, currentTrip, headHome,
+  minutesBehindPlan, photoStop, pointAlong, radiationDose, safetyStatus, segmentLength, shelterFor, sortWarnings,
 } from './walk-model.js'
 
 const root = document.querySelector('#walk')
@@ -76,7 +76,7 @@ function start(route, navigation, grid) {
   const { mission, stops, legs } = route
   const isSample = mission.data_status !== 'VALIDATED'
   const initialState = () => ({
-    mode: 'outbound', legIndex: 0, progress: 0, playing: false, returnTrip: null, scienceLeft: 0,
+    mode: 'outbound', legIndex: 0, progress: 0, playing: false, returnTrip: null, scienceLeft: 0, cutShortAt: null,
     clockMs: Date.parse(mission.start_time),
   })
   let state = initialState()
@@ -180,28 +180,18 @@ function start(route, navigation, grid) {
   // Simulation (advance() in walk-model.js moves the clock, the crew and the science time at stops)
   const atStop = () => state.mode === 'outbound' && state.progress === 0 && state.legIndex > 0
 
-  function canHeadHome() {
-    if (state.mode !== 'outbound') return false
-    if (state.legIndex === 0 && state.progress === 0) return false
-    return currentTrip(route, state).to.type !== 'home'
-  }
-
   $('w-primary').addEventListener('click', () => {
     if (state.mode === 'complete') state = initialState()
     else state.playing = !state.playing
     update()
   })
   $('w-home-btn').addEventListener('click', () => {
-    if (!canHeadHome()) return
+    if (!canHeadHome(route, state)) return
     // Two taps to confirm, so a glove bump doesn't abort the walk.
     if (Date.now() > homeArmedUntil) { homeArmedUntil = Date.now() + 3000; update(); return }
     homeArmedUntil = 0
-    try { state.returnTrip = buildReturnTrip(route, state, navigation) }
+    try { headHome(route, state, navigation) } // remembers a stop whose science was cut short
     catch (error) { stopOnRouteError(error); return }
-    state.mode = 'return'
-    state.progress = 0
-    state.scienceLeft = 0
-    state.playing = true
     update()
   })
   $('w-stay').addEventListener('click', () => {
@@ -343,7 +333,7 @@ function start(route, navigation, grid) {
             : state.mode === 'return' ? '▶\uFE0E Start walking home' : `▶\uFE0E Walk to ${trip.to.name}`
     primary.classList.toggle('is-paused', state.playing)
     const homeBtn = $('w-home-btn')
-    homeBtn.disabled = !canHeadHome()
+    homeBtn.disabled = !canHeadHome(route, state)
     const armed = Date.now() <= homeArmedUntil
     homeBtn.textContent = armed ? 'Tap again to head home' : '⌂ Head home'
     homeBtn.classList.toggle('is-armed', armed)
@@ -366,7 +356,8 @@ function start(route, navigation, grid) {
     let level = ''
     if (bonus.phase === 'error') note = 'check unavailable'
     else if (bonus.phase === 'here') { value = 'HERE'; note = state.scienceLeft > 0 ? `science ${duration(state.scienceLeft)} left` : 'science done' }
-    else if (bonus.phase === 'done') { value = 'DONE'; note = 'visited' }
+    else if (bonus.phase === 'done') { value = 'DONE'; note = 'science done' }
+    else if (bonus.phase === 'incomplete') { value = 'INCOMPLETE'; note = 'science not finished' }
     else if (bonus.phase === 'skipped') { value = 'SKIPPED'; note = 'headed home instead' }
     else if (!bonus.go) {
       value = 'NO-GO'
@@ -381,7 +372,7 @@ function start(route, navigation, grid) {
       : bonus.phase === 'ahead' && Number.isFinite(bonus.spareMinutes)
         ? `${bonus.decideNow ? '' : 'If you keep to the plan: '}${duration(bonus.walkThereMinutes)} to get there, ${Math.round(bonus.stopMinutes)} min of science, ${duration(bonus.homeFromBonusMinutes)} back to the habitat.`
         : note
-    tile.className = `walk-tile${level ? ` is-${level}` : ''}`
+    tile.className = `walk-tile${level ? ` is-${level}` : ''}${value.length > 7 ? ' is-long' : ''}`
     tile.title = `${bonus.stop?.name ?? 'Bonus stop'}: ${why}`
     $('w-bonus').textContent = value
     $('w-bonus-note').textContent = note

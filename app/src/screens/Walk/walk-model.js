@@ -70,8 +70,9 @@ export function returnFor(route, stopId) {
 
 /**
  * The leg the crew is walking right now.
- * state: { mode: 'outbound' | 'return' | 'complete', legIndex, progress, returnTrip, scienceLeft }
+ * state: { mode: 'outbound' | 'return' | 'complete', legIndex, progress, returnTrip, scienceLeft, cutShortAt }
  *   scienceLeft: minutes of science still to do at the stop the crew is at (progress 0), else 0.
+ *   cutShortAt:  id of the stop the crew headed home from before its science was done, else null.
  * Returns { path, distance_m, walk_minutes, warnings, from, to }.
  */
 export function currentTrip(route, state) {
@@ -200,6 +201,30 @@ export function advance(route, state, minutes) {
   return state
 }
 
+// "Head home" is for the way out, once the crew has left the habitat. When the next stop is home,
+// walking on already heads home, but the crew can still cut the science at this last stop short.
+export function canHeadHome(route, state) {
+  if (state.mode !== 'outbound') return false
+  if (state.legIndex === 0 && state.progress === 0) return false
+  return state.scienceLeft > 0 || currentTrip(route, state).to.type !== 'home'
+}
+
+/**
+ * Turn for home from where the crew is now. Changes and returns `state` (unchanged if the way home
+ * can't be worked out: buildReturnTrip throws). This clears scienceLeft, so a stop left before its
+ * science was done is kept in state.cutShortAt; the bonus tile must not call that visit "done".
+ */
+export function headHome(route, state, navigation = null) {
+  const returnTrip = buildReturnTrip(route, state, navigation)
+  state.cutShortAt = state.scienceLeft > 0 ? currentTrip(route, state).from.id : null
+  state.returnTrip = returnTrip
+  state.mode = 'return'
+  state.progress = 0
+  state.scienceLeft = 0
+  state.playing = true
+  return state
+}
+
 // Planned minutes from now until the crew arrives at stop `target` (outbound): the science still to
 // do here, the rest of this leg, then the science and walking at each stop in between.
 export function minutesToReach(route, state, target) {
@@ -223,7 +248,8 @@ export function minutesBehindPlan(route, state, clockMs) {
  * stop (minutesToReach), so far from it this answers "if we keep to the plan, will it fit?".
  * safezone: { grid, timeHome }, the terrain grid and the time-home map (navigation.timeHome).
  * Returns null if the route has no bonus stop, otherwise { stop, phase, decideNow, ...Mia's result }
- *   phase      'ahead' (still to come) | 'here' (at it) | 'done' (visited) | 'skipped' (went home first)
+ *   phase      'ahead' (still to come) | 'here' (at it) | 'done' (its science was finished)
+ *              | 'incomplete' (headed home during its science) | 'skipped' (went home first)
  *   decideNow  the bonus stop is the next stop, so this is the moment to choose
  *   Mia's result (phase 'ahead' only): { go, level, title, message, spareMinutes, homeFromBonusMinutes, ... }
  */
@@ -232,7 +258,10 @@ export function bonusStatus(route, state, clockMs, { grid, timeHome }) {
   if (index < 0) return null
   const stop = route.stops[index]
   const reached = state.legIndex >= index
-  if (state.mode !== 'outbound') return { stop, phase: reached ? 'done' : 'skipped', decideNow: false }
+  if (state.mode !== 'outbound') {
+    const phase = state.cutShortAt === stop.id ? 'incomplete' : reached ? 'done' : 'skipped'
+    return { stop, phase, decideNow: false }
+  }
   if (reached) return { stop, phase: state.legIndex === index && state.progress === 0 ? 'here' : 'done', decideNow: false }
   const { mission } = route
   const check = bonusStopCheck(grid, timeHome, {
