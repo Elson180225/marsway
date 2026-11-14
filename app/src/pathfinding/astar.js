@@ -105,7 +105,7 @@ export function findPathCells(grid, start, goal, { useHeuristic = true } = {}) {
 }
 
 /** Keep only the cells where the path changes direction, so the line on the map stays light. */
-function simplify(grid, cells) {
+export function simplify(grid, cells) {
   if (cells.length <= 2) return cells.slice()
   const out = [cells[0]]
   for (let k = 1; k < cells.length - 1; k++) {
@@ -115,7 +115,7 @@ function simplify(grid, cells) {
   return out
 }
 
-function legWarnings(grid, cells) {
+export function legWarnings(grid, cells) {
   const { suit, slope, roughness, cellSize } = grid
   const warnings = []
   if (slope) {
