@@ -54,8 +54,16 @@ export function renderStopDetails(container, stop, { targetStatus = 'pending' } 
   } else if (meta.bonus) {
     heading.append(element('span', 'science-badge science-bonus', 'OPTIONAL BONUS STOP'))
   }
-  card.append(heading, element('p', 'science-description', meta.description), element('p', 'science-coordinates', meta.coordinates))
-  if (meta.visitMinutes !== null) card.append(element('p', 'science-visit', `Planned science activity: ${meta.visitMinutes} min (walking time excluded).${meta.bonus ? ' Visit only if the return trip protects the suit reserve.' : ''}`))
+  const firstSentence = meta.description.match(/^[\s\S]*?[.!?](?=\s|$)/)?.[0] || meta.description
+  const description = element('p', 'science-description science-preview', firstSentence)
+  card.append(heading, description)
+  if (firstSentence !== meta.description) {
+    const more = element('details', 'science-more')
+    more.append(element('summary', '', 'More about this stop'), element('p', '', meta.description))
+    card.append(more)
+  }
+  card.append(element('p', 'science-coordinates', meta.coordinates))
+  if (meta.visitMinutes !== null) card.append(element('p', 'science-visit', `${meta.visitMinutes} min science${meta.bonus ? ' · Optional, check return time' : ''}`))
   if (meta.moved) {
     card.append(element('p', 'science-moved', `Route stop relocated ${meta.moved} m onto reachable terrain. Original: ${meta.original || 'coordinates unavailable'}.`))
   }
@@ -77,7 +85,11 @@ export function renderStopDetails(container, stop, { targetStatus = 'pending' } 
     }, { once: true })
     const caption = element('figcaption', 'science-caption')
     if (meta.nearby) caption.append(element('strong', 'science-nearby', 'Nearby view - not an exact stop photograph.'))
-    if (meta.caption) caption.append(element('p', '', meta.caption))
+    if (meta.caption) {
+      const photoMore = element('details', 'science-photo-more')
+      photoMore.append(element('summary', '', 'Photo details'), element('p', '', meta.caption))
+      caption.append(photoMore)
+    }
     const camera = [meta.sol !== null ? `Sol ${meta.sol}` : null, meta.camera].filter(Boolean).join(' | ')
     if (camera) caption.append(element('p', '', camera))
     caption.append(element('p', '', meta.credit ? `Image credit: ${meta.credit}` : 'Image credit pending - add photo_credit before presentation.'))

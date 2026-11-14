@@ -4,6 +4,7 @@ import { safeZone } from './safeZone.js'
 import { turnBackTimer } from './turnBack.js'
 import { stormRoute } from './storm.js'
 import { walkDoseMSv, RAD_SURFACE_MSV_PER_DAY } from './radiation.js'
+import { bonusStopCheck } from './bonusStop.js'
 
 // Mia's calculations are reused unchanged; mission settings come from the shared app wrapper.
 export function createPlanningSafety(grid, habitat, mission) {
@@ -16,8 +17,15 @@ export function createPlanningSafety(grid, habitat, mission) {
   const settings = { suitHours: suitMinutes / 60, reserveHours: reserveMinutes / 60 }
   // One reversed Dijkstra per grid/habitat, then reuse its time and next-home arrays.
   const arrows = homeArrows(grid, habitatCell)
+  // Mia's bonus-stop GO / NO-GO from the crew reference. The walk there comes from Nigel's
+  // planner on the full grid, so the verdict matches the safe-zone colour at that spot.
+  const checkBonus = ({ position, bonus, elapsedMinutes, stopMinutes }) => {
+    if (!Number.isFinite(bonus?.x) || !Number.isFinite(bonus?.y)) throw new Error('Invalid bonus-stop position.')
+    return bonusStopCheck(grid, arrows.timeHome, { here: position, bonus, elapsedMinutes, stopMinutes, settings })
+  }
   return {
-    evaluate({ position, elapsedMinutes, stopMinutes }) {
+    checkBonus,
+    evaluate({ position, elapsedMinutes, stopMinutes, bonusStop }) {
       if (!Number.isFinite(elapsedMinutes) || elapsedMinutes < 0 || elapsedMinutes > suitMinutes || !Number.isFinite(stopMinutes) || stopMinutes < 0) throw new Error('Elapsed time must be within the suit budget; candidate-stop minutes must be non-negative.')
       if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) throw new Error('Invalid crew reference position.')
       const here = xyToCell(grid, position.x, position.y)
@@ -37,6 +45,8 @@ export function createPlanningSafety(grid, habitat, mission) {
         rateMSvPerDay: RAD_SURFACE_MSV_PER_DAY,
         reserveAtHomeMinutes: suitMinutes - elapsedMinutes - timer.homeMinutes,
         elapsedMinutes, stopMinutes, position: { x: position.x, y: position.y },
+        // The route's bonus stop uses its own visit time when it has one.
+        bonusCheck: bonusStop ? { ...checkBonus({ position, bonus: bonusStop, elapsedMinutes, stopMinutes: bonusStop.stopMinutes ?? stopMinutes }), name: bonusStop.name } : null,
       }
     },
   }

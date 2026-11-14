@@ -1,0 +1,19 @@
+/* Planning only. Preserve detailed methods and checked science text in native expanders. */
+#planning .notice{display:block;padding:10px 14px;margin-bottom:16px}
+#planning .notice span{display:block}
+#planning .workspace{margin-top:12px;margin-bottom:18px}
+#planning .metric strong{font-variant-numeric:tabular-nums}
+#planning .science-more,#planning .science-photo-more,#planning .science-layer-more,
+#planning .ms-more,#planning .planning-model-notes{margin-top:10px}
+#planning details summary{cursor:pointer;color:#8ce0d6;font-weight:600;line-height:1.4}
+#planning details summary:focus-visible{outline:2px solid #fff0ce;outline-offset:3px}
+#planning details[open]>summary{margin-bottom:10px}
+#planning .science-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+#planning .science-more p,#planning .science-photo-more p,#planning .science-layer-more p{margin:8px 0;line-height:1.55}
+#planning .ms-summary{font-size:23px;font-weight:700;margin:8px 0 2px;font-variant-numeric:tabular-nums}
+#planning .ms-breakdown{color:#afc0c2;margin:0 0 12px;font-size:13px}
+#planning .ms-list{margin-top:12px}
+#planning .planning-model-notes{border-top:1px solid #42545a;padding-top:12px}
+#planning .planning-model-notes .ps-note{margin:8px 0}
+#planning .science-layer-info .science-layer-more{border-top:1px solid #34494b;padding-top:8px}
+@media(max-width:700px){#planning .ms-summary{font-size:21px}}

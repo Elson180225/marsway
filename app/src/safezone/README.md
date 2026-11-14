@@ -93,11 +93,27 @@ bonusStopCheck(home.grid, home.arrows.timeHome, {
 })
 // → { go: true, level: 'ok', title: 'GO', message: '45 min there + 20 min stop + 5 min home. 20 min to spare...',
 //     walkThereMinutes, stopMinutes, homeFromBonusMinutes, spareMinutes }
-//   level: 'ok' (GO) | 'caution' (GO, under 15 min spare) | 'danger' (NO-GO)
+//   level: 'ok' (GO) | 'caution' (GO, under 30 min spare, the amber band on the map) | 'danger' (NO-GO)
 ```
 
 On the Planning screen, leave out `walkThereMinutes` and pass the full `grid`: Nigel's planner
 works out the walk there on the terrain.
+
+`reason` says why. Everything except `fits` and `tight` is a NO-GO:
+
+| `reason` | Title | When |
+| --- | --- | --- |
+| `fits` / `tight` | GO / GO, but tight | 30+ min / under 30 min to spare |
+| `reserve` | NO-GO: skip the bonus stop | The trip would eat into the reserve |
+| `off-map` | NO-GO: off the map | The bonus stop is outside the terrain |
+| `no-go-ground` | NO-GO: no-go ground | The bonus stop is on a too-steep or too-rough square |
+| `no-way-home` | NO-GO: no safe way home | The bonus stop is walkable but cut off from H1 |
+| `crew-lost` | NO-GO: no way home from here | The crew position has no way back to H1 |
+| `cant-reach` | NO-GO: can't reach it | No walking route from the crew to the stop |
+
+The bonus stop is checked at its exact square (a target on a cliff is a NO-GO, the same as the map
+shows). Only the crew position is moved to the nearest safe square, for GPS that lands on a ridge edge.
+The phone's home file has no no-go layer, so there a no-go square comes out as `no-way-home`.
 
 ## Radiation
 

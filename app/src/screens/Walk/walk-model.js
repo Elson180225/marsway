@@ -1,7 +1,20 @@
 // Pure route maths for the Walk screen. No DOM or Leaflet here, so it can be tested in Node.
 // Coordinates are local metres from the shared route contract: x = east, y = north.
+import { bonusStopCheck } from '../../safezone/bonusStop.js'
+import { walkDoseMSv } from '../../safezone/radiation.js'
 
 const LEVEL_RANK = { danger: 0, caution: 1, info: 2 }
+
+// Walking minutes for a leg: the terrain estimate in seconds when there is one.
+function legMinutes(leg) {
+  return Number.isFinite(leg.seconds) ? leg.seconds / 60 : leg.walk_minutes
+}
+
+// Science time planned at a stop (Kelly's stop_minutes). The habitat and home have none.
+export function scienceMinutes(stop) {
+  if (!stop || stop.type === 'habitat' || stop.type === 'home') return 0
+  return Number.isFinite(stop.stop_minutes) && stop.stop_minutes > 0 ? stop.stop_minutes : 0
+}
 
 export function segmentLength(a, b) {
   return Math.hypot(b.x - a.x, b.y - a.y)
@@ -57,7 +70,9 @@ export function returnFor(route, stopId) {
 
 /**
  * The leg the crew is walking right now.
- * state: { mode: 'outbound' | 'return' | 'complete', legIndex, progress, returnTrip }
+ * state: { mode: 'outbound' | 'return' | 'complete', legIndex, progress, returnTrip, scienceLeft, cutShortAt }
+ *   scienceLeft: minutes of science still to do at the stop the crew is at (progress 0), else 0.
+ *   cutShortAt:  id of the stop the crew headed home from before its science was done, else null.
  * Returns { path, distance_m, walk_minutes, warnings, from, to }.
  */
 export function currentTrip(route, state) {
@@ -70,7 +85,7 @@ export function currentTrip(route, state) {
   return {
     path: leg.path,
     distance_m: leg.distance_m,
-    walk_minutes: Number.isFinite(leg.seconds) ? leg.seconds / 60 : leg.walk_minutes,
+    walk_minutes: legMinutes(leg),
     warnings: leg.warnings || [],
     from: route.stops[state.legIndex],
     to: route.stops[state.legIndex + 1],
@@ -128,10 +143,12 @@ export function safetyStatus(route, state, clockMs, navigation = null) {
 
   let nextStopOk = null
   const trip = currentTrip(route, state)
+  const nextScience = scienceMinutes(trip.to)
   if (state.mode === 'outbound' && trip.to.type !== 'home') {
-    const arriveMs = clockMs + trip.walk_minutes * (1 - state.progress) * 60000
+    // Finish the science here, walk there, do the science planned there, then walk home.
+    const arriveMs = clockMs + ((state.scienceLeft || 0) + trip.walk_minutes * (1 - state.progress)) * 60000
     const homeFromNext = navigation ? navigation.homeFrom(trip.to).walk_minutes : returnFor(route, trip.to.id).walk_minutes
-    nextStopOk = (suitEnd - arriveMs) / 60000 - homeFromNext >= mission.reserve_minutes
+    nextStopOk = (suitEnd - arriveMs) / 60000 - nextScience - homeFromNext >= mission.reserve_minutes
   }
 
   const result = (level, title, message) => ({ level, title, message, homeMinutes, reserveAtHome, turnbackIn, nextStopOk })
@@ -143,9 +160,139 @@ export function safetyStatus(route, state, clockMs, navigation = null) {
       : result('ok', 'Heading home', 'Reserve stays intact on the way home.')
   }
   if (turnbackIn <= 0) return result('danger', 'Turn back now', 'Heading home now already uses part of the protected reserve.')
-  if (nextStopOk === false) return result('caution', `Skip ${trip.to.name}?`, 'Reaching it would leave too little time to get home with the reserve intact.')
+  if (nextStopOk === false) return result('caution', `Skip ${trip.to.name}?`, nextScience ? `Reaching it and doing its ${Math.round(nextScience)} min of science would leave too little time to get home with the reserve intact.` : 'Reaching it would leave too little time to get home with the reserve intact.')
   if (turnbackIn <= 30) return result('caution', 'Turn back soon', 'Less than 30 minutes before you must start heading home.')
   return result('ok', 'On plan', 'Enough suit time to reach home with the reserve intact.')
+}
+
+/**
+ * Move the simulation on by `minutes` of mission time. Changes and returns `state`.
+ * Arriving at a stop starts the science planned there (state.scienceLeft), which uses suit time
+ * like walking does. The walk pauses when that science is done (or on arrival if none is planned),
+ * so the crew can choose to walk on or head home.
+ */
+export function advance(route, state, minutes) {
+  if (state.mode === 'complete' || !(minutes > 0)) return state
+  if (state.scienceLeft > 0) {
+    const used = Math.min(minutes, state.scienceLeft)
+    state.clockMs += used * 60000
+    state.scienceLeft -= used
+    if (state.scienceLeft < 1e-9) {
+      state.scienceLeft = 0
+      state.playing = false
+    }
+    return state
+  }
+  const trip = currentTrip(route, state)
+  const used = Math.min(minutes, Math.max(0, (1 - state.progress) * trip.walk_minutes))
+  state.clockMs += used * 60000
+  state.progress += used / trip.walk_minutes
+  if (state.progress < 1 - 1e-9) return state
+  if (state.mode === 'return' || trip.to.type === 'home') {
+    state.mode = 'complete'
+    state.progress = 1
+    state.playing = false
+  } else {
+    state.legIndex += 1
+    state.progress = 0
+    state.scienceLeft = scienceMinutes(route.stops[state.legIndex])
+    if (!state.scienceLeft) state.playing = false
+  }
+  return state
+}
+
+// "Head home" is for the way out, once the crew has left the habitat. When the next stop is home,
+// walking on already heads home, but the crew can still cut the science at this last stop short.
+export function canHeadHome(route, state) {
+  if (state.mode !== 'outbound') return false
+  if (state.legIndex === 0 && state.progress === 0) return false
+  return state.scienceLeft > 0 || currentTrip(route, state).to.type !== 'home'
+}
+
+/**
+ * Turn for home from where the crew is now. Changes and returns `state` (unchanged if the way home
+ * can't be worked out: buildReturnTrip throws). This clears scienceLeft, so a stop left before its
+ * science was done is kept in state.cutShortAt; the bonus tile must not call that visit "done".
+ */
+export function headHome(route, state, navigation = null) {
+  const returnTrip = buildReturnTrip(route, state, navigation)
+  state.cutShortAt = state.scienceLeft > 0 ? currentTrip(route, state).from.id : null
+  state.returnTrip = returnTrip
+  state.mode = 'return'
+  state.progress = 0
+  state.scienceLeft = 0
+  state.playing = true
+  return state
+}
+
+// Planned minutes from now until the crew arrives at stop `target` (outbound): the science still to
+// do here, the rest of this leg, then the science and walking at each stop in between.
+export function minutesToReach(route, state, target) {
+  let minutes = (state.scienceLeft || 0) + legMinutes(route.legs[state.legIndex]) * (1 - state.progress)
+  for (let k = state.legIndex + 1; k < target; k++) minutes += scienceMinutes(route.stops[k]) + legMinutes(route.legs[k])
+  return minutes
+}
+
+// Minutes behind the planned walking and science times (e.g. after staying longer at a stop).
+// null once heading home, because the plan no longer applies.
+export function minutesBehindPlan(route, state, clockMs) {
+  if (state.mode !== 'outbound') return null
+  let planned = state.progress * legMinutes(route.legs[state.legIndex]) - (state.scienceLeft || 0)
+  for (let k = 0; k < state.legIndex; k++) planned += legMinutes(route.legs[k]) + scienceMinutes(route.stops[k + 1])
+  return (clockMs - Date.parse(route.mission.start_time)) / 60000 - planned
+}
+
+/**
+ * Bonus-stop GO / NO-GO with Mia's bonusStopCheck() (safezone/bonusStop.js), so the phone agrees
+ * with the safe zone on the Planning map. "Walk there" is the planned time from here to the bonus
+ * stop (minutesToReach), so far from it this answers "if we keep to the plan, will it fit?".
+ * safezone: { grid, timeHome }, the terrain grid and the time-home map (navigation.timeHome).
+ * Returns null if the route has no bonus stop, otherwise { stop, phase, decideNow, ...Mia's result }
+ *   phase      'ahead' (still to come) | 'here' (at it) | 'done' (its science was finished)
+ *              | 'incomplete' (headed home during its science) | 'skipped' (went home first)
+ *   decideNow  the bonus stop is the next stop, so this is the moment to choose
+ *   Mia's result (phase 'ahead' only): { go, level, title, message, spareMinutes, homeFromBonusMinutes, ... }
+ */
+export function bonusStatus(route, state, clockMs, { grid, timeHome }) {
+  const index = route.stops.findIndex((stop) => stop.is_bonus === true && stop.type !== 'home')
+  if (index < 0) return null
+  const stop = route.stops[index]
+  const reached = state.legIndex >= index
+  if (state.mode !== 'outbound') {
+    const phase = state.cutShortAt === stop.id ? 'incomplete' : reached ? 'done' : 'skipped'
+    return { stop, phase, decideNow: false }
+  }
+  if (reached) return { stop, phase: state.legIndex === index && state.progress === 0 ? 'here' : 'done', decideNow: false }
+  const { mission } = route
+  const check = bonusStopCheck(grid, timeHome, {
+    here: pointAlong(currentTrip(route, state).path, state.progress).point,
+    bonus: stop,
+    elapsedMinutes: (clockMs - Date.parse(mission.start_time)) / 60000,
+    stopMinutes: scienceMinutes(stop),
+    walkThereMinutes: minutesToReach(route, state, index),
+    settings: { suitHours: mission.max_walk_minutes / 60, reserveHours: mission.reserve_minutes / 60 },
+  })
+  return { ...check, stop, phase: 'ahead', decideNow: state.legIndex === index - 1 }
+}
+
+// The stop whose photo and task the Walk screen shows: the stop the crew is at, or the next stop
+// while walking there. None on the way home or once the walk is over.
+//   Returns { stop, here } (here = the crew is at it) or null.
+export function photoStop(route, state) {
+  if (state.mode !== 'outbound') return null
+  const trip = currentTrip(route, state)
+  const here = state.progress === 0 && state.legIndex > 0
+  const stop = here ? trip.from : trip.to
+  return stop && stop.type !== 'home' && stop.type !== 'habitat' ? { stop, here } : null
+}
+
+// Radiation so far, and for the whole walking budget (suit time minus the reserve: 8 h - 2 h = 6 h),
+// from Mia's walkDoseMSv(): about 0.67 mSv a day on the surface at Gale Crater (Curiosity's RAD).
+export function radiationDose(route, clockMs) {
+  const { mission } = route
+  const walkHours = (mission.max_walk_minutes - mission.reserve_minutes) / 60
+  const hoursOut = Math.max(0, clockMs - Date.parse(mission.start_time)) / 3600000
+  return { soFarMSv: walkDoseMSv(hoursOut), walkHours, fullWalkMSv: walkDoseMSv(walkHours) }
 }
 
 // Alerts from the route file, e.g. solar storms. Shelter must be an existing stop or null.

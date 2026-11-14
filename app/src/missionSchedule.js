@@ -38,7 +38,8 @@ export function renderMissionSchedule(container, route) {
   }
   const panel = el('div', 'mission-schedule')
   panel.append(el('span', 'eyebrow', 'SIMULATED EVA / UTC'), el('h2', '', 'Planned walk and science time'))
-  panel.append(el('p', `ms-summary${plan.margin < 0 ? ' ms-over-budget' : ''}`, `Full route${plan.hasBonus ? ' including optional bonus' : ''}: ${minutesLabel(plan.walking)} walking + ${minutesLabel(plan.science)} at stops = ${minutesLabel(plan.total)}. ${plan.margin >= 0 ? `${minutesLabel(plan.margin)} remains before the protected reserve.` : `${minutesLabel(-plan.margin)} would use the protected reserve; shorten the plan.`}`))
+  panel.append(el('p', `ms-summary${plan.margin < 0 ? ' ms-over-budget' : ''}`, `${minutesLabel(plan.total)} total · ${plan.margin >= 0 ? `${minutesLabel(plan.margin)} before reserve` : `${minutesLabel(-plan.margin)} into reserve`}`))
+  panel.append(el('p', 'ms-breakdown', `${minutesLabel(plan.walking)} walking + ${minutesLabel(plan.science)} science${plan.hasBonus ? ' · Includes bonus stop' : ''}`))
   const list = el('ol', 'ms-list')
   for (const row of plan.rows) {
     const item = el('li', 'ms-row')
@@ -47,6 +48,8 @@ export function renderMissionSchedule(container, route) {
     item.append(name, el('span', '', `Arrive ${utc(plan.start, row.arrival)}${row.isHome ? ' · EVA complete' : ` · Science ${row.visit} min · Depart ${utc(plan.start, row.departure)}`}`))
     list.append(item)
   }
-  panel.append(list, el('p', 'ms-note', `Suit budget ${minutesLabel(route.mission.max_walk_minutes)} includes a protected ${minutesLabel(route.mission.reserve_minutes)} reserve. This total includes every listed stop; skipping the bonus requires a new route calculation. Walking seconds are summed before display rounding. Start time and position are simulated.`))
+  const more = el('details', 'ms-more')
+  more.append(el('summary', '', 'View stop-by-stop schedule'), list, el('p', 'ms-note', `Suit budget ${minutesLabel(route.mission.max_walk_minutes)} includes a protected ${minutesLabel(route.mission.reserve_minutes)} reserve. This total includes every listed stop; skipping the bonus requires a new route calculation. Walking seconds are summed before display rounding. Start time and position are simulated.`))
+  panel.append(more)
   container.replaceChildren(panel)
 }
