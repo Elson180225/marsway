@@ -1,12 +1,13 @@
 // Walk screen: science time at stops, bonus-stop GO / NO-GO and the radiation counter.
 // Run from app/:  node src/screens/Walk/walk-model.test.js
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { buildTerrainRoute } from '../../terrainRoute.js'
 import { createTerrainNavigation } from '../../terrainNavigation.js'
 import { bonusStopCheck, TIGHT_MINUTES } from '../../safezone/bonusStop.js'
 import { xyToCell } from '../../pathfinding/walkingTime.js'
-import { advance, bonusStatus, minutesBehindPlan, radiationDose, safetyStatus } from './walk-model.js'
+import { stopMetadata } from '../../stopDetails.js'
+import { advance, bonusStatus, minutesBehindPlan, photoStop, radiationDose, safetyStatus } from './walk-model.js'
 
 const close = (a, b, tolerance, message) => assert.ok(Math.abs(a - b) <= tolerance, `${message}: ${a} vs ${b}`)
 
@@ -96,7 +97,17 @@ assert.equal(minutesBehindPlan(route, at(1, 60, { mode: 'return' }), start), nul
 const noBonus = buildTerrainRoute(template, area, terrain, { ...science, stops: science.stops.map((stop) => ({ ...stop, is_bonus: false })) }).route
 assert.equal(bonusStatus(noBonus, at(0, 0), start, safezone), null)
 
-// 6. Radiation: about 0.67 mSv a day, so the 6 h walking budget (8 h suit - 2 h reserve) is 0.17 mSv.
+// 6. Photo panel: the next stop while walking (and at the habitat), the stop the crew is at,
+//    nothing on the way home or after the walk.
+assert.deepEqual(photoStop(route, at(0, 0)), { stop: route.stops[1], here: false })
+assert.deepEqual(photoStop(route, at(1, 60)), { stop: route.stops[1], here: true })
+assert.deepEqual(photoStop(route, at(1, 70, { progress: 0.5 })), { stop: route.stops[2], here: false })
+assert.deepEqual(photoStop(route, at(3, 200)), { stop: route.stops[3], here: true })
+assert.equal(photoStop(route, at(3, 230, { progress: 0.5 })), null)
+assert.equal(photoStop(route, at(1, 60, { mode: 'return' })), null)
+assert.equal(photoStop(route, at(3, 300, { mode: 'complete', progress: 1 })), null)
+
+// 7. Radiation: about 0.67 mSv a day, so the 6 h walking budget (8 h suit - 2 h reserve) is 0.17 mSv.
 const dose = radiationDose(route, start + 6 * 3600000)
 assert.equal(dose.walkHours, 6)
 assert.equal(dose.fullWalkMSv.toFixed(2), '0.17')
@@ -104,9 +115,9 @@ close(dose.soFarMSv, dose.fullWalkMSv, 1e-12, 'dose after 6 h out')
 assert.equal(radiationDose(route, start).soFarMSv, 0)
 assert.equal(radiationDose(route, start - 60000).soFarMSv, 0)
 
-console.log(`Walk screen passed: science time at stops, bonus GO / tight / NO-GO matching the status line, skipped / here / done, radiation ${dose.fullWalkMSv.toFixed(2)} mSv for ${dose.walkHours} h.`)
+console.log(`Walk screen passed: science time at stops, bonus GO / tight / NO-GO matching the status line, skipped / here / done, photo panel stop, radiation ${dose.fullWalkMSv.toFixed(2)} mSv for ${dose.walkHours} h.`)
 
-// 7. The real route with Kelly's stops (skipped if the terrain files are not in this workspace).
+// 8. The real route with Kelly's stops (skipped if the terrain files are not in this workspace).
 const json = (path) => JSON.parse(readFileSync(new URL(`../../../public/${path}`, import.meta.url)))
 let real = null
 try {
@@ -136,7 +147,16 @@ if (real) {
   close(ours.spareMinutes, mias.spareMinutes, 1e-9, "same as Mia's check at the decision point")
   const fromHab = bonusStatus(kelly, { mode: 'outbound', legIndex: 0, progress: 0, scienceLeft: 0 }, kellyStart, { grid: kellyGrid, timeHome: nav.timeHome })
   close(fromHab.spareMinutes, ours.spareMinutes, 1e-6, 'same spare time from the habitat on plan')
+  // Every science stop has what the photo panel shows: a photo file, a credit, a source link and a task.
+  const science = kelly.stops.filter((stop) => stop.type !== 'habitat' && stop.type !== 'home')
+  for (const stop of science) {
+    const meta = stopMetadata(stop, 'http://localhost/')
+    assert.ok(meta.photo && existsSync(new URL(`../../../public${new URL(meta.photo).pathname}`, import.meta.url)), `${stop.id}: photo file exists`)
+    assert.ok(meta.credit && meta.source?.startsWith('https://') && stop.why, `${stop.id}: credit, source link and task`)
+  }
+  assert.equal(photoStop(kelly, { mode: 'outbound', legIndex: 0, progress: 0 }).stop.id, science[0].id)
   const planned = legs.reduce((sum, m) => sum + m) + kelly.stops.reduce((sum, stop) => sum + (stop.stop_minutes || 0), 0)
   console.log(`Real route passed: ${kelly.stops[b].name} is GO with ${Math.round(ours.spareMinutes)} min to spare on plan `
-    + `(NO-GO once ${Math.round(ours.spareMinutes)} min behind); full plan ${Math.round(planned)} min, radiation ${radiationDose(kelly, kellyStart + planned * 60000).soFarMSv.toFixed(2)} mSv.`)
+    + `(NO-GO once ${Math.round(ours.spareMinutes)} min behind); full plan ${Math.round(planned)} min, radiation ${radiationDose(kelly, kellyStart + planned * 60000).soFarMSv.toFixed(2)} mSv; `
+    + `${science.length} stop photos with credits.`)
 }
