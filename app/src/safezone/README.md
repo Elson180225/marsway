@@ -133,7 +133,7 @@ walkDoseMSv(6) // → 0.168 mSv (0.67 mSv/day, Curiosity RAD)
 | `bonusStop.js` | Bonus-stop GO / NO-GO |
 | `radiation.js` | Radiation dose for a walk |
 | `homeFile.js` | Save / load the pre-calculated home file for the phone |
-| `buildHomeFile.js` | Makes `public/safezone/home-h1.*` (EVA-07) and `home-g2.*` (EVA-08). **Re-run if the terrain or `SUIT` changes.** |
+| `buildHomeFile.js` | Makes `public/safezone/home-h1.*` (EVA-07), `home-g2.*` (EVA-08, 5 km map) and `home-g2-6km.*` (EVA-08, 6 km map). **Re-run if the terrain or `SUIT` changes.** |
 | `test.js` | All checks, on a toy grid and on the real terrain against Nigel's planner |
 | `preview.js` | Draws the safe zone over the terrain as a PNG, for checking |
 
@@ -143,6 +143,8 @@ node src/safezone/test.js             # run all checks
 node src/safezone/buildHomeFile.js    # rebuild the phone file for EVA-07 (home = H1, 3 km map)
 node src/safezone/buildHomeFile.js --terrain ../data/processed/area-5km/ --home 3192.5,3542.5 --id G2 --out home-g2
                                       # EVA-08 (home = rover at G2, 5 km map)
+node src/safezone/buildHomeFile.js --terrain ../data/processed/area-6km/ --home 3192.5,3542.5 --id G2 --out home-g2-6km
+                                      # EVA-08 on the 6 km map
 node src/safezone/preview.js zone.png # picture of the safe zone (crew at the boxwork after 4.5 h)
 ```
 
@@ -152,6 +154,15 @@ EVA-08 is rover-assisted: the crew drives from H1 to staging point **G2** (x 319
 5 km map, flat, about 4°), parks, walks the four Gediz Vallis stops and comes back to the rover. So for
 EVA-08, "home" is the rover at G2, not H1. Load it on the phone with `loadHomeFile('/safezone/home-g2')`;
 everything else (turn-back timer, storm route, bonus GO / NO-GO) works the same.
+
+Two files, one per map, because a home file only fits the grid it was built on:
+
+| File | Map | Grid | Size | Load with |
+| --- | --- | --- | --- | --- |
+| `home-g2.*` | 5 km (`area-5km/`) | 1000 × 1000 | 5.0 MB | `loadHomeFile('/safezone/home-g2')` |
+| `home-g2-6km.*` | 6 km (`area-6km/`) | 1200 × 1200 | 7.2 MB | `loadHomeFile('/safezone/home-g2-6km')` |
+
+Both maps share the same bottom-left corner, so x/y are the same and the times below match on both.
 
 | Back to the rover from | Walk |
 | --- | --- |
