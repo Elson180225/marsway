@@ -9,7 +9,7 @@
  * Target: the first science stop in public/routes/science-stops.json (Boxwork Lookout).
  */
 import { readFileSync, writeFileSync } from 'node:fs'
-import { xyToCell, cellToXY, suitSpeedMps } from './walkingTime.js'
+import { xyToCell, cellToXY, suitSpeedMps, heightAt } from './walkingTime.js'
 import { findPathCells, routeLeg } from './astar.js'
 import { loadTerrain, readAppJson } from './nodeTerrain.js'
 
@@ -43,18 +43,6 @@ for (const s of samples) {
     else nogoRuns.push([s.m, s.m])
   } else if (deg > WARN) steepM++
 }
-// Height at any point, blended smoothly between the 4 nearest cell centres. Using whole
-// cells instead would turn the slope into 5 m stairs and overstate the climbing.
-function heightAt(x, y) {
-  const fc = Math.min(Math.max(x / cellSize - 0.5, 0), grid.width - 1.001)
-  const fr = Math.min(Math.max((grid.sizeY - y) / cellSize - 0.5, 0), grid.height - 1.001)
-  const c = Math.floor(fc)
-  const rr = Math.floor(fr)
-  const u = fc - c
-  const v = fr - rr
-  const e = (cc, r2) => elevation[r2 * grid.width + cc]
-  return (1 - u) * (1 - v) * e(c, rr) + u * (1 - v) * e(c + 1, rr) + (1 - u) * v * e(c, rr + 1) + u * v * e(c + 1, rr + 1)
-}
 // Walking time on the straight line if the cliffs weren't there (same Tobler + suit + roughness model, 5 m steps).
 let straightSec = 0
 let straightUp = 0
@@ -62,7 +50,7 @@ let straightDown = 0
 for (let m = cellSize; m <= length; m += cellSize) {
   const a = samples[Math.round(m - cellSize)]
   const b = samples[Math.min(Math.round(m), samples.length - 1)]
-  const dh = heightAt(b.x, b.y) - heightAt(a.x, a.y)
+  const dh = heightAt(grid, b.x, b.y) - heightAt(grid, a.x, a.y)
   if (dh > 0) straightUp += dh
   else straightDown -= dh
   straightSec += (cellSize / suitSpeedMps(dh / cellSize, suit)) * ((grid.factor[a.cell] + grid.factor[b.cell]) / 2)
