@@ -115,6 +115,11 @@ export function simplify(grid, cells) {
   return out
 }
 
+/**
+ * Notices for a leg. Each is { type, level, message, distance_m } where distance_m is how many
+ * metres of the leg it covers (so screens can filter, e.g. hide rough ground of 15 m or less,
+ * without reading the message text). Steep slopes also have max_slope_deg.
+ */
 export function legWarnings(grid, cells) {
   const { suit, slope, roughness, cellSize } = grid
   const warnings = []
@@ -126,6 +131,8 @@ export function legWarnings(grid, cells) {
         type: 'steep_slope',
         level: 'caution',
         message: `About ${steep.length * cellSize} m of this leg is steeper than ${suit.slopeWarnDeg}° (up to ${maxDeg.toFixed(0)}°).`,
+        distance_m: steep.length * cellSize,
+        max_slope_deg: Math.round(maxDeg),
       })
     }
   }
@@ -136,6 +143,7 @@ export function legWarnings(grid, cells) {
         type: 'rough_ground',
         level: 'info',
         message: `About ${rough.length * cellSize} m of rocky or uneven ground on this leg.`,
+        distance_m: rough.length * cellSize,
       })
     }
   }
