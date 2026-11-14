@@ -22,6 +22,7 @@ Made by `scripts/prepare_terrain.py` from the USGS *MSL Gale Merged DEM 1m v3*.
 | `basemap.png` | Coloured, shaded terrain picture (1500 × 1500 px, 2 m per pixel) | Aaron, Russell |
 | `slope.png` | See-through steepness overlay, one pixel per cell (green < 10°, yellow 10–15°, orange 15–25°, red > 25°) | Aaron, Russell |
 | `curiosity_track.json` | Curiosity's real stops in our area (sol, x, y), from NASA's waypoint list | Kelly, Aaron, Russell |
+| `SCIENCE-STOPS.md` | Provenance for the four EVA science stops. The file the app loads is `app/public/routes/science-stops.json` | Kelly, Nigel, Aaron, Russell |
 
 ## Leaflet (Aaron, Russell)
 
@@ -54,3 +55,7 @@ python scripts/prepare_terrain.py --dem "<path>/MSL_Gale_DEM_Mosaic_1m_v3.tif" -
 ```
 
 Change the area with `--center-x`, `--center-y` (DEM metres) and `--size`; change grid detail with `--cell`.
+
+## Kelly science layers and stops
+
+CTX photo (`ctx.png`), CRISM mineral browse overlays (`crism_hyd.png`, `crism_alt.png`) and THEMIS night infrared (`themis_night.png`) are cropped to this same area. Each has a JSON source/limitations sidecar. THEMIS is relative brightness, not temperature in degrees. See `data/processed/KELLY-HANDOFF.md` for legends, stop exports, rebuild commands and integration details. Four photo stops with one-line `why` fields are in `app/public/routes/science-stops.json`; matching `stops.json` exports are in `data/processed/` and `app/public/routes/`.

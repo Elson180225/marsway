@@ -1,0 +1,35 @@
+{
+  "name": "THEMIS night-time infrared (relative brightness) for the MarsWay EVA area",
+  "dataset": "THEMIS IR night mosaic v14, 60N-60S, 100 m/px source (Mars Odyssey)",
+  "instrument": "Thermal Emission Imaging System (THEMIS), 2001 Mars Odyssey",
+  "credit": "NASA/JPL-Caltech/Arizona State University; tiles from NASA Mars Trek",
+  "trek_capabilities": "https://trek.nasa.gov/tiles/Mars/EQ/Mars_MO_THEMIS-IR-Night_mosaic_60N60S_100m_v14_clon0_ly/1.0.0/WMTSCapabilities.xml",
+  "source_crs": "Mars 2000 sphere (R 3396190 m), geographic / plate carree",
+  "project_crs": "Mars 2000 sphere, Equidistant Cylindrical, centre lon 0 (metres)",
+  "zoom": 8,
+  "tile_m_per_px": 162.8,
+  "source_pixels_across_area": 18,
+  "output_px": 600,
+  "bounds_lonlat": {
+    "west": 137.35371651283086,
+    "east": 137.4043283274052,
+    "south": -4.835115352335822,
+    "north": -4.784503537761475
+  },
+  "leaflet_image_bounds": [
+    [
+      0,
+      0
+    ],
+    [
+      3000,
+      3000
+    ]
+  ],
+  "how_to_read": "Brighter = warmer at night = ground that stores heat (likely bedrock). Darker = cooler at night = likely loose sand or dust.",
+  "limitations": [
+    "Only about 18 x 18 real pixels cover the 3 km area (~163 m each). Do not read single ridges or stops from it.",
+    "Relative 8-bit brightness from a mosaic of many orbits and seasons. It is not a temperature map and not thermal inertia.",
+    "Do not label it as ground temperature in the app."
+  ]
+}
