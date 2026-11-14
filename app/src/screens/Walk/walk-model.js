@@ -61,12 +61,16 @@ export function returnFor(route, stopId) {
  * Returns { path, distance_m, walk_minutes, warnings, from, to }.
  */
 export function currentTrip(route, state) {
+  if (state.mode === 'complete') {
+    const home = route.stops.at(-1)
+    return { path: [{ x: home.x, y: home.y }], distance_m: 0, walk_minutes: 0, warnings: [], from: home, to: home }
+  }
   if (state.mode === 'return') return state.returnTrip
   const leg = route.legs[Math.min(state.legIndex, route.legs.length - 1)]
   return {
     path: leg.path,
     distance_m: leg.distance_m,
-    walk_minutes: leg.walk_minutes,
+    walk_minutes: Number.isFinite(leg.seconds) ? leg.seconds / 60 : leg.walk_minutes,
     warnings: leg.warnings || [],
     from: route.stops[state.legIndex],
     to: route.stops[state.legIndex + 1],
@@ -75,7 +79,12 @@ export function currentTrip(route, state) {
 
 // Build the trip home from the crew's current spot: walk back along the current leg, then follow
 // the planned return path from the stop they last left.
-export function buildReturnTrip(route, state) {
+export function buildReturnTrip(route, state, navigation = null) {
+  if (navigation) {
+    const trip = currentTrip(route, state)
+    const { point } = pointAlong(trip.path, state.progress)
+    return { ...navigation.homeFrom(point), from: trip.from, to: route.stops.at(-1) }
+  }
   const leg = route.legs[state.legIndex]
   const fromStop = route.stops[state.legIndex]
   const home = returnFor(route, fromStop.id)
@@ -92,9 +101,10 @@ export function buildReturnTrip(route, state) {
 }
 
 // Estimated minutes to walk home from the current position.
-export function minutesHome(route, state) {
+export function minutesHome(route, state, navigation = null) {
   if (state.mode === 'complete') return 0
   const trip = currentTrip(route, state)
+  if (navigation) return navigation.homeFrom(pointAlong(trip.path, state.progress).point).walk_minutes
   if (state.mode === 'return' || trip.to?.type === 'home') return trip.walk_minutes * (1 - state.progress)
   const fromHome = returnFor(route, trip.from.id).walk_minutes
   const toHome = returnFor(route, trip.to.id).walk_minutes
@@ -109,10 +119,10 @@ export function minutesHome(route, state) {
  *   nextStopOk: false when walking on to the next stop would leave too little time to get home
  *               with the reserve intact (null when the next stop is home or not applicable).
  */
-export function safetyStatus(route, state, clockMs) {
+export function safetyStatus(route, state, clockMs, navigation = null) {
   const { mission } = route
   const suitEnd = Date.parse(mission.start_time) + mission.max_walk_minutes * 60000
-  const homeMinutes = minutesHome(route, state)
+  const homeMinutes = minutesHome(route, state, navigation)
   const reserveAtHome = (suitEnd - clockMs) / 60000 - homeMinutes
   const turnbackIn = reserveAtHome - mission.reserve_minutes
 
@@ -120,7 +130,7 @@ export function safetyStatus(route, state, clockMs) {
   const trip = currentTrip(route, state)
   if (state.mode === 'outbound' && trip.to.type !== 'home') {
     const arriveMs = clockMs + trip.walk_minutes * (1 - state.progress) * 60000
-    const homeFromNext = returnFor(route, trip.to.id).walk_minutes
+    const homeFromNext = navigation ? navigation.homeFrom(trip.to).walk_minutes : returnFor(route, trip.to.id).walk_minutes
     nextStopOk = (suitEnd - arriveMs) / 60000 - homeFromNext >= mission.reserve_minutes
   }
 

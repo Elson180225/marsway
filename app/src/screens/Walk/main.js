@@ -1,6 +1,8 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './walk.css'
+import { loadTerrainRoute } from '../../terrainRoute.js'
+import { createTerrainNavigation } from '../../terrainNavigation.js'
 import {
   ALERT_LEVELS, bearing, buildReturnTrip, cardinal, currentTrip, pointAlong, safetyStatus, segmentLength, shelterFor, sortWarnings,
 } from './walk-model.js'
@@ -66,7 +68,7 @@ function simulatedStorm(route) {
   }
 }
 
-function start(route) {
+function start(route, navigation) {
   const { mission, stops, legs } = route
   const isSample = mission.data_status !== 'VALIDATED'
   const initialState = () => ({
@@ -87,7 +89,7 @@ function start(route) {
         <a class="walk-brand" href="/" aria-label="Back to the Planning screen"><span class="walk-brand-mark">✦</span>MARS<span>WAY</span></a>
         <div class="walk-mission"><span>${safe(mission.id)}</span><strong id="w-clock">--:--:--</strong><small>UTC</small></div>
       </header>
-      ${isSample ? '<p class="walk-sample"><span class="walk-dot"></span>Sample route and simulated position. This is not live navigation.</p>' : ''}
+      ${isSample ? '<p class="walk-sample"><span class="walk-dot"></span>Terrain route estimates; simulated clock, suit budget and position. Not live navigation. Science stops may still be demo targets.</p>' : ''}
 
       <section id="w-alerts" class="walk-alerts" aria-label="Alerts" aria-live="assertive"></section>
 
@@ -139,6 +141,10 @@ function start(route) {
 
   // Map
   const map = L.map('w-map', { crs: L.CRS.Simple, minZoom: -3, maxZoom: 2, zoomSnap: 0.25, zoomControl: false, attributionControl: false })
+  L.imageOverlay(route.map.basemap_url, route.map.bounds, { opacity: 0.8, interactive: false }).addTo(map).on('error', () => {
+    const notice = document.querySelector('.walk-sample')
+    if (notice) notice.textContent = 'Basemap unavailable. Terrain routing is still active; position and suit budget are simulated.'
+  })
   const allPoints = legs.flatMap((leg) => leg.path.map(mapPoint))
   map.fitBounds(L.latLngBounds(allPoints).pad(0.15))
   legs.forEach((leg) => L.polyline(leg.path.map(mapPoint), { color: '#f6b77c', weight: 3, opacity: 0.25 }).addTo(map))
@@ -160,6 +166,7 @@ function start(route) {
   // Simulation
   function advance(minutes) {
     const trip = currentTrip(route, state)
+    minutes = Math.min(minutes, Math.max(0, (1 - state.progress) * trip.walk_minutes))
     state.clockMs += minutes * 60000
     state.progress += minutes / trip.walk_minutes
     if (state.progress < 1) return
@@ -189,7 +196,8 @@ function start(route) {
     // Two taps to confirm, so a glove bump doesn't abort the walk.
     if (Date.now() > homeArmedUntil) { homeArmedUntil = Date.now() + 3000; update(); return }
     homeArmedUntil = 0
-    state.returnTrip = buildReturnTrip(route, state)
+    try { state.returnTrip = buildReturnTrip(route, state, navigation) }
+    catch (error) { stopOnRouteError(error); return }
     state.mode = 'return'
     state.progress = 0
     state.playing = true
@@ -225,13 +233,28 @@ function start(route) {
   }
 
   // Rendering
+  function stopOnRouteError(error) {
+    state.playing = false
+    const status = $('w-status')
+    status.className = 'walk-status is-danger'
+    status.innerHTML = `<div><strong>Return estimate unavailable</strong><small>${safe(error.message)}</small></div>`
+    $('w-turnback').textContent = 'Unavailable'
+    $('w-turnback-by').textContent = 'Do not use this countdown'
+    $('w-home').textContent = 'Unavailable'
+    $('w-reserve').textContent = 'Route calculation failed'
+  }
+
   function update() {
+    try { updateView() } catch (error) { stopOnRouteError(error) }
+  }
+
+  function updateView() {
     const trip = currentTrip(route, state)
     const { point, nextIndex } = pointAlong(trip.path, state.progress)
     const remainingPath = [point, ...trip.path.slice(nextIndex)]
     const ahead = trip.path.slice(nextIndex).find((p) => p.x !== point.x || p.y !== point.y)
     const leftMinutes = trip.walk_minutes * (1 - state.progress)
-    let safety = safetyStatus(route, state, state.clockMs)
+    let safety = safetyStatus(route, state, state.clockMs, navigation)
     // A danger alert (e.g. a solar storm) outranks the suit-time status.
     const urgent = [...(route.alerts || []), ...(simAlert ? [simAlert] : [])].find((a) => a.level === 'danger')
     if (urgent && state.mode !== 'complete') {
@@ -275,7 +298,7 @@ function start(route) {
 
     // Map
     legLine.setLatLngs(complete ? [] : remainingPath.map(mapPoint))
-    const homePath = complete ? [] : state.mode === 'return' ? remainingPath : buildReturnTrip(route, state).path
+    const homePath = complete ? [] : state.mode === 'return' ? remainingPath : buildReturnTrip(route, state, navigation).path
     homeLine.setLatLngs(homePath.map(mapPoint))
     me.setLatLng(mapPoint(point))
     if (follow) map.panTo(mapPoint(point), { animate: false })
@@ -328,7 +351,6 @@ function start(route) {
 }
 
 root.innerHTML = '<div class="walk-loading">Loading the walk route…</div>'
-fetch('/routes/sample-route.json')
-  .then((response) => { if (!response.ok) throw new Error(`Route file unavailable (${response.status}).`); return response.json() })
-  .then((route) => { assertRoute(route); start(route) })
+loadTerrainRoute()
+  .then(({ route, grid }) => { assertRoute(route); start(route, createTerrainNavigation(route, grid)) })
   .catch((error) => { root.innerHTML = `<div class="walk-loading is-error"><h1>Unable to load the route</h1><p>${safe(error.message)}</p></div>` })
