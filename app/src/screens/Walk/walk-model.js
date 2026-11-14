@@ -1,7 +1,7 @@
 // Pure route maths for the Walk screen. No DOM or Leaflet here, so it can be tested in Node.
 // Coordinates are local metres from the shared route contract: x = east, y = north.
 import { bonusStopCheck } from '../../safezone/bonusStop.js'
-import { walkDoseMSv } from '../../safezone/radiation.js'
+import { walkDoseMSv, doseSoFar } from '../../safezone/radiation.js'
 import { xyToCell } from '../../pathfinding/walkingTime.js'
 import { etaFor, paceFactor } from '../../pathfinding/navigation.js'
 import { nextDirection } from '../../pathfinding/directions.js'
@@ -391,12 +391,16 @@ export function photoStop(route, state) {
 }
 
 // Radiation so far, and for the whole walking budget (suit time minus the reserve: 8 h - 2 h = 6 h),
-// from Mia's walkDoseMSv(): about 0.67 mSv a day on the surface at Gale Crater (Curiosity's RAD).
-export function radiationDose(route, clockMs) {
+// from Mia's radiation.js: about 0.67 mSv a day on the surface at Gale Crater (Curiosity's RAD),
+// doubled while a solar storm is on. The crew is outside from the start until now (the walk clock
+// stops once they are home). storms: [{ startMs, endMs }] solar storm windows, endMs null = still on.
+// Returns { soFarMSv, walkHours, fullWalkMSv, stormMinutes, stormExtraMSv }.
+export function radiationDose(route, clockMs, storms = []) {
   const { mission } = route
   const walkHours = (mission.max_walk_minutes - mission.reserve_minutes) / 60
-  const hoursOut = Math.max(0, clockMs - Date.parse(mission.start_time)) / 3600000
-  return { soFarMSv: walkDoseMSv(hoursOut), walkHours, fullWalkMSv: walkDoseMSv(walkHours) }
+  const startMs = Date.parse(mission.start_time)
+  const dose = doseSoFar({ periods: [{ startMs, endMs: Math.max(startMs, clockMs), inside: false }], storms })
+  return { soFarMSv: dose.doseMSv, walkHours, fullWalkMSv: walkDoseMSv(walkHours), stormMinutes: dose.stormMinutes, stormExtraMSv: dose.stormExtraMSv }
 }
 
 // Alerts from the route file, e.g. solar storms. Shelter must be an existing stop or null.

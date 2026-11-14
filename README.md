@@ -31,8 +31,9 @@ MarsWay has two screens, both in one web app:
 - 🥾 **Easiest-path routing** that avoids steep and rocky ground, with walking times for a suited astronaut
 - 🟢 **"Safe to go" zone** showing where the crew can still reach and return from before their suit reserve runs low
 - ⏱️ **Turn-back timer** on the phone screen
-- ☢️ **Radiation estimate** for each walk, based on Curiosity's measurements
-- ☀️ **Solar storm alert** with a route to the nearest shelter
+- ☢️ **Radiation estimate** for each walk, based on Curiosity's measurements: doubled during a solar storm, halved inside the habitat, and a running total against NASA's 600 mSv career limit (details and sources in [app/src/safezone/README.md](app/src/safezone/README.md#radiation))
+- ☀️ **Solar storm alert** with a route to the nearest shelter (radiation only: it does not slow the walk)
+- 🌪️ **Dust storm simulation** on the Planning screen: walking speed drops to 0.6× from a chosen time, which updates the safe zone, turn-back time and bonus GO / NO-GO (it does not change the dose)
 - 📷 **Real Mars photos** at each stop, so the crew know what to expect
 
 ## Our mission: EVA-07, the Boxwork Walk

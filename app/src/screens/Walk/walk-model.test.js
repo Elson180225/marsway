@@ -137,6 +137,13 @@ assert.equal(dose.fullWalkMSv.toFixed(2), '0.17')
 close(dose.soFarMSv, dose.fullWalkMSv, 1e-12, 'dose after 6 h out')
 assert.equal(radiationDose(route, start).soFarMSv, 0)
 assert.equal(radiationDose(route, start - 60000).soFarMSv, 0)
+// Solar storm for 1 h of the 6 h: that hour counts double, so 7 h worth of normal dose.
+const storm1h = radiationDose(route, start + 6 * 3600000, [{ startMs: start + 3600000, endMs: start + 2 * 3600000 }])
+close(storm1h.stormMinutes, 60, 1e-9, 'storm minutes')
+close(storm1h.soFarMSv, dose.fullWalkMSv * 7 / 6, 1e-12, 'dose with a 1 h storm')
+close(storm1h.stormExtraMSv, dose.fullWalkMSv / 6, 1e-12, 'extra dose from the storm')
+// A storm still on (no end) counts up to the walk clock only.
+close(radiationDose(route, start + 2 * 3600000, [{ startMs: start + 3600000, endMs: null }]).stormMinutes, 60, 1e-9, 'open storm')
 
 // 7b. Map pins for hazards: the steepest spot of a steep leg, at its distance along the path.
 const firstLeg = currentTrip(route, at(0, 0))

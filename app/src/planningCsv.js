@@ -1,5 +1,5 @@
 import { calculateMissionSchedule } from './missionSchedule.js'
-import { walkDoseMSv, RAD_SURFACE_MSV_PER_DAY } from './safezone/radiation.js'
+import { walkDoseMSv, careerTotal, RAD_SURFACE_MSV_PER_DAY } from './safezone/radiation.js'
 
 export const SUMMARY_COLUMNS = 'eva_id,crew,date_utc,start_utc,end_utc,duration_min,distance_km,stops_visited,bonus_done,storm_exposure_min,dose_msv,running_total_msv'
 export const TIMELINE_COLUMNS = 'time_utc,phase,location,x,y,dose_rate_msv_per_day,dose_so_far_msv,suit_minutes_left,event'
@@ -14,14 +14,16 @@ const csv = (items) => items.map((item) => {
 }).join(',')
 
 // These files describe a proposed schedule. Fields implying actual crew
-// activity or a prior career dose remain blank until a real log supplies them.
-export function plannedCsv(route, scenario = null) {
+// activity remain blank until a real log supplies them. running_total_msv is filled only when the
+// planner enters a previous career dose (previousCareerMSv); otherwise it stays blank.
+export function plannedCsv(route, scenario = null, { previousCareerMSv = null } = {}) {
   const plan = calculateMissionSchedule(route, scenario)
   const date = new Date(plan.start).toISOString().slice(0, 10)
   const summary = [SUMMARY_COLUMNS, csv([
     route.mission.id, 'SIMULATED CREW', date, utc(plan.start, 0), utc(plan.start, plan.total),
     plan.total.toFixed(1), ((route.legs.reduce((sum, leg) => sum + leg.distance_m, 0) + 2 * (route.mission.drive_distance_m ?? 0)) / 1000).toFixed(2),
-    '', '', plan.stormExposure.toFixed(1), plan.baselineDoseMSv.toFixed(3), '',
+    '', '', plan.stormExposure.toFixed(1), plan.baselineDoseMSv.toFixed(3),
+    previousCareerMSv == null ? '' : careerTotal({ previousMSv: previousCareerMSv, evaDosesMSv: [plan.baselineDoseMSv] }).totalMSv.toFixed(3),
   ])].join('\r\n') + '\r\n'
   const h1 = { name: 'Habitat (H1)', x: 1047.5, y: 917.5 }
   const events = [{ elapsed: 0, phase: 'planned_start', stop: plan.driveOut ? h1 : route.stops[0], event: 'SIMULATED plan begins' }]
