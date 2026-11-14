@@ -64,7 +64,7 @@ function assertRoute(route) {
 function render(route, grid) {
   const { mission, stops, legs } = route
   const totalDistance = legs.reduce((sum, leg) => sum + leg.distance_m, 0)
-  const totalMinutes = legs.reduce((sum, leg) => sum + leg.walk_minutes, 0)
+  const totalMinutes = Math.round(legs.reduce((sum, leg) => sum + (leg.seconds ?? leg.walk_minutes * 60), 0) / 60)
   const warnings = prominentWarnings(legs.flatMap((leg) => leg.warnings || []))
   root.innerHTML = `
     <div class="shell">
