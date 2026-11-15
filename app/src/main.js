@@ -79,7 +79,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
   root.innerHTML = `
     <div class="shell">
       <aside class="sidebar">
-        <div class="brand"><span class="brand-symbol">✦</span><span>MARS<span class="brand-accent">WAY</span><small>EXPEDITION CONTROL</small></span></div>
+        <div class="brand"><span class="brand-symbol"><img src="/marsway-mark.svg" alt="" width="36" height="36"></span><span>MARS<span class="brand-accent">WAY</span><small>EXPEDITION CONTROL</small></span></div>
         <div class="sidebar-divider"></div>
         <div class="sidebar-label">MISSION CONTROL</div>
         <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a><a class="nav-item" href="/walk.html${mission.drive_out_minutes ? '' : `?eva=${encodeURIComponent(mission.id.replace('EVA-', ''))}`}"><span>⌖</span> Walk screen <small>Russell's view</small></a><a class="nav-item" href="/terrain-lab.html"><span>◇</span> Terrain in 3D <small>5 km view</small></a></nav>

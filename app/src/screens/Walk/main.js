@@ -97,7 +97,7 @@ function start(route, navigation, grid) {
   root.innerHTML = `
     <div class="walk">
       <header class="walk-top">
-        <a class="walk-brand" href="${planningHref}" aria-label="Back to the Planning screen"><span class="walk-brand-mark">✦</span>MARS<span>WAY</span></a>
+        <a class="walk-brand" href="${planningHref}" aria-label="MarsWay — back to Planning"><span class="walk-brand-mark"><img src="/marsway-mark.svg" alt="" width="28" height="28"></span>MARS<span>WAY</span></a>
         <div class="walk-mission"><span>${safe(mission.id)}</span><strong id="w-clock">--:--:--</strong><small>UTC</small></div>
       </header>
 

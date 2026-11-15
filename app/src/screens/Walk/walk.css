@@ -37,7 +37,8 @@ button { font: inherit; }
 .walk-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .walk-brand { display: flex; align-items: center; gap: 8px; color: var(--w-text); text-decoration: none; font: 700 18px 'Space Grotesk', sans-serif; letter-spacing: .03em; }
 .walk-brand > span:last-child { color: var(--w-accent); }
-.walk-brand-mark { width: 28px; height: 28px; border-radius: 9px; background: #de775d; color: #17242d; display: grid; place-items: center; font-size: 18px; }
+.walk-brand-mark { width: 28px; height: 28px; flex: none; display: grid; place-items: center; }
+.walk-brand-mark img { display: block; width: 28px; height: 28px; border-radius: 7px; }
 .walk-mission { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
 .walk-mission span, .walk-mission small { font-size: 11px; font-weight: 700; letter-spacing: .12em; color: var(--w-muted); }
 .walk-mission strong { font: 600 20px 'Space Grotesk', sans-serif; }
