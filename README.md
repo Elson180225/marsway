@@ -83,6 +83,7 @@ These are our own estimates, not official NASA figures, and are easy to change:
 - Suit time budget: 8 hours, planned walk 6 hours, 2 hours reserve
 - Slope limits: warning above 15°, no-go above 25°
 - Suited walking speed: about half of normal hiking speed
+- Rover (open, suits on): 5 km/h average plus 10 min on/off per drive, slopes up to about 15°; the drive counts against the suit time. Every EVA has an on-foot and a with-rover version (safety checks in [app/src/safezone/README.md](app/src/safezone/README.md#on-foot-and-with-rover-every-eva-eva-07-to-12))
 
 ## Tech stack
 
