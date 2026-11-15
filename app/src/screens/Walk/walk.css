@@ -154,6 +154,11 @@ button { font: inherit; }
 .leaflet-tooltip-top.walk-pop::before { border-top-color: var(--pop); }
 .leaflet-tooltip-bottom.walk-pop::before { border-bottom-color: var(--pop); }
 .leaflet-tooltip-right.walk-pop::before { border-right-color: var(--pop); }
+/* A random event that has just started: the crew's pop-up flashes a few times (the walk is paused on it).
+   Box-shadow, not transform: Leaflet places tooltips with transform. */
+.walk-pop.is-new { animation: walk-pop-new 0.6s ease-in-out 4; }
+@keyframes walk-pop-new { 50% { box-shadow: 0 0 0 6px var(--pop), 0 4px 14px #0009; } }
+@media (prefers-reduced-motion: reduce) { .walk-pop.is-new { animation: none; box-shadow: 0 0 0 3px var(--w-text), 0 4px 14px #0009; } }
 .leaflet-tooltip-left.walk-pop::before { border-left-color: var(--pop); }
 .walk-me { display: block; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 4px solid #2f8cff; box-shadow: 0 0 0 6px #2f8cff44; }
 /* Map key: small copies of the crew dot and the stop markers */
@@ -176,6 +181,9 @@ button { font: inherit; }
 .walk-btn-home { background: #1d3537; color: var(--w-home); border-color: #41615f; }
 .walk-btn-home.is-armed { background: var(--w-home); color: #10282a; }
 .walk-btn-home:disabled { opacity: .4; cursor: default; }
+/* Paused on a solar storm: the safe choice is the big button, carrying on is the quiet one. */
+.walk-btn-primary.is-shelter { background: var(--w-home); color: #10282a; border-color: var(--w-home); }
+.walk-btn-home.is-continue { background: var(--w-panel-2); color: var(--w-text); border-color: #4a5d63; }
 .walk-btn-quiet { background: transparent; color: var(--w-muted); border-color: var(--w-line); font-size: 14px; padding: 0 10px; white-space: nowrap; }
 .walk-btn-home { padding: 0 10px; line-height: 1.15; } /* wraps to two lines on narrow phones instead of pushing the row off screen */
 @media (max-width: 359px) { /* very narrow phones: Head home gets its own row */
