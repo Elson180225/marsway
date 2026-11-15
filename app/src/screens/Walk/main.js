@@ -112,6 +112,8 @@ function start(route, navigation, grid) {
   // Mia's random events (safezone/randomEvents.js): ?scenario=4821 gives a repeatable set of dust storms,
   // dust devils and solar storms. scenarioEvents() uses the same walk length as Planning, so one number
   // gives the same events on both screens; the number stays in this page's link and the link back.
+  // No button: the events just happen, like real weather. A walk uses ?scenario= from the link (so it
+  // matches Planning) or picks a random scenario, and each new walk picks a new one.
   let scenario = null
   function setScenario(seed) {
     scenario = null
@@ -122,7 +124,7 @@ function start(route, navigation, grid) {
     history.replaceState(history.state, '', withScenario(location.pathname + location.search + location.hash, scenario?.seed))
     root.querySelector('.walk-brand')?.setAttribute('href', withScenario(planningHref, scenario?.seed))
   }
-  setScenario(scenarioFromSearch(location.search))
+  setScenario(scenarioFromSearch(location.search) ?? randomSeed())
   const minutesOut = () => (state.clockMs - Date.parse(mission.start_time)) / 60000
   // Every alert now: from the route file, the ☀︎ Storm demo button, the random events under way, and a
   // solar storm the crew has been warned about (it has not started yet, so it is not "under way").
@@ -253,9 +255,7 @@ function start(route, navigation, grid) {
         <section class="walk-data-card" aria-labelledby="w-data-alerts-title">
           <h3 id="w-data-alerts-title">Storms and alerts</h3>
           <div class="walk-scenario">
-            <span id="w-scenario-label">Random events off</span>
-            <button type="button" id="w-scenario-new" class="walk-btn walk-btn-quiet">🎲 Random events</button>
-            <button type="button" id="w-scenario-off" class="walk-btn walk-btn-quiet" hidden>Off</button>
+            <span id="w-scenario-label">Conditions: –</span>
           </div>
           <div id="w-data-alerts"></div>
           <ul id="w-scenario-log" class="walk-scenario-log" hidden></ul>
@@ -341,8 +341,6 @@ function start(route, navigation, grid) {
   $('w-open-science').addEventListener('click', () => openPage('science', photoStop(route, state)?.stop.id))
   $('w-open-data').addEventListener('click', () => openPage('data'))
   root.querySelectorAll('[data-back]').forEach((button) => button.addEventListener('click', backToMap))
-  $('w-scenario-new').addEventListener('click', () => { setScenario(randomSeed()); update() })
-  $('w-scenario-off').addEventListener('click', () => { setScenario(null); update() })
 
   // Photos at a stop, saved on this device only (stopPhotos.js, IndexedDB). For the demo, "Take photo"
   // opens a simulated camera showing a made-up Mars landscape (fakeCamera.js, marsScene.js); with REAL_CAMERA it opens the phone's back camera
@@ -448,6 +446,7 @@ function start(route, navigation, grid) {
   $('w-primary').addEventListener('click', () => {
     if (state.mode === 'complete') {
       state = initialState()
+      setScenario(randomSeed()) // a new walk, new conditions (the walk starts from the beginning)
       if (simAlert) state.solarStorms.push({ startMs: state.clockMs, endMs: null }) // storm still on for the new walk
     }
     else state.playing = !state.playing
@@ -908,10 +907,9 @@ function start(route, navigation, grid) {
       : '<p class="walk-page-empty">No storms or other alerts right now.</p>'}
       <p class="walk-data-source">A solar storm doubles the radiation dose rate but doesn't slow walking. The habitat is the shelter.</p>`)
 
-    // Random events: the scenario number, and the events so far (not the ones still to come).
-    $('w-scenario-label').textContent = scenario ? `${scenario.label}${scenario.calm ? ' · calm day' : ''}` : 'Random events off'
-    $('w-scenario-new').textContent = scenario ? '🎲 New scenario' : '🎲 Random events'
-    $('w-scenario-off').hidden = !scenario
+    // Random events: the scenario number (to replay it in the demo), and the events so far (not the ones
+    // still to come).
+    $('w-scenario-label').textContent = scenario ? `Conditions: ${scenario.label}${scenario.calm ? ' · calm day' : ''}` : 'Conditions: no random events'
     const started = scenario ? scenario.events.filter((event) => event.startMin <= minutesOut()) : []
     const log = started.map((event) => {
       const at = Date.parse(mission.start_time) + event.startMin * 60000
