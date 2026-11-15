@@ -5,6 +5,8 @@ import { walkDoseMSv, doseSoFar } from '../../safezone/radiation.js'
 import { heightAt, xyToCell } from '../../pathfinding/walkingTime.js'
 import { etaFor, paceFactor } from '../../pathfinding/navigation.js'
 import { nextDirection } from '../../pathfinding/directions.js'
+import { calculateMissionSchedule } from '../../missionSchedule.js'
+import { activeEvents } from '../../safezone/randomEvents.js'
 
 const LEVEL_RANK = { danger: 0, caution: 1, info: 2 }
 export const PACE_WINDOW_MINUTES = 10 // the pace is measured over about the last 10 planned minutes of walking
@@ -454,6 +456,36 @@ export function radiationDose(route, clockMs, storms = []) {
   const startMs = Date.parse(mission.start_time)
   const dose = doseSoFar({ periods: [{ startMs, endMs: Math.max(startMs, clockMs), inside: false }], storms })
   return { soFarMSv: dose.doseMSv, walkHours, fullWalkMSv: walkDoseMSv(walkHours), stormMinutes: dose.stormMinutes, stormExtraMSv: dose.stormExtraMSv }
+}
+
+// Mia's random events (safezone/randomEvents.js) on the Walk screen.
+// The planned walk length must be worked out exactly as on the Planning screen (no weather), so one
+// scenario number (?scenario=4821) gives the same events on both screens.
+export function plannedWalkMinutes(route) {
+  return calculateMissionSchedule(route).total
+}
+
+const EVENT_LEVELS = { global_dust_storm: 'danger', solar_storm: 'danger', rover_breakdown: 'danger', dust_storm: 'caution', dust_devil: 'caution' }
+const eventTimes = (route, event) => {
+  const startMs = Date.parse(route.mission.start_time) + event.startMin * 60000
+  return { startMs, endMs: event.durationMin == null ? null : startMs + event.durationMin * 60000 }
+}
+
+/**
+ * The random events happening `minutesOut` minutes into the walk, as alerts for the map pop-up and the
+ * Data page (same shape as route alerts). A solar storm's shelter is the habitat.
+ * Each: { type, level, message, simulated: true, shelter_stop_id, startMs, endMs (null = to the end), event }
+ */
+export function eventAlerts(route, events, minutesOut) {
+  return activeEvents(events, minutesOut).map((event) => ({
+    type: event.type, level: EVENT_LEVELS[event.type] ?? 'caution', message: event.message, simulated: true,
+    shelter_stop_id: event.type === 'solar_storm' ? route.stops[0].id : null, ...eventTimes(route, event), event,
+  }))
+}
+
+/** The random solar storms as { startMs, endMs } windows on the walk clock, for doseSoFar() (radiation ×2). */
+export function eventSolarStorms(route, events) {
+  return events.filter((event) => event.type === 'solar_storm').map((event) => eventTimes(route, event))
 }
 
 // Alerts from the route file, e.g. solar storms. Shelter must be an existing stop or null.

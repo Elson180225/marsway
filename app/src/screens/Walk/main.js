@@ -8,10 +8,11 @@ import { stopMetadata } from '../../stopDetails.js'
 import { directionsFor } from '../../pathfinding/directions.js'
 import { RAD_SURFACE_MSV_PER_DAY, SOLAR_STORM_FACTOR } from '../../safezone/radiation.js'
 import { photoFileName, photosFor, savePhoto } from './stopPhotos.js'
+import { randomEvents, randomSeed } from '../../safezone/randomEvents.js'
 import {
   ALERT_LEVELS, advance, arrivalTimes, bearing, bonusStatus, buildReturnTrip, canHeadHome, cardinal, currentTrip, directionLine,
-  groundAt, hazardSpots, headHome, minutesBehindPlan, pathGround, pathLength, photoDistance, photoStop, pointAlong, radiationDose,
-  safetyStatus, segmentLength, shelterFor, sortWarnings, walkPace,
+  eventAlerts, eventSolarStorms, groundAt, hazardSpots, headHome, minutesBehindPlan, pathGround, pathLength, photoDistance, photoStop, pointAlong, radiationDose,
+  plannedWalkMinutes, safetyStatus, segmentLength, shelterFor, sortWarnings, walkPace,
 } from './walk-model.js'
 
 const root = document.querySelector('#walk')
@@ -96,6 +97,29 @@ function start(route, navigation, grid) {
   let photoKey = ''
   let simAlert = null
 
+  // Mia's random events (safezone/randomEvents.js): ?scenario=4821 gives a repeatable set of dust storms,
+  // dust devils and solar storms, the same as on the Planning screen for that number. On foot only.
+  const walkMinutes = plannedWalkMinutes(route)
+  let scenario = null
+  function setScenario(seed) {
+    scenario = null
+    if (Number.isInteger(seed) && seed >= 1 && seed <= 9999) {
+      try { scenario = randomEvents({ seed, eva: mission.id.replace('EVA-', ''), version: 'foot', durationMinutes: walkMinutes }) }
+      catch (error) { console.warn(`Random events unavailable (${error.message}).`) }
+    }
+    const url = new URL(location.href)
+    if (scenario) url.searchParams.set('scenario', String(seed)); else url.searchParams.delete('scenario')
+    history.replaceState(history.state, '', url)
+  }
+  setScenario(Number.parseInt(new URLSearchParams(location.search).get('scenario'), 10))
+  const minutesOut = () => (state.clockMs - Date.parse(mission.start_time)) / 60000
+  // Every alert now: from the route file, the ☀︎ Storm demo button, and the random events under way.
+  const currentAlerts = () => [
+    ...(route.alerts || []), ...(simAlert ? [simAlert] : []), ...(scenario ? eventAlerts(route, scenario.events, minutesOut()) : []),
+  ]
+  // Solar storms for the radiation counter: the demo button and the random ones.
+  const solarStorms = () => [...state.solarStorms, ...(scenario ? eventSolarStorms(route, scenario.events) : [])]
+
   root.innerHTML = `
     <div class="walk">
       <header class="walk-top">
@@ -174,7 +198,13 @@ function start(route, navigation, grid) {
         </section>
         <section class="walk-data-card" aria-labelledby="w-data-alerts-title">
           <h3 id="w-data-alerts-title">Storms and alerts</h3>
+          <div class="walk-scenario">
+            <span id="w-scenario-label">Random events off</span>
+            <button type="button" id="w-scenario-new" class="walk-btn walk-btn-quiet">🎲 Random events</button>
+            <button type="button" id="w-scenario-off" class="walk-btn walk-btn-quiet" hidden>Off</button>
+          </div>
           <div id="w-data-alerts"></div>
+          <ul id="w-scenario-log" class="walk-scenario-log" hidden></ul>
         </section>
         <section class="walk-data-card" aria-labelledby="w-data-ground-title">
           <h3 id="w-data-ground-title">Terrain</h3>
@@ -260,6 +290,8 @@ function start(route, navigation, grid) {
   $('w-open-science').addEventListener('click', () => openPage('science', photoStop(route, state)?.stop.id))
   $('w-open-data').addEventListener('click', () => openPage('data'))
   root.querySelectorAll('[data-back]').forEach((button) => button.addEventListener('click', backToMap))
+  $('w-scenario-new').addEventListener('click', () => { setScenario(randomSeed()); update() })
+  $('w-scenario-off').addEventListener('click', () => { setScenario(null); update() })
 
   // Photos at a stop: the back camera on phones (capture="environment"), or the gallery if there is
   // no camera. Saved on this device only (stopPhotos.js, IndexedDB).
@@ -391,6 +423,16 @@ function start(route, navigation, grid) {
     return `${alert.type === 'solar_storm' ? '☀︎ ' : '⚠︎ '}${name[0].toUpperCase()}${name.slice(1)}${alert.simulated ? ' (sim)' : ''}`
   }
 
+  // The line under an alert's name in its map pop-up: what to do, and until when.
+  function alertLine(alert, point, shelter) {
+    const left = alert.endMs ? duration((alert.endMs - state.clockMs) / 60000) : ''
+    if (alert.type === 'dust_storm') return `Walking slows to ${alert.event?.speedFactor ?? 0.6}×${alert.endMs ? ` until ${utcTime(alert.endMs)}` : ''}`
+    if (alert.type === 'dust_devil') return `Stop and wait${left ? `, about ${left}` : ''}`
+    if (alert.type === 'global_dust_storm') return 'NO-GO: walk cancelled'
+    if (alert.type === 'rover_breakdown') return 'Use the walk-back plan'
+    return shelterLine(point, shelter) // solar storm and route alerts: where to shelter
+  }
+
   function shelterLine(point, shelter) {
     if (!shelter) return 'No shelter nearby'
     const metres = segmentLength(point, shelter)
@@ -442,13 +484,13 @@ function start(route, navigation, grid) {
   function renderNotices(trip, point, safety, bonus) {
     const notes = []
     // On the crew: the most serious alert (storm first), else "turn back" when the suit time is short.
-    const alerts = sortWarnings([...(route.alerts || []), ...(simAlert ? [simAlert] : [])])
+    const alerts = sortWarnings(currentAlerts())
     const alert = state.mode === 'complete' ? null : alerts[0]
     const shelter = alert ? shelterFor(route, alert) : null
     let crewLevel = ''
     if (alert) {
       crewLevel = alert.level
-      notes.push(showPop(crewPop, mapPoint(point), alert.level, alertName(alert), shelterLine(point, shelter)))
+      notes.push(showPop(crewPop, mapPoint(point), alert.level, alertName(alert), alertLine(alert, point, shelter)))
     } else if (safety.level === 'danger' && state.mode !== 'complete') {
       crewLevel = 'danger'
       notes.push(showPop(crewPop, mapPoint(point), 'danger', safety.title, `Home ${duration(safety.homeMinutes)}`))
@@ -555,11 +597,17 @@ function start(route, navigation, grid) {
     const arrivals = arrivalTimes(route, state)
     let safety = safetyStatus(route, state, state.clockMs, navigation)
     // A danger alert (e.g. a solar storm) outranks the suit-time status.
-    const urgent = [...(route.alerts || []), ...(simAlert ? [simAlert] : [])].find((a) => a.level === 'danger')
+    const urgent = sortWarnings(currentAlerts()).find((a) => a.level === 'danger')
     if (urgent && state.mode !== 'complete') {
       const shelter = shelterFor(route, urgent)
-      safety = { ...safety, level: 'danger', title: shelter ? `Go to shelter: ${shelter.name}` : 'Danger alert', message: shelter?.id === stops[0].id ? 'Shelter is the habitat. Use Head home to follow the planned return path.' : 'See the alert on the map.' }
+      safety = urgent.type === 'global_dust_storm'
+        ? { ...safety, level: 'danger', title: 'Walk cancelled', message: 'Global dust storm: NO-GO. Stay in the habitat.' }
+        : { ...safety, level: 'danger', title: shelter ? `Go to shelter: ${shelter.name}` : 'Danger alert', message: shelter?.id === stops[0].id ? 'Shelter is the habitat. Use Head home to follow the planned return path.' : 'See the alert on the map.' }
     }
+    // A dust storm or dust devil under way also shows in the status line (seen from every page), unless
+    // something more serious is already there.
+    const randomNow = state.mode !== 'complete' && sortWarnings(currentAlerts()).find((a) => a.event && a.level === 'caution')
+    if (randomNow && safety.level === 'ok') safety = { ...safety, level: 'caution', title: randomNow.event.title, message: randomNow.message }
     const complete = state.mode === 'complete'
 
     $('w-clock').textContent = utcTime(state.clockMs, true)
@@ -630,8 +678,8 @@ function start(route, navigation, grid) {
     arrivalSeen = arrivedAt
     const nextStop = photoStop(route, state)
     $('w-science-hint').textContent = nextStop ? `${nextStop.here ? 'Here' : 'Next'}: ${nextStop.stop.name}` : 'Tap a stop on the map'
-    const alertsOn = complete ? [] : sortWarnings([...(route.alerts || []), ...(simAlert ? [simAlert] : [])])
-    $('w-data-hint').textContent = alertsOn.length ? `${alertName(alertsOn[0])} on` : 'Radiation, storms, terrain'
+    const alertsOn = complete ? [] : sortWarnings(currentAlerts())
+    $('w-data-hint').textContent = alertsOn.length ? `${alertName(alertsOn[0])} on` : scenario ? scenario.label : 'Radiation, storms, terrain'
     $('w-open-data').dataset.level = alertsOn[0]?.level ?? ''
     if (view === 'science') renderScience()
 
@@ -654,6 +702,10 @@ function start(route, navigation, grid) {
           : state.progress > 0 ? '▶\uFE0E Resume'
             : state.mode === 'return' ? '▶\uFE0E Start walking home' : `▶\uFE0E Walk to ${trip.to.name}`
     primary.classList.toggle('is-paused', state.playing)
+    // A global dust storm (random events) means NO-GO: the walk can't start.
+    const cancelled = Boolean(scenario?.cancelled) && state.mode === 'outbound' && state.legIndex === 0 && state.progress === 0
+    primary.disabled = cancelled
+    if (cancelled) { primary.textContent = '✕ Walk cancelled: global dust storm'; state.playing = false }
     const homeBtn = $('w-home-btn')
     homeBtn.disabled = !canHeadHome(route, state)
     const armed = Date.now() <= homeArmedUntil
@@ -741,7 +793,7 @@ function start(route, navigation, grid) {
   // Radiation counter: dose so far (×2 while a solar storm is on), next to the dose for the whole
   // walking budget at the normal rate (0.17 mSv for 6 h).
   function renderRadiation() {
-    const dose = radiationDose(route, state.clockMs, state.solarStorms)
+    const dose = radiationDose(route, state.clockMs, solarStorms())
     const hours = Number.isInteger(dose.walkHours) ? `${dose.walkHours}h` : duration(dose.walkHours * 60)
     // 3 decimals so the faster climb during a short storm shows (0.006 → 0.009, not 0.00 → 0.01).
     $('w-rad').textContent = `${dose.soFarMSv.toFixed(3)} mSv`
@@ -756,13 +808,19 @@ function start(route, navigation, grid) {
   // pop-ups; this page has the detail behind them.
   let groundPath = null
   let groundLeg = null
+  // Under an alert's full text on the Data page: where to shelter (solar storm, route alerts), or until when.
+  function dataAlertLine(alert, point) {
+    if (!alert.event || alert.type === 'solar_storm') return shelterLine(point, shelterFor(route, alert))
+    return alert.endMs ? `Until ${utcTime(alert.endMs)} UTC` : ''
+  }
+
   function renderData(trip, point, alerts) {
     const set = (id, html) => { const element = $(id); if (element.innerHTML !== html) element.innerHTML = html }
     const rows = (list) => list.map(([label, value, level = '']) => `<dt>${label}</dt><dd${level ? ` data-level="${level}"` : ''}>${value}</dd>`).join('')
 
-    const dose = radiationDose(route, state.clockMs, state.solarStorms)
+    const dose = radiationDose(route, state.clockMs, solarStorms())
     const hours = Number.isInteger(dose.walkHours) ? `${dose.walkHours}h` : duration(dose.walkHours * 60)
-    const stormNow = state.mode !== 'complete' && state.solarStorms.some((storm) => storm.endMs == null)
+    const stormNow = state.mode !== 'complete' && solarStorms().some((storm) => storm.startMs <= state.clockMs && (storm.endMs == null || storm.endMs > state.clockMs))
     set('w-data-rad', rows([
       ['So far', `${dose.soFarMSv.toFixed(3)} mSv`],
       ['Dose rate now', `${(RAD_SURFACE_MSV_PER_DAY * (stormNow ? SOLAR_STORM_FACTOR : 1)).toFixed(2)} mSv a day${stormNow ? ` · storm ×${SOLAR_STORM_FACTOR}` : ''}`, stormNow ? 'danger' : ''],
@@ -771,9 +829,22 @@ function start(route, navigation, grid) {
     ]))
 
     set('w-data-alerts', `${alerts.length
-      ? `<ul class="walk-alert-list">${alerts.map((alert) => `<li data-level="${safe(alert.level)}"><b>${safe(alertName(alert))}</b><span>${safe(alert.message)}</span><span>${safe(shelterLine(point, shelterFor(route, alert)))}</span></li>`).join('')}</ul>`
+      ? `<ul class="walk-alert-list">${alerts.map((alert) => `<li data-level="${safe(alert.level)}"><b>${safe(alertName(alert))}</b><span>${safe(alert.message)}</span><span>${safe(dataAlertLine(alert, point))}</span></li>`).join('')}</ul>`
       : '<p class="walk-page-empty">No storms or other alerts right now.</p>'}
       <p class="walk-data-source">A solar storm doubles the radiation dose rate but doesn't slow walking. The habitat is the shelter.</p>`)
+
+    // Random events: the scenario number, and the events so far (not the ones still to come).
+    $('w-scenario-label').textContent = scenario ? `${scenario.label}${scenario.calm ? ' · calm day' : ''}` : 'Random events off'
+    $('w-scenario-new').textContent = scenario ? '🎲 New scenario' : '🎲 Random events'
+    $('w-scenario-off').hidden = !scenario
+    const started = scenario ? scenario.events.filter((event) => event.startMin <= minutesOut()) : []
+    const log = started.map((event) => {
+      const at = Date.parse(mission.start_time) + event.startMin * 60000
+      const over = event.durationMin != null && event.startMin + event.durationMin <= minutesOut()
+      return `<li><b>${utcTime(at)}</b> ${safe(event.title)}${event.durationMin != null ? ` · ${duration(event.durationMin)}` : ''}${over ? ' · over' : ' · now'}</li>`
+    }).join('')
+    set('w-scenario-log', log)
+    $('w-scenario-log').hidden = !log
 
     const { slopeWarnDeg, slopeNoGoDeg, roughWarnDeg } = grid.suit
     const here = groundAt(grid, point)
