@@ -254,11 +254,9 @@ button { font: inherit; }
 .walk-shot-list img { display: block; width: 100%; aspect-ratio: 3 / 4; border-radius: 10px; background: #0b1116; object-fit: cover; }
 .walk-shot-save { padding: 6px 0; color: var(--w-home); font-size: 13px; font-weight: 700; }
 
-/* Random events (Mia's randomEvents.js): scenario number, 🎲 to pick another, and the events so far */
+/* Random events (Mia's randomEvents.js): the scenario number ("Conditions: Scenario #4821") and the events so far */
 .walk-scenario { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
 .walk-scenario span { flex: 1 1 120px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.walk-scenario .walk-btn { min-height: 44px; }
-.walk-scenario .walk-btn[hidden] { display: none; }
 .walk-scenario-log { display: grid; gap: 4px; margin: 10px 0 0; padding: 0; color: var(--w-muted); font-size: 13px; list-style: none; }
 .walk-scenario-log[hidden] { display: none; }
 .walk-scenario-log b { color: var(--w-text); font-variant-numeric: tabular-nums; }
