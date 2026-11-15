@@ -167,7 +167,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
   mountMapKey(document.querySelector('.map-panel'), { route, grid })
   const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route,
     onOverlayChange: (url) => { safetyImage = url; sync3dLayers() } })
-  mountPlanningScenario(document.querySelector('#mission-schedule'), route, (scenario) => safety.setWeather(scenario), { grid })
+  const conditions = mountPlanningScenario(document.querySelector('#mission-schedule'), route, (scenario) => safety.setWeather(scenario), { grid })
   mountPlanningSidebarControls(document.querySelector('.sidebar'))
   const safetyNotes = document.createElement('details')
   safetyNotes.className = 'planning-model-notes'
@@ -257,6 +257,10 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
 
   function selectStop(index, pan = true) {
     const stop = stops[index]
+    // Safety check from this stop at the time the crew leaves it in this scenario (dust devil wait included).
+    const leave = stop.type === 'habitat' ? (mission.drive_out_minutes ?? 0) : conditions.effects?.departureMin?.[stop.id]
+    const elapsedInput = document.getElementById('ps-elapsed')
+    if (elapsedInput && Number.isFinite(leave)) elapsedInput.value = String(Math.round((leave / 60) * 100) / 100)
     safety.selectStop(stop)
     renderStopDetails(document.querySelector('#selected-stop-science'), stop, { targetStatus: route.provenance?.target_status })
     const leg = legs[index] || legs[legs.length - 1]
