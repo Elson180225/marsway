@@ -78,7 +78,7 @@ assert.deepEqual([eva08.parking.x, eva08.parking.y], [3192.5, 3542.5], 'G2 proje
 assert.ok(eva08.rover.ok, eva08.rover.problems.join(' '))
 assert.ok(eva08.rover.checks.parking.slopeDeg <= 15)
 assert.equal(eva08.rover.checks.walkBack.level, 'ok', 'EVA-08: walking home from G2 after the loop keeps the reserve')
-const gediz = calculateMissionSchedule(buildGedizRoute(files.template, files.area, files.terrain, files.gediz).route)
+const gediz = calculateMissionSchedule(buildGedizRoute(files.template, files.area, files.terrain, files.gediz, files.parking).route)
 close(eva08.rover.walking + eva08.rover.science, gediz.walking + gediz.science, 1e-6, 'EVA-08 walk loop = Planning schedule')
 // EVA-08 on foot from H1 fits, but only just (Gediz is 3.8 km away).
 assert.ok(eva08.foot.spare < 30, 'EVA-08 on foot is tight')
