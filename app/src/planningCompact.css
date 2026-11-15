@@ -17,3 +17,65 @@
 #planning .planning-model-notes .ps-note{margin:8px 0}
 #planning .science-layer-info .science-layer-more{border-top:1px solid #34494b;padding-top:8px}
 @media(max-width:700px){#planning .ms-summary{font-size:21px}}
+
+/* Compact MarsWay demo panels */
+.psc-info,
+.science-location {
+  margin: 8px 0;
+  color: #b3c5c6;
+  font-size: 12px;
+}
+
+.psc-info summary,
+.science-location summary {
+  cursor: pointer;
+  color: #b8e4d5;
+}
+
+.ms-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0 0 12px;
+}
+
+.ms-chip {
+  padding: 5px 9px;
+  border: 1px solid #42545a;
+  background: #111f25;
+  border-radius: 999px;
+  color: #e1edeb;
+  font-size: 12px;
+}
+
+/* Final MarsWay compact panel improvements */
+.ms-info {
+  margin: 8px 0 12px;
+  font-size: 12px;
+  color: #b3c5c6;
+}
+
+.ms-info summary {
+  cursor: pointer;
+  color: #b8e4d5;
+}
+
+.ms-info .ms-note {
+  margin: 8px 0;
+}
+
+.ms-dose {
+  margin: 10px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b8e4d5;
+}
+
+.ps-legend {
+  font-size: 11px;
+  gap: 8px;
+}
+
+.ps-probe {
+  font-size: 12px;
+}
