@@ -11,6 +11,8 @@ import './planningSidebar.css'
 import { showScienceLayerInfo } from './scienceLayerInfo.js'
 import { mountPlanningSafety } from './safezone/planningPanel.js'
 import './stopDetails.css'
+import './mapKey.css'
+import { mountMapKey } from './mapKey.js'
 import { renderStopDetails } from './stopDetails.js'
 import { loadRouteForEva, loadScenarioCatalog, roughnessImage } from './terrainRoute.js'
 import { planningTravelVersions, travelComparison } from './planningTravel.js'
@@ -161,6 +163,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
   let view3d = null
   let safetyImage = null
   let sync3dLayers = () => {}
+  mountMapKey(document.querySelector('.map-panel'), { route, grid })
   const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route,
     onOverlayChange: (url) => { safetyImage = url; sync3dLayers() } })
   mountPlanningScenario(document.querySelector('#mission-schedule'), route, (scenario) => safety.setWeather(scenario))

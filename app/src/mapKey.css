@@ -1,0 +1,27 @@
+/* Planning map key (mapKey.js). Matches the map panel's dark style. */
+.map-key { border-top: 1px solid #314047; padding: 10px 17px 14px; color: #c3d0d2; font-size: 11px; }
+.map-key > summary { cursor: pointer; color: #e9e8e3; font: 600 13px 'Space Grotesk', sans-serif; list-style-position: inside; }
+.map-key > summary:focus-visible { outline: 2px solid #8ce0d6; outline-offset: 2px; border-radius: 4px; }
+.map-key-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px 22px; margin-top: 10px; }
+.map-key section { min-width: 0; }
+.map-key h3 { margin: 0 0 6px; color: #91a8ad; font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+.map-key ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.map-key li { display: flex; align-items: center; gap: 9px; line-height: 1.35; }
+.map-key-swatch { flex: none; width: 26px; height: 12px; border-radius: 3px; border: 1px solid #ffffff2e; }
+.map-key-swatch.is-line, .map-key-swatch.is-dash { height: 0; border: 0; border-top: 4px solid var(--key-colour); border-radius: 2px; }
+.map-key-swatch.is-dash { border-top-width: 3px; border-top-style: dashed; }
+.map-key-swatch.is-marker { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #23343a; display: grid; place-items: center; color: #263038; font-size: 11px; font-weight: 700; margin: 0 3px; }
+.map-key-swatch.is-marker.is-small { width: 12px; height: 12px; margin: 0 7px; }
+@media (max-width: 510px) { .map-key { padding: 10px 12px 12px; } .map-key-body { grid-template-columns: 1fr; } }
+
+/* Phones: the map panel used to be a fixed 500 px (400 px) box with overflow hidden, and the map
+   alone (min 68vh) filled it, so the key and the orbital-layer notes below it were cut off.
+   Let the panel grow and give the map (2D and 3D) a fixed height instead. */
+@media (max-width: 850px) {
+  .workspace .map-panel { height: auto; }
+  .workspace #map { min-height: 0; height: 420px; flex: none; }
+  .workspace #map3d { min-height: 0 !important; height: 420px; flex: none !important; }
+}
+@media (max-width: 510px) {
+  .workspace #map, .workspace #map3d { height: 340px; }
+}
