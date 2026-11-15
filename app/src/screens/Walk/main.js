@@ -4,11 +4,11 @@ import './walk.css'
 import { loadRouteForEva, loadScenarioCatalog } from '../../terrainRoute.js'
 import { createTerrainNavigation } from '../../terrainNavigation.js'
 import { loadHomeFile } from '../../safezone/homeFile.js'
-import { stopMetadata } from '../../stopDetails.js'
 import { directionsFor } from '../../pathfinding/directions.js'
 import { RAD_SURFACE_MSV_PER_DAY, SOLAR_STORM_FACTOR } from '../../safezone/radiation.js'
 import { photoFileName, photosFor, savePhoto } from './stopPhotos.js'
-import { SAMPLE_FALLBACK, simulatedPhoto } from './fakeCamera.js'
+import { openFakeCamera } from './fakeCamera.js'
+import { seedFromText } from './marsScene.js'
 import { randomSeed } from '../../safezone/randomEvents.js'
 import { scenarioEvents, scenarioFromSearch, withScenario } from '../../scenarioEvents.js'
 import {
@@ -299,17 +299,16 @@ function start(route, navigation, grid) {
   $('w-scenario-off').addEventListener('click', () => { setScenario(null); update() })
 
   // Photos at a stop, saved on this device only (stopPhotos.js, IndexedDB). For the demo, "Take photo"
-  // makes a simulated photo (fakeCamera.js); with REAL_CAMERA it opens the phone's back camera
+  // opens a simulated camera showing a made-up Mars landscape (fakeCamera.js, marsScene.js); with REAL_CAMERA it opens the phone's back camera
   // (capture="environment") or the gallery if there is no camera. Only errors show as text; a saved
   // photo just appears in "Your photos" (and is announced to screen readers).
   let shotUrls = []
   let shotsKey = ''
   let freshShotId = null // the photo just taken, so its thumbnail can pop in
-  let taking = false
   const shotStatus = (text, level = '') => { $('w-shot-status').textContent = text; $('w-shot-status').dataset.level = level }
   const currentScienceStop = () => scienceStops.find((item) => item.id === scienceId)
-  async function keepPhoto(stop, blob, { simTimeMs = state.clockMs, position = crewPoint, sampleCredit = null } = {}) {
-    const saved = await savePhoto({ blob, eva: mission.id, stopId: stop.id, stopName: stop.name, simTimeMs, position, sampleCredit })
+  async function keepPhoto(stop, blob, { simTimeMs = state.clockMs, position = crewPoint, generated = false } = {}) {
+    const saved = await savePhoto({ blob, eva: mission.id, stopId: stop.id, stopName: stop.name, simTimeMs, position, generated })
     shotStatus('')
     $('w-announce').textContent = `Photo saved at ${utcTime(simTimeMs)} UTC.`
     freshShotId = saved.id
@@ -324,25 +323,22 @@ function start(route, navigation, grid) {
     flash.classList.add('is-on')
   }
   $('w-shutter').addEventListener('animationend', () => $('w-shutter').classList.remove('is-on'))
-  async function takeSamplePhoto() {
+  // The simulated camera: each stop has its own made-up view (the same seed every time). The shutter
+  // flashes and the photo is saved with the mission time and position at that moment.
+  function openCamera() {
     const stop = currentScienceStop()
-    if (!stop || taking) return
-    taking = true
-    $('w-shot-take').disabled = true
-    const moment = { simTimeMs: state.clockMs, position: crewPoint } // when and where the button was tapped
-    shutter()
-    try {
-      const meta = stopMetadata(stop, window.location.href)
-      const { blob, credit } = await simulatedPhoto([{ url: meta.photo, credit: meta.credit }, SAMPLE_FALLBACK])
-      await keepPhoto(stop, blob, { ...moment, sampleCredit: credit || 'NASA' })
-    } catch (error) {
-      shotStatus(`Photo not saved: ${error.message}`, 'danger')
-    } finally {
-      taking = false
-      $('w-shot-take').disabled = false
-    }
+    if (!stop) return
+    openFakeCamera({
+      seed: seedFromText(`${mission.id}:${stop.id}`),
+      label: stop.name,
+      onShot: async (blob) => {
+        shutter()
+        try { await keepPhoto(stop, blob, { generated: true }) }
+        catch (error) { shotStatus(`Photo not saved: ${error.message}`, 'danger') }
+      },
+    })
   }
-  $('w-shot-take').addEventListener('click', () => (REAL_CAMERA ? $('w-shot-camera').click() : takeSamplePhoto()))
+  $('w-shot-take').addEventListener('click', () => (REAL_CAMERA ? $('w-shot-camera').click() : openCamera()))
   if (REAL_CAMERA) {
     $('w-shot-pick').addEventListener('click', () => $('w-shot-gallery').click())
     for (const input of [$('w-shot-camera'), $('w-shot-gallery')]) {
@@ -373,8 +369,8 @@ function start(route, navigation, grid) {
     const photosApp = window.Capacitor?.isPluginAvailable?.('MarsWayPhotos') ? window.Capacitor.Plugins.MarsWayPhotos : null
     const saveLabel = photosApp ? 'Save to Photos' : 'Download'
     $('w-shot-list').innerHTML = list.map((record, k) => `
-      <li${record.id === freshShotId ? ' class="is-new"' : ''}><a class="walk-shot-open" href="${shotUrls[k]}" target="_blank" rel="noopener"><img src="${shotUrls[k]}" alt="${record.sampleCredit ? 'Sample photo' : 'Your photo'} at ${safe(record.stopName)}, ${utcTime(record.simTimeMs, true)} UTC" loading="lazy"></a>
-        <span>${utcTime(record.simTimeMs, true)} UTC${where(record)}${record.sampleCredit ? `<br>Sample image: ${safe(record.sampleCredit)}` : ''}</span>
+      <li${record.id === freshShotId ? ' class="is-new"' : ''}><a class="walk-shot-open" href="${shotUrls[k]}" target="_blank" rel="noopener"><img src="${shotUrls[k]}" alt="${record.generated ? 'Simulated photo' : record.sampleCredit ? 'Sample photo' : 'Your photo'} at ${safe(record.stopName)}, ${utcTime(record.simTimeMs, true)} UTC" loading="lazy"></a>
+        <span>${utcTime(record.simTimeMs, true)} UTC${where(record)}${record.generated ? '<br>Simulated photo' : record.sampleCredit ? `<br>Sample image: ${safe(record.sampleCredit)}` : ''}</span>
         <a class="walk-shot-save" href="${shotUrls[k]}" download="${safe(photoFileName(record))}" data-index="${k}">${saveLabel}</a></li>`).join('')
     $('w-shot-list').hidden = !list.length
     freshShotId = null
