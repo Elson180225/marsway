@@ -270,7 +270,7 @@ function start(route, navigation, grid) {
       <p id="w-turnback-line" class="walk-turnback-line" hidden></p>
       <nav class="walk-pages" aria-label="More about this walk">
         <button type="button" id="w-open-science" class="walk-page-btn"><span><i aria-hidden="true">📷</i>Camera</span></button>
-        <button type="button" id="w-open-data" class="walk-page-btn"><span><i aria-hidden="true">📊</i>Data</span><small id="w-data-hint">Radiation, storms, terrain</small></button>
+        <button type="button" id="w-open-data" class="walk-page-btn"><span><i aria-hidden="true">📊</i>Data</span></button>
       </nav>
       </div>
       <p id="w-announce" class="walk-sr" aria-live="assertive"></p>
@@ -864,7 +864,8 @@ function start(route, navigation, grid) {
     $('w-open-science').title = nextStop ? `Camera: ${nextStop.stop.name}` : 'Camera: tap a stop on the map' // no text under the button
     $('w-open-science').dataset.here = nextStop?.here ? 'yes' : ''
     const alertsOn = complete ? [] : sortWarnings(currentAlerts())
-    $('w-data-hint').textContent = alertsOn.length ? `${alertName(alertsOn[0])}${alertsOn[0].warning ? '' : ' on'}` : scenario ? scenario.label : 'Radiation, storms, terrain'
+    $('w-open-data').title = alertsOn.length ? // no text under the button; its border turns red for a danger alert
+      `${alertName(alertsOn[0])}${alertsOn[0].warning ? '' : ' on'}` : `Data: ${scenario ? scenario.label : 'radiation, storms, terrain'}`
     $('w-open-data').dataset.level = alertsOn[0]?.level ?? ''
     if (view === 'science') renderScience()
 
