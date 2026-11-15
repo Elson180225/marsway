@@ -1,0 +1,32 @@
+@media (min-width: 851px) {
+  .sidebar {
+    width: 300px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+  }
+  .planning-sidebar-controls { width: 100%; margin: 18px 0 24px; }
+  .planning-sidebar-section { border-top: 1px solid #354950; padding: 17px 0 2px; }
+  .planning-sidebar-section h2 { margin: 0 0 12px; color: #e8ece7; font: 600 15px 'Space Grotesk', sans-serif; }
+  .sidebar .psc-form, .sidebar .ps-form { display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 11px; }
+  .sidebar .psc-form label, .sidebar .ps-form label { display: grid; min-width: 0; gap: 5px; color: #b9ccce; font-size: 12px; }
+  .sidebar .psc-form input, .sidebar .psc-form select, .sidebar .ps-form input {
+    box-sizing: border-box; width: 100%; min-width: 0; max-width: none; height: 38px;
+    padding: 7px 9px; border: 1px solid #566b70; border-radius: 7px;
+    color: #f1f0eb; background: #111e23; font: inherit;
+  }
+  .sidebar .psc-form button, .sidebar .ps-form button {
+    width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid #58757b;
+    border-radius: 7px; background: #283d42; color: #f1f0eb; font: inherit; cursor: pointer;
+  }
+  .sidebar .psc-form button:hover, .sidebar .ps-form button:hover { border-color: #87d6cb; }
+  .sidebar .psc-form :focus-visible, .sidebar .ps-form :focus-visible { outline: 2px solid #8ce0d6; outline-offset: 2px; }
+  .sidebar .ps-form button[aria-pressed="true"] { border-color: #ff7b6e; color: #ffb9a3; }
+  .sidebar .sidebar-bottom { margin-top: 8px; }
+}
+@media (min-width: 851px) and (max-width: 1150px) { .sidebar { width: 270px; } }
+@media (max-width: 850px) { .planning-sidebar-controls { display: none; } }

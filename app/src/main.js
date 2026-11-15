@@ -5,6 +5,8 @@ import './scienceLayers.css'
 import './planningCompact.css'
 import './missionSchedule.css'
 import { mountPlanningScenario } from './planningScenario.js'
+import { mountPlanningSidebarControls } from './planningSidebar.js'
+import './planningSidebar.css'
 import { showScienceLayerInfo } from './scienceLayerInfo.js'
 import { mountPlanningSafety } from './safezone/planningPanel.js'
 import './stopDetails.css'
@@ -81,6 +83,10 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
         <div class="sidebar-divider"></div>
         <div class="sidebar-label">MISSION CONTROL</div>
         <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a><a class="nav-item" href="/walk.html${mission.drive_out_minutes ? '' : `?eva=${encodeURIComponent(mission.id.replace('EVA-', ''))}`}"><span>⌖</span> Walk screen <small>Russell's view</small></a><a class="nav-item" href="/terrain-lab.html"><span>◇</span> Terrain in 3D <small>5 km view</small></a></nav>
+        <div class="planning-sidebar-controls" aria-label="Planning controls">
+          <section class="planning-sidebar-section" aria-labelledby="sidebar-weather-title"><h2 id="sidebar-weather-title">Weather</h2><div id="sidebar-weather-form"></div></section>
+          <section class="planning-sidebar-section" aria-labelledby="sidebar-safety-title"><h2 id="sidebar-safety-title">Safety check</h2><div id="sidebar-safety-form"></div></section>
+        </div>
         <div class="sidebar-bottom"><div class="sample-pulse"></div><div><strong>Prototype mode</strong><span>Terrain route estimates</span></div></div>
       </aside>
       <main id="planning" class="main">
@@ -146,6 +152,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
   })
   const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route })
   mountPlanningScenario(document.querySelector('#mission-schedule'), route, (scenario) => safety.setWeather(scenario))
+  mountPlanningSidebarControls(document.querySelector('.sidebar'))
   const safetyNotes = document.createElement('details')
   safetyNotes.className = 'planning-model-notes'
   const safetyNotesTitle = document.createElement('summary')
