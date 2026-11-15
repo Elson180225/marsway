@@ -10,3 +10,9 @@
 .eva-picker a { padding:.55rem .8rem; border:1px solid #40545a; border-radius:.6rem; color:#b5cbd0; text-decoration:none; font-weight:700; }
 .eva-picker a[aria-current="page"] { border-color:#f6b77c; background:#483327; color:#ffe3c5; }
 .eva-picker a:focus-visible { outline:2px solid #8ce0d6; outline-offset:3px; }
+/* Conditions box (random events). */
+.psc-conditions{display:grid;gap:8px;width:100%;padding:10px 12px;border:1px solid #42545a;border-radius:8px;background:#152126;color:#dfe8e6;font-size:12px}
+.psc-conditions strong{font:600 13px 'Space Grotesk',sans-serif;color:#f1f0eb}
+.psc-conditions ul{margin:0;padding:0;list-style:none;display:grid;gap:5px;line-height:1.4}
+.psc-scenario-actions{display:flex;align-items:center;gap:12px}
+.psc-scenario-actions a{color:#8ce0d6;font-size:12px}

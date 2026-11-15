@@ -51,7 +51,6 @@ export function mountPlanningSafety({ root, map, grid, route, onOverlayChange = 
       <label>Elapsed suit time (hours)<input id="ps-elapsed" type="number" min="0" step="any" value="${(route.mission.drive_out_minutes ?? 0) / 60}" required></label>
       <label>Time at a candidate stop (min)<input id="ps-stop" type="number" min="0" max="120" step="1" value="20" required></label>
       <button type="submit">Update safe zone</button>
-      <button id="ps-storm" type="button" aria-pressed="false" disabled>Simulate storm route</button>
     </form>
     <p id="ps-status" class="ps-status" role="status" aria-live="polite">Calculating safety estimates...</p>
     <div id="ps-bonus" class="ps-bonus" role="status" aria-live="polite" hidden></div>
@@ -82,7 +81,6 @@ export function mountPlanningSafety({ root, map, grid, route, onOverlayChange = 
     stormLine.remove()
     probeMarker.remove()
     for (const id of ['ps-home', 'ps-turnback', 'ps-reserve', 'ps-dose']) $(id).textContent = label
-    $('ps-storm').disabled = true
     if (metric) metric.textContent = label
     ++probeId
     $('ps-bonus').hidden = true
@@ -145,11 +143,8 @@ export function mountPlanningSafety({ root, map, grid, route, onOverlayChange = 
     $('ps-status').dataset.level = 'info'
     $('ps-status').textContent = 'Scenario changed. Press Update safe zone to recalculate.'
   })
-  $('ps-storm').addEventListener('click', () => {
-    stormShown = !stormShown
-    $('ps-storm').setAttribute('aria-pressed', String(stormShown))
-    drawStorm()
-  })
+  // Solar storms and their shelter route now come from the random events (planningEvents.js),
+  // so there is no hand-made storm route button any more. stormShown stays false.
   const probe = ({ latlng }) => {
     if (!result) return
     // Inspect one GO / NO-GO at a time: a clicked point replaces the bonus card.
@@ -199,7 +194,6 @@ export function mountPlanningSafety({ root, map, grid, route, onOverlayChange = 
       $('ps-status').dataset.level = result.timer.level
       $('ps-status').textContent = result.timer.level === 'ok' ? '✓ On plan: home with reserve intact' : `${result.timer.title}: ${result.timer.message}`
       $('ps-status').title = `${result.timer.title}: ${result.timer.message}`
-      $('ps-storm').disabled = false
       if (metric) metric.textContent = $('ps-turnback').textContent
       if (metricLabel) metricLabel.textContent = `From ${selected.name} at simulated elapsed time`
       $('ps-probe').dataset.level = ''

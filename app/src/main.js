@@ -91,7 +91,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
         <div class="sidebar-label">MISSION CONTROL</div>
         <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a>${mission.drive_out_minutes || mission.id === 'EVA-08' ? `<span class="nav-item quiet" title="The Walk screen does not support this travel version yet"><span>⌖</span> Walk screen <small>${mission.id === 'EVA-08' ? 'Not available for EVA-08' : 'On foot only'}</small></span>` : `<a class="nav-item" href="${withScenario(`/walk.html?eva=${encodeURIComponent(mission.id.replace('EVA-', ''))}`, seed)}"><span>⌖</span> Walk screen <small>Russell's view</small></a>`}<a class="nav-item" href="/terrain-lab.html"><span>◇</span> Terrain in 3D <small>5 km view</small></a></nav>
         <div class="planning-sidebar-controls" aria-label="Planning controls">
-          <section class="planning-sidebar-section" aria-labelledby="sidebar-weather-title"><h2 id="sidebar-weather-title">Weather</h2><div id="sidebar-weather-form"></div></section>
+          <section class="planning-sidebar-section" aria-labelledby="sidebar-weather-title"><h2 id="sidebar-weather-title">Conditions</h2><div id="sidebar-weather-form"></div></section>
           <section class="planning-sidebar-section" aria-labelledby="sidebar-safety-title"><h2 id="sidebar-safety-title">Safety check</h2><div id="sidebar-safety-form"></div></section>
         </div>
         <div class="sidebar-bottom"><div class="sample-pulse"></div><div><strong>Prototype mode</strong><span>Terrain route estimates</span></div></div>
@@ -166,7 +166,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
   mountMapKey(document.querySelector('.map-panel'), { route, grid })
   const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route,
     onOverlayChange: (url) => { safetyImage = url; sync3dLayers() } })
-  mountPlanningScenario(document.querySelector('#mission-schedule'), route, (scenario) => safety.setWeather(scenario))
+  mountPlanningScenario(document.querySelector('#mission-schedule'), route, (scenario) => safety.setWeather(scenario), { grid })
   mountPlanningSidebarControls(document.querySelector('.sidebar'))
   const safetyNotes = document.createElement('details')
   safetyNotes.className = 'planning-model-notes'
