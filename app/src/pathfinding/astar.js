@@ -7,7 +7,7 @@
 import { forEachNeighbour, stepSeconds, maxSpeedMps, cellToXY, xyToCell } from './walkingTime.js'
 
 /** Small binary min-heap of cell indices keyed by priority. */
-class MinHeap {
+export class MinHeap {
   constructor() {
     this.keys = []
     this.vals = []
@@ -58,8 +58,11 @@ class MinHeap {
  * Quickest path between two cells.
  * Returns { cells: [cell indices, start..goal], seconds } or null if there is no safe path.
  * useHeuristic: false turns A* into plain Dijkstra (used by the tests to check A*).
+ * stepCost / minCostPerMetre: what a step costs, and the least it can cost per metre (for the
+ * heuristic). Default: walking seconds (stepSeconds) at the fastest suited speed. The rover
+ * (rover.js) passes driving metres instead. `seconds` in the result is then that cost.
  */
-export function findPathCells(grid, start, goal, { useHeuristic = true } = {}) {
+export function findPathCells(grid, start, goal, { useHeuristic = true, stepCost = stepSeconds, minCostPerMetre = null } = {}) {
   const { width, cellSize, blocked } = grid
   if (blocked[goal]) return null
   const n = width * grid.height
@@ -71,7 +74,7 @@ export function findPathCells(grid, start, goal, { useHeuristic = true } = {}) {
   // overestimates, so A* still finds the truly quickest path.
   const goalRow = (goal / width) | 0
   const goalCol = goal - goalRow * width
-  const secPerCell = useHeuristic ? cellSize / maxSpeedMps(grid.suit) : 0
+  const secPerCell = useHeuristic ? cellSize * (minCostPerMetre ?? 1 / maxSpeedMps(grid.suit)) : 0
   const h = (i) => {
     const r = (i / width) | 0
     return Math.hypot(r - goalRow, i - r * width - goalCol) * secPerCell
@@ -88,7 +91,7 @@ export function findPathCells(grid, start, goal, { useHeuristic = true } = {}) {
     const ti = time[i]
     forEachNeighbour(grid, i, (j, len) => {
       if (done[j]) return
-      const t = ti + stepSeconds(grid, i, j, len)
+      const t = ti + stepCost(grid, i, j, len)
       if (t < time[j]) {
         time[j] = t
         cameFrom[j] = i
