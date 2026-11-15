@@ -103,7 +103,8 @@ export function mountMapKey(panel, { route, grid }) {
   const roverMode = Boolean(route.mission.drive_out_minutes)
   const details = document.createElement('details')
   details.className = 'map-key'
-  details.open = true
+  // Open on desktop; on phones start folded so the map stays on screen (tap "Map key" to open).
+  details.open = !window.matchMedia?.('(max-width: 850px)').matches
   const summary = document.createElement('summary')
   summary.textContent = 'Map key'
   const body = document.createElement('div')
