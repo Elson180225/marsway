@@ -118,9 +118,10 @@ button { font: inherit; }
 /* A small icon in the top-left corner: always above the bottom buttons, and it covers little of the map. */
 .walk-recenter { position: absolute; top: 10px; left: 10px; z-index: 500; width: 44px; height: 44px; padding: 0; border-radius: 10px; border: 1px solid #4a5d63; background: #1b272dee; color: var(--w-text); font-size: 22px; line-height: 1; cursor: pointer; }
 .walk-recenter[hidden] { display: none; }
-.walk-legend { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12px; color: var(--w-muted); }
+.walk-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 0; padding: 10px 14px; list-style: none; font-size: 12px; color: var(--w-muted); }
+.walk-legend li { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .walk-legend-line, .walk-legend-dash { width: 22px; border-top: 4px solid #fff0ce; }
-.walk-legend-dash { border-top: 3px dashed var(--w-home); margin-left: 10px; }
+.walk-legend-dash { border-top: 3px dashed var(--w-home); }
 /* Solar storm: the dashed path home becomes Nigel's shelter route (pathfinding/shelter.js), in red */
 .walk-legend-shelter { display: none; }
 .walk-map-card[data-shelter="on"] .walk-legend-home { display: none; }
@@ -135,8 +136,8 @@ button { font: inherit; }
 .walk-hazard i { transform: rotate(-45deg); font: 800 12px/1 'DM Sans', sans-serif; font-style: normal; }
 .walk-hazard.is-caution { background: var(--w-caution); color: #2a2010; }
 .walk-hazard.is-danger { background: var(--w-danger); color: #2a0c0a; }
-.walk-legend-sign { width: 12px; height: 12px; margin: 0 0 0 10px; cursor: default; }
-.walk-legend-sign i { font-size: 9px; }
+.walk-legend-sign { width: 14px; height: 14px; margin: 2px; border-width: 1.5px; cursor: default; }
+.walk-legend-sign i { font-size: 11px; }
 .walk-map-note { position: absolute; right: 10px; top: 10px; z-index: 500; margin: 0; padding: 6px 10px; border-radius: 8px; background: #1b272dee; color: var(--w-muted); font-size: 12px; }
 /* A storm or "turn back" lights up the map's edge, the one moving thing on the screen. */
 .walk-map-card[data-level="danger"] { border-color: var(--w-danger); animation: walk-pulse 1.4s ease-in-out infinite; }
@@ -155,6 +156,10 @@ button { font: inherit; }
 .leaflet-tooltip-right.walk-pop::before { border-right-color: var(--pop); }
 .leaflet-tooltip-left.walk-pop::before { border-left-color: var(--pop); }
 .walk-me { display: block; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 4px solid #2f8cff; box-shadow: 0 0 0 6px #2f8cff44; }
+/* Map key: small copies of the crew dot and the stop markers */
+.walk-legend-me { flex: none; width: 12px; height: 12px; border-width: 3px; box-shadow: 0 0 0 3px #2f8cff44; }
+.walk-legend-stop { flex: none; width: 16px; height: 16px; border-width: 1.5px; font-size: 10px; line-height: 1; }
+.walk-stop.is-home.walk-legend-stop { font-size: 11px; }
 
 
 /* Bottom action bar */

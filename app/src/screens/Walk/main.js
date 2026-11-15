@@ -200,7 +200,15 @@ function start(route, navigation, grid) {
           <div id="w-map" role="img" aria-label="Map of the current leg, your simulated position, the path home and pop-ups for stops, hazards and alerts"></div>
           <button type="button" id="w-recenter" class="walk-recenter" aria-label="Recenter the map on me" title="Recenter the map on me" hidden>⌖</button>
         </div>
-        <div class="walk-legend"><span class="walk-legend-line"></span>This leg<span class="walk-legend-dash"></span><span class="walk-legend-home">Path home</span><span class="walk-legend-shelter">Shelter route</span><span class="walk-hazard is-caution walk-legend-sign"><i>!</i></span>Hazard</div>
+        <ul class="walk-legend" aria-label="Map key">
+          <li><span class="walk-legend-line"></span>This leg</li>
+          <li><span class="walk-legend-dash"></span><span class="walk-legend-home">Path home</span><span class="walk-legend-shelter">Shelter route</span></li>
+          <li><span class="walk-me walk-legend-me"></span>Crew</li>
+          <li><span class="walk-stop is-home walk-legend-stop">⌂</span>Habitat</li>
+          <li><span class="walk-stop is-bonus walk-legend-stop"></span>Bonus stop</li>
+          <li><span class="walk-hazard is-caution walk-legend-sign"><i>!</i></span>Steep</li>
+          <li><span class="walk-hazard is-caution walk-legend-sign"><i>≈</i></span>Rough</li>
+        </ul>
       </section>
       <p id="w-turnback-line" class="walk-turnback-line" hidden></p>
       <nav class="walk-pages" aria-label="More about this walk">
