@@ -70,11 +70,13 @@ node app/src/eva-07-08.test.js
 
 `app/src/main.js` now uses `[[0, 0], [6000, 6000]]` for 2D science bounds and
 `{x0: 0, y0: 0, x1: 6000, y1: 6000}` for 3D composition. Both use the same
-north-up images. A related existing wiring error was fixed: layer buttons now
-update the 3D image, entry into 3D retains the selected science layer, and the
-toggle no longer references undefined `enabled`/`key` variables. Aaron should
-review these small `main.js` changes alongside his broader map/layer work;
-his `feat/planning-map-3d-layers` branch may overlap them.
+north-up images. After Aaron's #53 merged, main's complete multi-layer 3D
+implementation was retained. Kelly's `main.js` diff against main is now exactly
+the two bounds changes above; Kelly's earlier single-layer wiring fix has been
+removed. `planning3d.js` is unchanged from main. A remotely committed merge
+still contained conflict markers in `main.js`; those have been removed by
+restoring main's version and reapplying only the bounds. Aaron should review
+the resulting two-line integration change.
 
 - [Georeferencing review](review/2026-11-15/layers-6km/georeferencing-review.json):
   each old 600 × 600 crop exactly equals rows 520–1119, columns 120–719 of the
@@ -90,6 +92,11 @@ his `feat/planning-map-3d-layers` branch may overlap them.
   Credits, source links, coverage statements, CRISM legends and route
   visibility were checked. Repeated 2D/3D switching produced no runtime errors.
   Sixteen screenshots are alongside the audit.
+- [Post-#53 browser audit](review/2026-11-15/layers-6km/after-aaron/browser-review.json):
+  repeated all sixteen layer/view checks against main `78236b9`, preserving
+  Aaron's renderer and view-switching code. Evidence is in `after-aaron/`.
+  A separate [multi-layer check](review/2026-11-15/layers-6km/after-aaron/multi-layer-review.json)
+  verifies CTX, slope, roughness and the live safe zone compose together in 3D.
 - Offline tests verify north-up source sampling, transparent outside-source
   pixels without negative-index wrapping, black-pixel interpretation, the
   1200-pixel output contract, metadata and alpha coverage, and identical copies.

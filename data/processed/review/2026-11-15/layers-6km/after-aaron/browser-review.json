@@ -1,0 +1,370 @@
+{
+  "date": "2026-11-15",
+  "base": "78236b9",
+  "scope": "Full 6 km orbital crop placement and source/coverage panels, EVA-07 boxwork and EVA-08 Gediz, desktop Chrome 2D + WebGL 3D",
+  "checks": [
+    {
+      "eva": "07",
+      "view": "2D",
+      "layer": "ctx",
+      "dimensions": [
+        1200,
+        1200
+      ],
+      "rect": [
+        492,
+        42.59375,
+        750,
+        750
+      ],
+      "terrainRect": [
+        492,
+        42.59375,
+        750,
+        750
+      ],
+      "coverage": "Coverage: Full 6 km extent; 100% visible CTX data. Source gaps, if any, are transparent.",
+      "credit": "Image credit: NASA/JPL/MSSS/The Murray Lab (Caltech); tiles hosted by Esri.",
+      "source": "https://murray-lab.caltech.edu/CTX/",
+      "legend": 0,
+      "routePaths": 7
+    },
+    {
+      "eva": "07",
+      "view": "2D",
+      "layer": "crismHyd",
+      "dimensions": [
+        1200,
+        1200
+      ],
+      "rect": [
+        492,
+        42.59375,
+        750,
+        750
+      ],
+      "terrainRect": [
+        492,
+        42.59375,
+        750,
+        750
+      ],
+      "coverage": "Coverage: Full 6 km extent; about 67% visible browse colour and 33% transparent. Transparent areas do not prove mineral absence.",
+      "credit": "Image credit: NASA/JPL/JHUAPL; mosaics by F. Seelos, K. Seelos and C. Viviano (CRISM team).",
+      "source": "http://crism.jhuapl.edu/msl_landing_sites/2012July_Mosaics/HYD/MSL_gale_crater_targeted_mosaic_HYD_120723.png",
+      "legend": 3,
+      "routePaths": 7
+    },
+    {
+      "eva": "07",
+      "view": "2D",
+      "layer": "crismAlt",
+      "dimensions": [
+        1200,
+        1200
+      ],
+      "rect": [
+        492,
+        42.59375,
+        750,
+        750
+      ],
+      "terrainRect": [
+        492,
+        42.59375,
+        750,
+        750
+      ],
+      "coverage": "Coverage: Full 6 km extent; about 67% visible browse colour and 33% transparent. Transparent areas do not prove mineral absence.",
+      "credit": "Image credit: NASA/JPL/JHUAPL; mosaics by F. Seelos, K. Seelos and C. Viviano (CRISM team).",
+      "source": "http://crism.jhuapl.edu/msl_landing_sites/2012July_Mosaics/ALT/MSL_gale_crater_targeted_mosaic_ALT_120723.png",
+      "legend": 2,
+      "routePaths": 7
+    },
+    {
+      "eva": "07",
+      "view": "2D",
+      "layer": "themis",
+      "dimensions": [
+        1200,
+        1200
+      ],
+      "rect": [
+        492,
+        42.59375,
+        750,
+        750
+      ],
+      "terrainRect": [
+        492,
+        42.59375,
+        750,
+        750
+      ],
+      "coverage": "Coverage: Full 6 km extent; 100% visible night mosaic data. Source gaps, if any, are transparent.",
+      "credit": "Image credit: NASA/JPL-Caltech/Arizona State University; tiles from NASA Mars Trek.",
+      "source": "https://trek.nasa.gov/mars/",
+      "legend": 0,
+      "routePaths": 7
+    },
+    {
+      "eva": "07",
+      "view": "3D",
+      "layer": "ctx",
+      "draw": {
+        "url": "http://127.0.0.1:5176/terrain/ctx.png",
+        "args": [
+          0,
+          0,
+          2048,
+          2048
+        ],
+        "canvas": [
+          2048,
+          2048
+        ]
+      }
+    },
+    {
+      "eva": "07",
+      "view": "3D",
+      "layer": "crismHyd",
+      "draw": {
+        "url": "http://127.0.0.1:5176/terrain/crism_hyd.png",
+        "args": [
+          0,
+          0,
+          2048,
+          2048
+        ],
+        "canvas": [
+          2048,
+          2048
+        ]
+      }
+    },
+    {
+      "eva": "07",
+      "view": "3D",
+      "layer": "crismAlt",
+      "draw": {
+        "url": "http://127.0.0.1:5176/terrain/crism_alt.png",
+        "args": [
+          0,
+          0,
+          2048,
+          2048
+        ],
+        "canvas": [
+          2048,
+          2048
+        ]
+      }
+    },
+    {
+      "eva": "07",
+      "view": "3D",
+      "layer": "themis",
+      "draw": {
+        "url": "http://127.0.0.1:5176/terrain/themis_night.png",
+        "args": [
+          0,
+          0,
+          2048,
+          2048
+        ],
+        "canvas": [
+          2048,
+          2048
+        ]
+      }
+    },
+    {
+      "eva": "07",
+      "view": "switching",
+      "result": "2D -> 3D -> 2D -> 3D passed"
+    },
+    {
+      "eva": "08",
+      "view": "2D",
+      "layer": "ctx",
+      "dimensions": [
+        1200,
+        1200
+      ],
+      "rect": [
+        482,
+        241.59375,
+        750,
+        750
+      ],
+      "terrainRect": [
+        482,
+        241.59375,
+        750,
+        750
+      ],
+      "coverage": "Coverage: Full 6 km extent; 100% visible CTX data. Source gaps, if any, are transparent.",
+      "credit": "Image credit: NASA/JPL/MSSS/The Murray Lab (Caltech); tiles hosted by Esri.",
+      "source": "https://murray-lab.caltech.edu/CTX/",
+      "legend": 0,
+      "routePaths": 7
+    },
+    {
+      "eva": "08",
+      "view": "2D",
+      "layer": "crismHyd",
+      "dimensions": [
+        1200,
+        1200
+      ],
+      "rect": [
+        482,
+        241.59375,
+        750,
+        750
+      ],
+      "terrainRect": [
+        482,
+        241.59375,
+        750,
+        750
+      ],
+      "coverage": "Coverage: Full 6 km extent; about 67% visible browse colour and 33% transparent. Transparent areas do not prove mineral absence.",
+      "credit": "Image credit: NASA/JPL/JHUAPL; mosaics by F. Seelos, K. Seelos and C. Viviano (CRISM team).",
+      "source": "http://crism.jhuapl.edu/msl_landing_sites/2012July_Mosaics/HYD/MSL_gale_crater_targeted_mosaic_HYD_120723.png",
+      "legend": 3,
+      "routePaths": 7
+    },
+    {
+      "eva": "08",
+      "view": "2D",
+      "layer": "crismAlt",
+      "dimensions": [
+        1200,
+        1200
+      ],
+      "rect": [
+        482,
+        241.59375,
+        750,
+        750
+      ],
+      "terrainRect": [
+        482,
+        241.59375,
+        750,
+        750
+      ],
+      "coverage": "Coverage: Full 6 km extent; about 67% visible browse colour and 33% transparent. Transparent areas do not prove mineral absence.",
+      "credit": "Image credit: NASA/JPL/JHUAPL; mosaics by F. Seelos, K. Seelos and C. Viviano (CRISM team).",
+      "source": "http://crism.jhuapl.edu/msl_landing_sites/2012July_Mosaics/ALT/MSL_gale_crater_targeted_mosaic_ALT_120723.png",
+      "legend": 2,
+      "routePaths": 7
+    },
+    {
+      "eva": "08",
+      "view": "2D",
+      "layer": "themis",
+      "dimensions": [
+        1200,
+        1200
+      ],
+      "rect": [
+        482,
+        241.59375,
+        750,
+        750
+      ],
+      "terrainRect": [
+        482,
+        241.59375,
+        750,
+        750
+      ],
+      "coverage": "Coverage: Full 6 km extent; 100% visible night mosaic data. Source gaps, if any, are transparent.",
+      "credit": "Image credit: NASA/JPL-Caltech/Arizona State University; tiles from NASA Mars Trek.",
+      "source": "https://trek.nasa.gov/mars/",
+      "legend": 0,
+      "routePaths": 7
+    },
+    {
+      "eva": "08",
+      "view": "3D",
+      "layer": "ctx",
+      "draw": {
+        "url": "http://127.0.0.1:5176/terrain/ctx.png",
+        "args": [
+          0,
+          0,
+          2048,
+          2048
+        ],
+        "canvas": [
+          2048,
+          2048
+        ]
+      }
+    },
+    {
+      "eva": "08",
+      "view": "3D",
+      "layer": "crismHyd",
+      "draw": {
+        "url": "http://127.0.0.1:5176/terrain/crism_hyd.png",
+        "args": [
+          0,
+          0,
+          2048,
+          2048
+        ],
+        "canvas": [
+          2048,
+          2048
+        ]
+      }
+    },
+    {
+      "eva": "08",
+      "view": "3D",
+      "layer": "crismAlt",
+      "draw": {
+        "url": "http://127.0.0.1:5176/terrain/crism_alt.png",
+        "args": [
+          0,
+          0,
+          2048,
+          2048
+        ],
+        "canvas": [
+          2048,
+          2048
+        ]
+      }
+    },
+    {
+      "eva": "08",
+      "view": "3D",
+      "layer": "themis",
+      "draw": {
+        "url": "http://127.0.0.1:5176/terrain/themis_night.png",
+        "args": [
+          0,
+          0,
+          2048,
+          2048
+        ],
+        "canvas": [
+          2048,
+          2048
+        ]
+      }
+    },
+    {
+      "eva": "08",
+      "view": "switching",
+      "result": "2D -> 3D -> 2D -> 3D passed"
+    }
+  ],
+  "runtimeErrors": []
+}

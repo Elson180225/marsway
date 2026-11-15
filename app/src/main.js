@@ -139,7 +139,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
   const terrain = L.imageOverlay('/terrain/basemap.png', bounds, { opacity: 0.92, interactive: false }).addTo(map)
   const slope = L.imageOverlay('/terrain/slope.png', bounds, { opacity: 0.55, interactive: false })
   const roughness = L.imageOverlay(roughnessImage(grid), bounds, { opacity: 0.7, interactive: false })
-  // Kelly's north-up orbital crops fill the same 6 km extent as the terrain grid.
+  // Kelly's orbital crops cover the original 3 km square inside the 6 km grid.
   const scienceBounds = L.latLngBounds([[0, 0], [6000, 6000]])
   const science = {
     ctx: L.imageOverlay('/terrain/ctx.png', scienceBounds, { opacity: 0.85, interactive: false }),
@@ -183,7 +183,6 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
     else map.removeLayer(layer)
     const active = Object.entries(science).find(([, value]) => map.hasLayer(value))
     showScienceLayerInfo(scienceNote, active?.[0] ?? null)
-    if (view3d) view3d.setLayer(active?.[0] ?? (enabled && layers3d[key] ? key : 'terrain'))
     // Re-toggling imagery must not cover the route or the selected return path.
     if (map.hasLayer(terrain)) terrain.bringToBack()
     lineLayers.forEach((line) => line.bringToFront())
@@ -222,19 +221,6 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
     switching3d = true
     const button = event.currentTarget
     const on = button.getAttribute('aria-pressed') !== 'true'
-<<<<<<< HEAD
-    const { createPlanning3D, webglAvailable } = await import('./planning3d.js')
-    if (on && !webglAvailable()) { button.textContent = '3D not supported here'; return }
-    button.setAttribute('aria-pressed', String(on))
-    document.querySelector('#map').hidden = on
-    map3dEl.hidden = !on
-    if (on && !view3d) view3d = createPlanning3D(map3dEl, { grid, basemapUrl: '/terrain/basemap.webp', layers: layers3d, legs, stops, onSelectStop: (i) => selectStop(i, false) })
-    if (on) {
-      const active = Object.entries(science).find(([, value]) => map.hasLayer(value))
-      view3d.setLayer(active?.[0] ?? 'terrain')
-    }
-    if (!on) map.invalidateSize()
-=======
     try {
       if (on) {
         const { createPlanning3D, webglAvailable } = await import('./planning3d.js')
@@ -260,7 +246,6 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
       button.textContent = '3D unavailable'
       console.error('Planning 3D view failed:', error)
     } finally { switching3d = false }
->>>>>>> origin/main
   })
 
   function selectStop(index, pan = true) {
