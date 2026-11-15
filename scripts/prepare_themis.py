@@ -2,11 +2,11 @@
 MarsWay: cut the THEMIS night-time infrared layer to our EVA area (Kelly, Map Maker 2).
 
 Source: THEMIS IR night mosaic v14 (60N-60S, 100 m/px source), streamed by NASA
-Mars Trek. Finest tile level is ~163 m/px, so the 3 km area is only ~18 pixels wide.
+Mars Trek. Finest tile level is ~163 m/px, so the 6 km area is only ~37 source pixels wide.
 
 This is RELATIVE night-time brightness, not a temperature in kelvin and not a
-thermal-inertia map. Bright at night usually means ground that holds heat (rock);
-dark usually means loose sand or dust. Use it for the big picture only.
+thermal-inertia map. Brightness can provide broad thermal context, but this mosaic does not reliably
+classify materials or temperatures. Use it for the big picture only.
 
 Outputs (next to area.json):
   themis_night.png   greyscale, fills leaflet imageBounds; pixels are kept blocky on purpose
@@ -21,8 +21,8 @@ import json
 import math
 import os
 import shutil
-import time
-import urllib.request
+
+from science_raster import download, geometry
 
 import numpy as np
 from PIL import Image
@@ -34,30 +34,25 @@ TILE_PX = 256
 MARS_R = 3396190.0
 
 
-def fetch_tile(z, row, col, tries=5):
-    url = TILE_URL.format(z=z, row=row, col=col)
-    for attempt in range(tries):
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "marsway-hackathon"})
-            data = urllib.request.urlopen(req, timeout=60).read()
-            return np.asarray(Image.open(io.BytesIO(data)).convert("L"), dtype=np.float32)
-        except Exception as error:
-            if attempt == tries - 1:
-                raise RuntimeError(f"THEMIS tile {z}/{row}/{col} failed: {error}") from error
-            time.sleep(2 * (attempt + 1))
+def fetch_tile(z, row, col, cache_dir):
+    image = Image.open(io.BytesIO(download(TILE_URL.format(z=z, row=row, col=col), cache_dir)))
+    rgba = np.asarray(image.convert("RGBA"))
+    grey = np.asarray(image.convert("L"), dtype=np.float32)
+    valid = (rgba[:, :, 3] > 0) & (grey > 0)
+    return grey, valid
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--area", default="data/processed/area.json")
+    ap.add_argument("--area", default="app/public/terrain/area.json")
     ap.add_argument("--out", default="data/processed")
     ap.add_argument("--copy-to", default="app/public/terrain")
     ap.add_argument("--zoom", type=int, default=8)
-    ap.add_argument("--px", type=int, default=600)
+    ap.add_argument("--px", type=int, default=None)
+    ap.add_argument("--cache-dir", default="data/raw/science-cache")
     args = ap.parse_args()
 
-    area = json.load(open(args.area))
-    b = area["boundsProjected"]
+    area, b, n, spatial = geometry(args.area, args.px)
     west, east = math.degrees(b["west"] / MARS_R), math.degrees(b["east"] / MARS_R)
     south, north = math.degrees(b["south"] / MARS_R), math.degrees(b["north"] / MARS_R)
 
@@ -67,24 +62,28 @@ def main():
     c0, c1 = int((west + 180) // deg_tile), int((east + 180) // deg_tile)
     r0, r1 = int((90 - north) // deg_tile), int((90 - south) // deg_tile)
     mosaic = np.zeros(((r1 - r0 + 1) * TILE_PX, (c1 - c0 + 1) * TILE_PX), dtype=np.float32)
+    coverage = np.zeros_like(mosaic, dtype=bool)
     for r in range(r0, r1 + 1):
         for c in range(c0, c1 + 1):
-            mosaic[(r - r0) * TILE_PX:(r - r0 + 1) * TILE_PX, (c - c0) * TILE_PX:(c - c0 + 1) * TILE_PX] = fetch_tile(args.zoom, r, c)
+            tile, valid = fetch_tile(args.zoom, r, c, args.cache_dir)
+            section = np.s_[(r-r0)*TILE_PX:(r-r0+1)*TILE_PX, (c-c0)*TILE_PX:(c-c0+1)*TILE_PX]
+            mosaic[section] = tile
+            coverage[section] = valid
     lon0, lat0 = c0 * deg_tile - 180, 90 - r0 * deg_tile
 
     # Nearest-neighbour on purpose: smoothing would suggest detail THEMIS does not have.
-    n = args.px
     frac = (np.arange(n) + 0.5) / n
     cols = np.clip(((west + frac * (east - west)) - lon0) / deg_px, 0, mosaic.shape[1] - 1).astype(int)
     rows = np.clip((lat0 - (north - frac * (north - south))) / deg_px, 0, mosaic.shape[0] - 1).astype(int)
     out = mosaic[np.ix_(rows, cols)]
-    if (out < 1).mean() > 0.02:
-        raise RuntimeError("THEMIS night mosaic has gaps over this area; do not use it.")
+    alpha = np.where(coverage[np.ix_(rows, cols)], 255, 0).astype(np.uint8)
 
     os.makedirs(args.out, exist_ok=True)
-    Image.fromarray(out.astype(np.uint8)).save(os.path.join(args.out, "themis_night.png"), optimize=True)
+    grey = out.astype(np.uint8)
+    Image.fromarray(np.dstack([grey, grey, grey, alpha])).save(os.path.join(args.out, "themis_night.png"), optimize=True)
     source_px = int(round((east - west) / deg_px))
     meta = {
+        **spatial,
         "name": "THEMIS night-time infrared (relative brightness) for the MarsWay EVA area",
         "dataset": "THEMIS IR night mosaic v14, 60N-60S, 100 m/px source (Mars Odyssey)",
         "instrument": "Thermal Emission Imaging System (THEMIS), 2001 Mars Odyssey",
@@ -99,8 +98,14 @@ def main():
         "bounds_lonlat": {"west": west, "east": east, "south": south, "north": north},
         "leaflet_image_bounds": area["leaflet"]["imageBounds"],
         "how_to_read": "Brighter and darker pixels show relative night infrared brightness only. In comparable observations, brighter night surfaces may retain more heat (for example rockier material), while darker surfaces may be finer sand or dust. This multi-observation 8-bit mosaic does not provide calibrated temperature, thermal inertia, or a reliable material classification.",
+        "coverage": {
+            "fraction_visible": round(float((alpha > 0).mean()), 6),
+            "fraction_transparent": round(float((alpha == 0).mean()), 6),
+            "mask": "Source alpha and zero-valued empty mosaic pixels.",
+            "note": "Transparent pixels expose the terrain basemap; black source gaps are not cold temperatures.",
+        },
         "limitations": [
-            f"Only about {source_px} x {source_px} real pixels cover the 3 km area (~{m_px:.0f} m each). Do not read single ridges or stops from it.",
+            f"Only about {source_px} x {source_px} source pixels span this area (~{m_px:.0f} m each). Do not read single ridges or stops from it.",
             "Relative 8-bit brightness from a mosaic of many orbits and seasons. It is not a temperature map and not thermal inertia.",
             "Do not label it as ground temperature in the app.",
         ],

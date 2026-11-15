@@ -28,7 +28,7 @@ const duration = (minutes) => {
   return value >= 60 ? `${Math.floor(value / 60)}h ${value % 60}m` : `${value}m`
 }
 
-export function mountPlanningSafety({ root, map, grid, route }) {
+export function mountPlanningSafety({ root, map, grid, route, onOverlayChange = () => {} }) {
   const layer = L.layerGroup().addTo(map)
   const stormLine = L.polyline([], { color: '#ff7b6e', weight: 5, dashArray: '7 5' })
   const probeMarker = L.circleMarker([0, 0], { radius: 5, color: '#ffffff', fillColor: '#24343a', fillOpacity: 1 })
@@ -59,10 +59,10 @@ export function mountPlanningSafety({ root, map, grid, route }) {
       <div title="Time home from the selected route stop, calculated on the terrain grid."><small>TIME HOME</small><strong id="ps-home">Calculating</strong></div>
       <div><small>TURN BACK IN</small><strong id="ps-turnback">Calculating</strong><small>Before protected reserve</small></div>
       <div title="Suit time remaining on arrival home, including the protected reserve."><small>SUIT LEFT AT HOME</small><strong id="ps-reserve">Calculating</strong></div>
-      <div title="Estimate from Curiosity RAD baseline (0.67 mSv/day) for the time already out, not a measured personal dose. Dust-storm simulation changes walking time only; radiation effects and shielding are not modelled."><small>Elapsed dose estimate</small><strong id="ps-dose">Calculating</strong></div>
+      <div title="Estimate from Curiosity RAD baseline (0.67 mSv/day) for the time already out, not a measured personal dose. Dust-storm simulation changes walking time only; radiation effects and shielding are not modelled."><small>DOSE SO FAR</small><strong id="ps-dose">Calculating</strong></div>
     </div>
-    <div class="ps-legend" aria-label="Safe zone legend"><span title="30 or more minutes before reserve"><i style="background:#46c878"></i>30+ min spare</span><span title="Under 30 minutes before reserve"><i style="background:#f0af3c"></i>&lt;30 min spare</span><span title="Return uses protected reserve"><i style="background:#ff7068"></i>Uses reserve</span></div>
-    <p id="ps-probe" class="ps-probe" role="status">Click a map point to check it.</p>
+    <div class="ps-legend" aria-label="Safe zone legend"><span title="30 or more minutes before reserve"><i style="background:#46c878"></i>30m+ spare</span><span title="Less than 30 min before reserve"><i style="background:#f0af3c"></i>&lt;30m</span><span title="Return uses protected reserve"><i style="background:#ff7068"></i>Reserve</span></div>
+    <p id="ps-probe" class="ps-probe" role="status">Tap map for GO / NO-GO.</p>
     <p id="ps-storm-note" class="ps-storm-note" role="status"></p>
     <p id="ps-budget" class="ps-note"></p>
     <p class="ps-note">Map colours include the candidate-stop time; turn-back excludes it. Transparent areas are unreachable or outside the suit budget. Walk uses its own simulated clock.</p>`
@@ -78,6 +78,7 @@ export function mountPlanningSafety({ root, map, grid, route }) {
   function clearResult(label) {
     result = null
     layer.clearLayers()
+    onOverlayChange(null)
     stormLine.remove()
     probeMarker.remove()
     for (const id of ['ps-home', 'ps-turnback', 'ps-reserve', 'ps-dose']) $(id).textContent = label
@@ -86,7 +87,7 @@ export function mountPlanningSafety({ root, map, grid, route }) {
     ++probeId
     $('ps-bonus').hidden = true
     paintBonusChips(null)
-    $('ps-probe').textContent = 'Click the map to inspect spare time after calculation.'
+    $('ps-probe').textContent = 'Tap map for spare time.'
     $('ps-storm-note').textContent = ''
   }
   function paintBonusChips(check) {
@@ -188,7 +189,9 @@ export function mountPlanningSafety({ root, map, grid, route }) {
       if (data.type !== 'result') return
       result = data.result
       layer.clearLayers()
-      L.imageOverlay(spareOverlayUrl(result, grid), [[0, 0], [grid.sizeY, grid.sizeX]], { opacity: 0.85, interactive: false }).addTo(layer)
+      const overlayUrl = spareOverlayUrl(result, grid)
+      L.imageOverlay(overlayUrl, [[0, 0], [grid.sizeY, grid.sizeX]], { opacity: 0.85, interactive: false }).addTo(layer)
+      onOverlayChange(overlayUrl)
       $('ps-home').textContent = duration(result.timer.homeMinutes)
       $('ps-turnback').textContent = result.timer.turnbackIn > 0 ? duration(result.timer.turnbackIn) : 'NOW'
       $('ps-reserve').textContent = result.reserveAtHomeMinutes >= 0 ? duration(result.reserveAtHomeMinutes) : `${duration(-result.reserveAtHomeMinutes)} short`
@@ -200,7 +203,7 @@ export function mountPlanningSafety({ root, map, grid, route }) {
       if (metric) metric.textContent = $('ps-turnback').textContent
       if (metricLabel) metricLabel.textContent = `From ${selected.name} at simulated elapsed time`
       $('ps-probe').dataset.level = ''
-      $('ps-probe').textContent = 'Click a map point to check it.'
+      $('ps-probe').textContent = 'Tap map for GO / NO-GO.'
       showBonus(result.bonusCheck)
       drawStorm()
     }

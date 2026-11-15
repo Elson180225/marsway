@@ -12,6 +12,7 @@ import {
   advance, arrivalTimes, bonusStatus, canHeadHome, currentTrip, directionLine, eventAlerts, eventEffects, eventSolarStorms, groundAt, hazardSpots, headHome, minutesBehindPlan, minutesHome, pathGround,
   pathLength, photoDistance, photoStop, pointAlong, radiationDose, safetyStatus, walkPace,
 } from './walk-model.js'
+import { demoStormEvents, stormShelter } from './walk-model.js'
 
 const close = (a, b, tolerance, message) => assert.ok(Math.abs(a - b) <= tolerance, `${message}: ${a} vs ${b}`)
 
@@ -353,6 +354,28 @@ if (real) {
   const steepLeg = kelly.legs.find((leg) => leg.warnings?.some((w) => w.type === 'steep_slope'))
   if (steepLeg) assert.ok(pathGround(kellyGrid, steepLeg.path).steepestDeg > kellyGrid.suit.slopeWarnDeg, 'steep leg shows as steep')
   assert.ok(Number.isFinite(groundAt(kellyGrid, kelly.stops[0]).heightM), 'height at the habitat')
+  // Solar storm shelter (Nigel's shelterRoute): warned 30 min before, then on; slower in a dust storm.
+  const hab = kelly.stops[0]
+  const at = { x: kelly.stops[1].x, y: kelly.stops[1].y }
+  const storm = { type: 'solar_storm', startMin: 120, durationMin: 60, warningMin: 30, title: 'Solar storm', message: '' }
+  assert.equal(stormShelter(kelly, kellyGrid, [storm], 80, at), null, 'no warning yet')
+  const warned = stormShelter(kelly, kellyGrid, [storm], 100, at)
+  assert.deepEqual([warned.storm.phase, warned.via, warned.shelter.id, warned.startsInMin], ['warning', 'walk', hab.id, 20])
+  assert.deepEqual(warned.legs[0].path.at(-1), { x: hab.x, y: hab.y }, 'the route ends at the habitat')
+  assert.match(warned.message, /^Solar storm in 20 min\. Head to /)
+  const on = stormShelter(kelly, kellyGrid, [storm], 130, at)
+  assert.equal(on.storm.phase, 'on')
+  assert.match(on.message, /^Solar storm now/)
+  assert.ok(on.extraDoseMSv > 0, 'outside in the storm: extra dose')
+  assert.equal(stormShelter(kelly, kellyGrid, [storm], 180, at), null, 'over')
+  const dusty = stormShelter(kelly, kellyGrid, [storm, { type: 'dust_storm', startMin: 90, durationMin: 60, speedFactor: 0.6 }], 100, at)
+  close(dusty.minutes, warned.minutes / 0.6, 1e-9, 'walking 0.6× in a dust storm')
+  const demo = demoStormEvents(kelly, [{ startMs: kellyStart + 45 * 60000, endMs: null }, { startMs: kellyStart, endMs: kellyStart + 15 * 60000 }])
+  assert.deepEqual(demo.map((e) => [e.type, e.startMin, e.durationMin]), [['solar_storm', 45, null], ['solar_storm', 0, 15]])
+  assert.equal(stormShelter(kelly, kellyGrid, demo, 50, at).storm.phase, 'on', 'the ☀︎ Storm button counts too')
+  const home = stormShelter(kelly, kellyGrid, [storm], 130, { x: hab.x, y: hab.y })
+  assert.deepEqual([home.atShelter, home.message], [true, `Solar storm now: stay inside ${hab.name}.`], 'at the habitat: stay inside')
+  assert.equal(on.atShelter, false)
   console.log(`Real route passed: ${kelly.stops[b].name} is GO with ${Math.round(ours.spareMinutes)} min to spare on plan `
     + `(NO-GO once ${Math.round(ours.spareMinutes)} min behind); full plan ${Math.round(planned)} min, radiation ${radiationDose(kelly, kellyStart + planned * 60000).soFarMSv.toFixed(2)} mSv; `
     + `${science.length} stop photos with credits.`)

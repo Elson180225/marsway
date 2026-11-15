@@ -6,6 +6,7 @@ import { heightAt, xyToCell } from '../../pathfinding/walkingTime.js'
 import { etaFor, paceFactor } from '../../pathfinding/navigation.js'
 import { nextDirection } from '../../pathfinding/directions.js'
 import { activeEvents } from '../../safezone/randomEvents.js'
+import { currentSolarStorm, shelterRoute } from '../../pathfinding/shelter.js'
 
 const LEVEL_RANK = { danger: 0, caution: 1, info: 2 }
 export const PACE_WINDOW_MINUTES = 10 // the pace is measured over about the last 10 planned minutes of walking
@@ -519,4 +520,40 @@ export const ALERT_LEVELS = ['info', 'caution', 'danger']
 
 export function shelterFor(route, alert) {
   return alert.shelter_stop_id == null ? null : route.stops.find((stop) => stop.id === alert.shelter_stop_id) || null
+}
+
+/**
+ * Nigel's shelter route (pathfinding/shelter.js) for the solar storm the crew should react to now:
+ * warned about (Mia's warningMin) or on. The Walk screen is on foot, so the shelter is the habitat and
+ * there is no rover. Walking is slower in a dust storm under way (its speedFactor, 0.6).
+ *   events   Mia's events plus the ☀︎ Storm demo button's storms, as { type, startMin, durationMin }
+ *   crew     { x, y } where the crew is now
+ * Returns shelterRoute()'s result plus `storm` (with its phase: 'warning' | 'on'), or null when no
+ * storm needs a reaction (or there is no way home from here).
+ */
+export function stormShelter(route, grid, events, minutesOut, crew) {
+  const nowMin = Math.max(0, minutesOut)
+  const storm = currentSolarStorm(events, nowMin)
+  if (!storm) return null
+  const dust = activeEvents(events, nowMin).find((event) => event.type === 'dust_storm')
+  const home = route.stops[0]
+  const result = shelterRoute({
+    grid, crew, nowMin, storm, rover: null, walkSpeed: dust?.speedFactor ?? 1,
+    habitat: { id: home.id, name: home.name, x: home.x, y: home.y },
+  })
+  if (!result) return null
+  // Already at the habitat (e.g. before setting out): nothing to walk, so say "stay inside".
+  const atShelter = result.minutes < 0.5
+  const message = !atShelter ? result.message
+    : `Solar storm ${storm.phase === 'warning' ? `in ${Math.round(result.startsInMin)} min` : 'now'}: stay inside ${home.name}.`
+  return { ...result, storm, atShelter, message }
+}
+
+/** The ☀︎ Storm demo button's storms ({ startMs, endMs } on the walk clock) as solar storm events. */
+export function demoStormEvents(route, storms) {
+  const startMs = Date.parse(route.mission.start_time)
+  return storms.map((storm) => ({
+    type: 'solar_storm', startMin: (storm.startMs - startMs) / 60000,
+    durationMin: storm.endMs == null ? null : (storm.endMs - storm.startMs) / 60000,
+  }))
 }

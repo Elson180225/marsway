@@ -121,6 +121,11 @@ button { font: inherit; }
 .walk-legend { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12px; color: var(--w-muted); }
 .walk-legend-line, .walk-legend-dash { width: 22px; border-top: 4px solid #fff0ce; }
 .walk-legend-dash { border-top: 3px dashed var(--w-home); margin-left: 10px; }
+/* Solar storm: the dashed path home becomes Nigel's shelter route (pathfinding/shelter.js), in red */
+.walk-legend-shelter { display: none; }
+.walk-map-card[data-shelter="on"] .walk-legend-home { display: none; }
+.walk-map-card[data-shelter="on"] .walk-legend-shelter { display: inline; }
+.walk-map-card[data-shelter="on"] .walk-legend-dash { border-top-color: var(--w-danger); }
 .walk-stop-icon, .walk-me-icon { background: transparent; border: 0; }
 .walk-stop { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #23343a; background: #f3bd83; color: #263038; font-size: 12px; font-weight: 700; }
 .walk-stop.is-home { background: #91d5c7; font-size: 16px; }
@@ -150,26 +155,6 @@ button { font: inherit; }
 .leaflet-tooltip-right.walk-pop::before { border-right-color: var(--pop); }
 .leaflet-tooltip-left.walk-pop::before { border-left-color: var(--pop); }
 .walk-me { display: block; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 4px solid #2f8cff; box-shadow: 0 0 0 6px #2f8cff44; }
-
-/* Stop photo and task (Kelly's stop data) */
-.walk-photo { background: var(--w-panel); border: 1px solid var(--w-line); border-radius: 14px; padding: 16px; }
-.walk-photo[hidden] { display: none; }
-.walk-photo-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.walk-photo-badge { flex: none; padding: 4px 8px; border: 1px dashed #f3bd83; border-radius: 6px; color: #f3bd83; font-size: 10px; font-weight: 700; letter-spacing: .12em; }
-.walk-photo h2 { margin: 6px 0 8px; font: 600 20px/1.2 'Space Grotesk', sans-serif; }
-.walk-photo-task { margin: 0 0 12px; font-size: 15px; line-height: 1.45; }
-.walk-photo-task b { margin-right: 8px; color: var(--w-route); font-size: 11px; letter-spacing: .14em; }
-.walk-photo-task span { white-space: nowrap; color: var(--w-muted); font-size: 13px; }
-.walk-photo figure { margin: 0; }
-.walk-photo img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: contain; border-radius: 10px; background: #0b1116; } /* whole photo, never cropped */
-.walk-photo img[hidden] { display: none; }
-.walk-photo figcaption { margin-top: 8px; color: var(--w-muted); font-size: 12px; line-height: 1.5; }
-.walk-photo-nearby { display: block; color: var(--w-caution); }
-.walk-photo a { display: inline-block; padding: 6px 0; color: var(--w-home); }
-.walk-photo-missing { margin: 0; padding: 16px; border: 1px dashed #52656a; border-radius: 10px; color: var(--w-muted); font-size: 13px; }
-.walk-photo details { margin-top: 6px; color: #c3d1d3; font-size: 13px; line-height: 1.55; }
-.walk-photo summary { padding: 10px 0; color: var(--w-text); font-weight: 600; cursor: pointer; }
-.walk-photo details p { margin: 0 0 8px; }
 
 
 /* Bottom action bar */
@@ -245,17 +230,21 @@ button { font: inherit; }
 .walk-alert-list li[data-level="caution"], .walk-hazard-list li[data-level="caution"] { border-left-color: var(--w-caution); }
 .walk-alert-list li[data-level="danger"], .walk-hazard-list li[data-level="danger"] { border-left-color: var(--w-danger); }
 
-/* Science stop page: the crew's own photos */
+/* Science stop page: the crew's own photos. The page fills the phone screen: the photos card reaches
+   the bottom, and photos are big, 2 per row on a phone. */
+.walk[data-view="science"] { min-height: 100vh; min-height: 100dvh; }
+.walk[data-view="science"] #w-science-page { flex: 1; }
+.walk-shots:not([hidden]) { flex: 1; }
 .walk-btn-camera { width: 100%; min-height: 60px; background: var(--w-route); color: #1d2328; font-size: 18px; }
 .walk-shot-pick { padding: 12px 0 4px; border: 0; background: none; color: var(--w-home); font-size: 14px; text-decoration: underline; cursor: pointer; }
 .walk-shot-status { margin: 6px 0 0; color: var(--w-muted); font-size: 13px; }
 .walk-shot-status:empty { display: none; }
 .walk-shot-status[data-level="ok"] { color: var(--w-ok); }
 .walk-shot-status[data-level="danger"] { color: var(--w-danger); }
-.walk-shot-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 12px; margin: 12px 0 0; padding: 0; list-style: none; }
+.walk-shot-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin: 12px 0 0; padding: 0; list-style: none; }
 .walk-shot-list[hidden] { display: none; }
-.walk-shot-list li { display: grid; gap: 4px; min-width: 0; color: var(--w-muted); font-size: 11px; line-height: 1.35; }
-.walk-shot-list img { display: block; width: 100%; aspect-ratio: 1; border-radius: 8px; background: #0b1116; object-fit: cover; }
+.walk-shot-list li { display: grid; gap: 4px; min-width: 0; color: var(--w-muted); font-size: 12px; line-height: 1.35; }
+.walk-shot-list img { display: block; width: 100%; aspect-ratio: 3 / 4; border-radius: 10px; background: #0b1116; object-fit: cover; }
 .walk-shot-save { padding: 6px 0; color: var(--w-home); font-size: 13px; font-weight: 700; }
 
 /* Random events (Mia's randomEvents.js): scenario number, 🎲 to pick another, and the events so far */
@@ -267,3 +256,49 @@ button { font: inherit; }
 .walk-scenario-log[hidden] { display: none; }
 .walk-scenario-log b { color: var(--w-text); font-variant-numeric: tabular-nums; }
 .walk-btn-primary:disabled { background: var(--w-panel-2); color: var(--w-danger); border-color: var(--w-danger); cursor: default; }
+
+/* Walk controls (Resume, Head home, speed, Slow, Storm, Walk to…) show on the map only, not on the
+   Science stop or Data page; those pages then need no room kept for them at the bottom. */
+.walk:not([data-view="main"]) .walk-actions { display: none; }
+.walk:not([data-view="main"]) { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+
+/* Simulated camera (fakeCamera.js): the shutter blinks dark, flashes, and the new photo pops in */
+.walk-btn-camera:disabled { opacity: .75; cursor: default; }
+.walk-shutter { position: fixed; inset: 0; z-index: 2000; pointer-events: none; opacity: 0; background: #000; }
+.walk-shutter.is-on { animation: walk-shutter 460ms ease-out; }
+@keyframes walk-shutter {
+  0% { opacity: 0; background: #000; }
+  14% { opacity: .9; background: #000; }
+  26% { opacity: .85; background: #fff; }
+  100% { opacity: 0; background: #fff; }
+}
+.walk-shot-list li.is-new img { animation: walk-shot-in 420ms 220ms ease-out backwards; }
+@keyframes walk-shot-in {
+  from { opacity: 0; transform: scale(.7); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .walk-shutter.is-on { animation: walk-shutter-soft 300ms ease-out; }
+  .walk-shot-list li.is-new img { animation: none; }
+}
+@keyframes walk-shutter-soft {
+  0%, 100% { opacity: 0; background: #fff; }
+  30% { opacity: .25; background: #fff; }
+}
+
+/* Simulated camera screen (fakeCamera.js): a made-up Mars view, rule-of-thirds lines, a round shutter */
+.walk-cam { position: fixed; inset: 0; z-index: 1500; display: flex; flex-direction: column; background: #000; color: #fff; }
+.walk-cam-view { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.walk-cam-view canvas { display: block; width: 100%; height: 100%; }
+.walk-cam-grid { position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent calc(33.33% - 1px), #ffffff40 calc(33.33% - 1px) 33.33%, transparent 33.33% calc(66.67% - 1px), #ffffff40 calc(66.67% - 1px) 66.67%, transparent 66.67%),
+    linear-gradient(180deg, transparent calc(33.33% - 1px), #ffffff40 calc(33.33% - 1px) 33.33%, transparent 33.33% calc(66.67% - 1px), #ffffff40 calc(66.67% - 1px) 66.67%, transparent 66.67%); }
+.walk-cam-chip { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 12px; right: 12px; width: fit-content; max-width: calc(100% - 24px); overflow: hidden; padding: 5px 12px; border-radius: 999px; background: #0009; font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }
+.walk-cam-bar { flex: none; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 18px 24px calc(18px + env(safe-area-inset-bottom)); background: #000; }
+.walk-cam-close { justify-self: start; width: 48px; height: 48px; border: 0; border-radius: 50%; background: #ffffff24; color: #fff; font-size: 20px; cursor: pointer; }
+.walk-cam-shutter { width: 76px; height: 76px; padding: 5px; border: 4px solid #fff; border-radius: 50%; background: transparent; cursor: pointer; }
+.walk-cam-shutter span { display: block; width: 100%; height: 100%; border-radius: 50%; background: #fff; transition: transform .1s; }
+.walk-cam-shutter:active span { transform: scale(.88); }
+.walk-cam-close:focus-visible, .walk-cam-shutter:focus-visible { outline: 3px solid #fff0ce; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .walk-cam-shutter span { transition: none; } }

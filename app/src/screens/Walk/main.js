@@ -4,17 +4,22 @@ import './walk.css'
 import { loadRouteForEva, loadScenarioCatalog } from '../../terrainRoute.js'
 import { createTerrainNavigation } from '../../terrainNavigation.js'
 import { loadHomeFile } from '../../safezone/homeFile.js'
-import { stopMetadata } from '../../stopDetails.js'
 import { directionsFor } from '../../pathfinding/directions.js'
 import { RAD_SURFACE_MSV_PER_DAY, SOLAR_STORM_FACTOR } from '../../safezone/radiation.js'
 import { photoFileName, photosFor, savePhoto } from './stopPhotos.js'
+import { openFakeCamera } from './fakeCamera.js'
+import { seedFromText } from './marsScene.js'
 import { randomSeed } from '../../safezone/randomEvents.js'
 import { scenarioEvents, scenarioFromSearch, withScenario } from '../../scenarioEvents.js'
 import {
   ALERT_LEVELS, advance, arrivalTimes, bearing, bonusStatus, buildReturnTrip, canHeadHome, cardinal, currentTrip, directionLine,
-  eventAlerts, eventEffects, eventSolarStorms, groundAt, hazardSpots, headHome, minutesBehindPlan, pathGround, pathLength, photoDistance, photoStop, pointAlong, radiationDose,
+  eventAlerts, eventEffects, eventSolarStorms, groundAt, hazardSpots, headHome, minutesBehindPlan, pathGround, pathLength, photoStop, pointAlong, radiationDose,
   safetyStatus, segmentLength, shelterFor, sortWarnings, walkPace,
 } from './walk-model.js'
+// Solar storm shelter route (Nigel's pathfinding/shelter.js)
+import { demoStormEvents, stormShelter } from './walk-model.js'
+import { currentSolarStorm } from '../../pathfinding/shelter.js'
+import { activeEvents } from '../../safezone/randomEvents.js'
 
 const root = document.querySelector('#walk')
 // ?eva=09 etc. picks the scenario, as on the Planning screen. No ?eva is EVA-07.
@@ -23,6 +28,9 @@ const planningHref = eva ? `/?eva=${encodeURIComponent(eva)}` : '/'
 const SPEEDS = [1, 60, 300] // simulated minutes per real minute
 const TICK_MS = 250
 const STAY_MINUTES = 30 // demo button: the crew stays this much longer at a stop
+// Demo: "📷 Take photo" makes a simulated photo (fakeCamera.js). true = open the phone's real camera
+// again (capture="environment"), with "Choose from the gallery" when there is no camera.
+const REAL_CAMERA = false
 const SLOW_PACE = 1.3 // demo button: the crew walks 30% slower than planned
 
 function safe(value) {
@@ -74,6 +82,9 @@ function assertRoute(route) {
   }
 }
 
+const HOME_COLOR = '#8ce0d6' // dashed path home (--w-home in walk.css)
+const SHELTER_COLOR = '#ff7b6e' // the path home in a solar storm: Nigel's shelter route (--w-danger)
+
 // Demo only. Clearly labelled as simulated wherever it appears.
 function simulatedStorm(route) {
   return {
@@ -113,9 +124,11 @@ function start(route, navigation, grid) {
   }
   setScenario(scenarioFromSearch(location.search))
   const minutesOut = () => (state.clockMs - Date.parse(mission.start_time)) / 60000
-  // Every alert now: from the route file, the ☀︎ Storm demo button, and the random events under way.
+  // Every alert now: from the route file, the ☀︎ Storm demo button, the random events under way, and a
+  // solar storm the crew has been warned about (it has not started yet, so it is not "under way").
   const currentAlerts = () => [
     ...(route.alerts || []), ...(simAlert ? [simAlert] : []), ...(scenario ? eventAlerts(route, scenario.events, minutesOut()) : []),
+    ...(shelterNow?.storm.phase === 'warning' ? [stormWarning(shelterNow.storm)] : []),
   ]
   // Solar storms for the radiation counter: the demo button and the random ones.
   const solarStorms = () => [...state.solarStorms, ...(scenario ? eventSolarStorms(route, scenario.events) : [])]
@@ -123,8 +136,38 @@ function start(route, navigation, grid) {
   // so advance() moves the crew slower or not at all, and the ETAs include the wait.
   const applyEventEffects = () => eventEffects(state, scenario?.events, minutesOut())
 
+  // Nigel's shelter route (pathfinding/shelter.js) while a solar storm is warned or on: the quickest way
+  // into the habitat from where the crew is, how long, and the extra dose. It is a route search, so it
+  // is worked out again only when the storm changes, the crew has moved 50 m or a minute has passed,
+  // and at most once a second.
+  let shelterNow = null
+  let shelterKey = ''
+  let shelterAt = null
+  const stormEvents = () => [...(scenario?.events ?? []), ...demoStormEvents(route, state.solarStorms)]
+  function updateShelter(point) {
+    const now = minutesOut()
+    const storm = state.mode === 'complete' ? null : currentSolarStorm(stormEvents(), Math.max(0, now))
+    if (!storm) { shelterNow = null; shelterKey = ''; return }
+    const key = `${storm.startMin}:${storm.phase}:${activeEvents(stormEvents(), now).some((e) => e.type === 'dust_storm')}`
+    const recent = shelterAt && Date.now() - shelterAt.realMs < 1000
+    const near = shelterAt && now - shelterAt.min < 1 && segmentLength(shelterAt.point, point) < 50
+    if (key === shelterKey && (recent || near)) return
+    try { shelterNow = stormShelter(route, grid, stormEvents(), now, point) }
+    catch (error) { shelterNow = null; console.warn(`Shelter route unavailable (${error.message}).`) }
+    shelterKey = key
+    shelterAt = { point, min: now, realMs: Date.now() }
+  }
+  const stormWarning = (storm) => {
+    const startMs = Date.parse(mission.start_time) + storm.startMin * 60000
+    return {
+      type: 'solar_storm', level: 'danger', simulated: true, warning: true, shelter_stop_id: stops[0].id, startMs,
+      endMs: storm.durationMin == null ? null : startMs + storm.durationMin * 60000,
+      message: 'Solar storm warning: radiation will double outside. Head for shelter now.',
+    }
+  }
+
   root.innerHTML = `
-    <div class="walk">
+    <div class="walk" data-view="main">
       <header class="walk-top">
         <a class="walk-brand" href="${withScenario(planningHref, scenario?.seed)}" aria-label="MarsWay — back to Planning"><span class="walk-brand-mark"><img src="/marsway-mark.svg" alt="" width="28" height="28"></span>MARS<span>WAY</span></a>
         <div class="walk-mission"><span>${safe(mission.id)}</span><strong id="w-clock">--:--:--</strong><small>UTC</small></div>
@@ -160,7 +203,7 @@ function start(route, navigation, grid) {
           <div id="w-map" role="img" aria-label="Map of the current leg, your simulated position, the path home and pop-ups for stops, hazards and alerts"></div>
           <button type="button" id="w-recenter" class="walk-recenter" aria-label="Recenter the map on me" title="Recenter the map on me" hidden>⌖</button>
         </div>
-        <div class="walk-legend"><span class="walk-legend-line"></span>This leg<span class="walk-legend-dash"></span>Path home<span class="walk-hazard is-caution walk-legend-sign"><i>!</i></span>Hazard</div>
+        <div class="walk-legend"><span class="walk-legend-line"></span>This leg<span class="walk-legend-dash"></span><span class="walk-legend-home">Path home</span><span class="walk-legend-shelter">Shelter route</span><span class="walk-hazard is-caution walk-legend-sign"><i>!</i></span>Hazard</div>
       </section>
       <p id="w-turnback-line" class="walk-turnback-line" hidden></p>
       <nav class="walk-pages" aria-label="More about this walk">
@@ -172,19 +215,19 @@ function start(route, navigation, grid) {
 
       <section id="w-science-page" class="walk-page" aria-labelledby="w-science-title" hidden>
         <div class="walk-page-head"><button type="button" class="walk-back" data-back>← Back to map</button><h2 id="w-science-title" tabindex="-1">Science stop</h2></div>
-        <section id="w-photo" class="walk-photo" aria-label="Task and reference photo for this stop" hidden></section>
         <p id="w-photo-none" class="walk-page-empty" hidden></p>
         <section id="w-shots" class="walk-data-card walk-shots" aria-labelledby="w-shots-title" hidden>
           <h3 id="w-shots-title">Your photos</h3>
           <button type="button" id="w-shot-take" class="walk-btn walk-btn-camera"><span aria-hidden="true">📷</span> Take photo</button>
-          <button type="button" id="w-shot-pick" class="walk-shot-pick">No camera? Choose from the gallery</button>
+          ${REAL_CAMERA ? `<button type="button" id="w-shot-pick" class="walk-shot-pick">No camera? Choose from the gallery</button>
           <input id="w-shot-camera" type="file" accept="image/*" capture="environment" hidden>
-          <input id="w-shot-gallery" type="file" accept="image/*" hidden>
+          <input id="w-shot-gallery" type="file" accept="image/*" hidden>` : ''}
           <p id="w-shot-status" class="walk-shot-status" role="status"></p>
           <ul id="w-shot-list" class="walk-shot-list"></ul>
-          <p class="walk-data-source">Kept on this phone only, never uploaded. Each photo is labelled with the stop, the EVA, the mission time and your simulated position.</p>
+          ${REAL_CAMERA ? '<p class="walk-data-source">Kept on this phone only, never uploaded. Each photo is labelled with the stop, the EVA, the mission time and your simulated position.</p>' : ''}
         </section>
       </section>
+      <div id="w-shutter" class="walk-shutter" aria-hidden="true"></div>
 
       <section id="w-data-page" class="walk-page" aria-labelledby="w-data-title" hidden>
         <div class="walk-page-head"><button type="button" class="walk-back" data-back>← Back to map</button><h2 id="w-data-title" tabindex="-1">Data</h2></div>
@@ -239,7 +282,7 @@ function start(route, navigation, grid) {
   map.fitBounds(L.latLngBounds(allPoints).pad(0.15))
   legs.forEach((leg) => L.polyline(leg.path.map(mapPoint), { color: '#f6b77c', weight: 3, opacity: 0.25 }).addTo(map))
   const legLine = L.polyline([], { color: '#fff0ce', weight: 6, opacity: 0.95, lineCap: 'round' }).addTo(map)
-  const homeLine = L.polyline([], { color: '#8ce0d6', weight: 4, opacity: 0.95, dashArray: '8 9' }).addTo(map)
+  const homeLine = L.polyline([], { color: HOME_COLOR, weight: 4, opacity: 0.95, dashArray: '8 9' }).addTo(map)
   stops.forEach((stop, index) => {
     if (index > 0 && stop.type === 'home') return
     const kind = index === 0 ? 'is-home' : stop.is_bonus ? 'is-bonus' : ''
@@ -272,6 +315,7 @@ function start(route, navigation, grid) {
     view = name === 'data' ? 'data' : name === 'science' ? 'science' : 'main'
     if (view === 'science') scienceId = scienceStops.some((stop) => stop.id === id) ? id : photoStop(route, state)?.stop.id ?? null
     if (view !== 'science') autoOpened = false
+    root.querySelector('.walk').dataset.view = view // the walk controls show on the map only (walk.css)
     $('w-main').hidden = view !== 'main'
     $('w-science-page').hidden = view !== 'science'
     $('w-data-page').hidden = view !== 'data'
@@ -296,29 +340,60 @@ function start(route, navigation, grid) {
   $('w-scenario-new').addEventListener('click', () => { setScenario(randomSeed()); update() })
   $('w-scenario-off').addEventListener('click', () => { setScenario(null); update() })
 
-  // Photos at a stop: the back camera on phones (capture="environment"), or the gallery if there is
-  // no camera. Saved on this device only (stopPhotos.js, IndexedDB).
+  // Photos at a stop, saved on this device only (stopPhotos.js, IndexedDB). For the demo, "Take photo"
+  // opens a simulated camera showing a made-up Mars landscape (fakeCamera.js, marsScene.js); with REAL_CAMERA it opens the phone's back camera
+  // (capture="environment") or the gallery if there is no camera. Only errors show as text; a saved
+  // photo just appears in "Your photos" (and is announced to screen readers).
   let shotUrls = []
   let shotsKey = ''
+  let freshShotId = null // the photo just taken, so its thumbnail can pop in
   const shotStatus = (text, level = '') => { $('w-shot-status').textContent = text; $('w-shot-status').dataset.level = level }
-  $('w-shot-take').addEventListener('click', () => $('w-shot-camera').click())
-  $('w-shot-pick').addEventListener('click', () => $('w-shot-gallery').click())
-  for (const input of [$('w-shot-camera'), $('w-shot-gallery')]) {
-    input.addEventListener('change', async () => {
-      const file = input.files?.[0]
-      input.value = ''
-      const stop = scienceStops.find((item) => item.id === scienceId)
-      if (!file || !stop) return
-      shotStatus('Saving…')
-      try {
-        await savePhoto({ blob: file, eva: mission.id, stopId: stop.id, stopName: stop.name, simTimeMs: state.clockMs, position: crewPoint })
-        shotStatus(`Saved at ${utcTime(state.clockMs)} UTC.`, 'ok')
-        shotsKey = ''
-        renderShots(stop)
-      } catch (error) {
-        shotStatus(`Photo not saved: ${error.message}`, 'danger')
-      }
+  const currentScienceStop = () => scienceStops.find((item) => item.id === scienceId)
+  async function keepPhoto(stop, blob, { simTimeMs = state.clockMs, position = crewPoint, generated = false } = {}) {
+    const saved = await savePhoto({ blob, eva: mission.id, stopId: stop.id, stopName: stop.name, simTimeMs, position, generated })
+    shotStatus('')
+    $('w-announce').textContent = `Photo saved at ${utcTime(simTimeMs)} UTC.`
+    freshShotId = saved.id
+    shotsKey = ''
+    renderShots(stop)
+  }
+  // The camera moment: the shutter blinks and flashes (walk.css), then the photo is in the list.
+  function shutter() {
+    const flash = $('w-shutter')
+    flash.classList.remove('is-on')
+    void flash.offsetWidth // restart the animation on quick repeat taps
+    flash.classList.add('is-on')
+  }
+  $('w-shutter').addEventListener('animationend', () => $('w-shutter').classList.remove('is-on'))
+  // The simulated camera: each stop has its own made-up view (the same seed every time). The shutter
+  // flashes and the photo is saved with the mission time and position at that moment.
+  function openCamera() {
+    const stop = currentScienceStop()
+    if (!stop) return
+    openFakeCamera({
+      seed: seedFromText(`${mission.id}:${stop.id}`),
+      label: stop.name,
+      onShot: async (blob) => {
+        shutter()
+        try { await keepPhoto(stop, blob, { generated: true }) }
+        catch (error) { shotStatus(`Photo not saved: ${error.message}`, 'danger') }
+      },
     })
+  }
+  $('w-shot-take').addEventListener('click', () => (REAL_CAMERA ? $('w-shot-camera').click() : openCamera()))
+  if (REAL_CAMERA) {
+    $('w-shot-pick').addEventListener('click', () => $('w-shot-gallery').click())
+    for (const input of [$('w-shot-camera'), $('w-shot-gallery')]) {
+      input.addEventListener('change', async () => {
+        const file = input.files?.[0]
+        input.value = ''
+        const stop = currentScienceStop()
+        if (!file || !stop) return
+        shotStatus('Saving…')
+        try { await keepPhoto(stop, file) }
+        catch (error) { shotStatus(`Photo not saved: ${error.message}`, 'danger') }
+      })
+    }
   }
 
   // Thumbnails of this stop's photos, newest last, each with a way to keep a copy.
@@ -336,10 +411,11 @@ function start(route, navigation, grid) {
     const photosApp = window.Capacitor?.isPluginAvailable?.('MarsWayPhotos') ? window.Capacitor.Plugins.MarsWayPhotos : null
     const saveLabel = photosApp ? 'Save to Photos' : 'Download'
     $('w-shot-list').innerHTML = list.map((record, k) => `
-      <li><a class="walk-shot-open" href="${shotUrls[k]}" target="_blank" rel="noopener"><img src="${shotUrls[k]}" alt="Your photo at ${safe(record.stopName)}, ${utcTime(record.simTimeMs, true)} UTC" loading="lazy"></a>
-        <span>${utcTime(record.simTimeMs, true)} UTC${where(record)}</span>
+      <li${record.id === freshShotId ? ' class="is-new"' : ''}><a class="walk-shot-open" href="${shotUrls[k]}" target="_blank" rel="noopener"><img src="${shotUrls[k]}" alt="${record.generated ? 'Simulated photo' : record.sampleCredit ? 'Sample photo' : 'Your photo'} at ${safe(record.stopName)}, ${utcTime(record.simTimeMs, true)} UTC" loading="lazy"></a>
+        <span>${utcTime(record.simTimeMs, true)} UTC${where(record)}${record.generated ? '<br>Simulated photo' : record.sampleCredit ? `<br>Sample image: ${safe(record.sampleCredit)}` : ''}</span>
         <a class="walk-shot-save" href="${shotUrls[k]}" download="${safe(photoFileName(record))}" data-index="${k}">${saveLabel}</a></li>`).join('')
     $('w-shot-list').hidden = !list.length
+    freshShotId = null
     // In the Android app, the page can't download files: save to the phone's Photos instead
     // (MarsWayPhotosPlugin.java).
     if (photosApp) {
@@ -422,8 +498,15 @@ function start(route, navigation, grid) {
   }
 
   const alertName = (alert) => {
-    const name = String(alert.type || 'alert').replaceAll('_', ' ')
+    const name = alert.warning ? `Solar storm in ${duration(Math.max(0, alert.startMs - state.clockMs) / 60000)}`
+      : String(alert.type || 'alert').replaceAll('_', ' ')
     return `${alert.type === 'solar_storm' ? '☀︎ ' : '⚠︎ '}${name[0].toUpperCase()}${name.slice(1)}${alert.simulated ? ' (sim)' : ''}`
+  }
+  // Nigel's shelter route in a few words: "Head to Habitat (H1): walk 53m, +0.015 mSv extra".
+  function shelterRouteLine(route) {
+    if (route.atShelter) return `Stay inside ${route.shelter.name}`
+    const outcome = route.beforeStorm ? 'inside before it starts' : `+${route.extraDoseMSv.toFixed(3)} mSv extra`
+    return `Head to ${route.shelter.name}: walk ${duration(route.minutes)}, ${outcome}`
   }
 
   // The line under an alert's name in its map pop-up: what to do, and until when.
@@ -433,6 +516,7 @@ function start(route, navigation, grid) {
     if (alert.type === 'dust_devil') return `Stop and wait${left ? `, about ${left}` : ''}`
     if (alert.type === 'global_dust_storm') return 'NO-GO: walk cancelled'
     if (alert.type === 'rover_breakdown') return 'Use the walk-back plan'
+    if (alert.type === 'solar_storm' && shelterNow) return shelterRouteLine(shelterNow)
     return shelterLine(point, shelter) // solar storm and route alerts: where to shelter
   }
 
@@ -594,6 +678,7 @@ function start(route, navigation, grid) {
     const trip = currentTrip(route, state)
     const { point, nextIndex } = pointAlong(trip.path, state.progress)
     crewPoint = point
+    updateShelter(point) // before the alerts: a storm warning is one of them
     const remainingPath = [point, ...trip.path.slice(nextIndex)]
     const ahead = trip.path.slice(nextIndex).find((p) => p.x !== point.x || p.y !== point.y)
     const pace = walkPace(state)
@@ -607,6 +692,10 @@ function start(route, navigation, grid) {
       safety = urgent.type === 'global_dust_storm'
         ? { ...safety, level: 'danger', title: 'Walk cancelled', message: 'Global dust storm: NO-GO. Stay in the habitat.' }
         : { ...safety, level: 'danger', title: shelter ? `Go to shelter: ${shelter.name}` : 'Danger alert', message: shelter?.id === stops[0].id ? 'Shelter is the habitat. Use Head home to follow the planned return path.' : 'See the alert on the map.' }
+      // A solar storm: Nigel's message, e.g. "Solar storm in 20 min. Head to Habitat (H1) now: walk 53 min. …"
+      if (urgent.type === 'solar_storm' && shelterNow) {
+        safety = { ...safety, title: urgent.warning ? `${alertName(urgent).replace(' (sim)', '')}: go to shelter` : safety.title, message: shelterNow.message }
+      }
     }
     // A dust storm or dust devil under way also shows in the status line (seen from every page), unless
     // something more serious is already there.
@@ -685,14 +774,19 @@ function start(route, navigation, grid) {
     const nextStop = photoStop(route, state)
     $('w-science-hint').textContent = nextStop ? `${nextStop.here ? 'Here' : 'Next'}: ${nextStop.stop.name}` : 'Tap a stop on the map'
     const alertsOn = complete ? [] : sortWarnings(currentAlerts())
-    $('w-data-hint').textContent = alertsOn.length ? `${alertName(alertsOn[0])} on` : scenario ? scenario.label : 'Radiation, storms, terrain'
+    $('w-data-hint').textContent = alertsOn.length ? `${alertName(alertsOn[0])}${alertsOn[0].warning ? '' : ' on'}` : scenario ? scenario.label : 'Radiation, storms, terrain'
     $('w-open-data').dataset.level = alertsOn[0]?.level ?? ''
     if (view === 'science') renderScience()
 
     // Map
     legLine.setLatLngs(complete ? [] : remainingPath.map(mapPoint))
-    const homePath = complete ? [] : state.mode === 'return' ? remainingPath : buildReturnTrip(route, state, navigation).path
+    // In a solar storm the dashed line home is Nigel's shelter route, in the danger colour.
+    const shelterPath = shelterNow ? shelterNow.legs.flatMap((leg) => leg.path) : null
+    const homePath = complete ? [] : shelterPath ?? (state.mode === 'return' ? remainingPath : buildReturnTrip(route, state, navigation).path)
     homeLine.setLatLngs(homePath.map(mapPoint))
+    const homeColor = shelterPath ? SHELTER_COLOR : HOME_COLOR
+    if (homeLine.options.color !== homeColor) homeLine.setStyle({ color: homeColor })
+    $('w-map-card').dataset.shelter = shelterPath ? 'on' : ''
     me.setLatLng(mapPoint(point))
     if (follow) map.panTo(mapPoint(point), { animate: false })
     placeHazards(trip)
@@ -757,43 +851,16 @@ function start(route, navigation, grid) {
     $('w-bonus-note').textContent = note
   }
 
-  // Photo and task for the stop the crew is at, or the next stop while walking (Kelly's stop data,
-  // read through the Planning screen's stopMetadata so both screens show the same credits).
+  // Science stop page: only the camera and this stop's photos (the stop the crew is at, the next stop
+  // while walking, or the stop tapped on the map).
   function renderScience() {
-    const stop = scienceStops.find((item) => item.id === scienceId) ?? null
-    const current = photoStop(route, state)
-    const here = Boolean(stop && current?.here && current.stop === stop)
-    const label = !stop ? '' : here ? 'YOU ARE HERE' : current?.stop === stop ? 'NEXT STOP' : `STOP ${stops.indexOf(stop)}`
+    const stop = currentScienceStop() ?? null
     $('w-photo-none').hidden = Boolean(stop)
     $('w-photo-none').textContent = state.mode === 'outbound' ? 'Tap a stop on the map to see its science page.' : 'No science stops on the way home. Tap a stop on the map to see its photos.'
     $('w-shots').hidden = !stop
-    if (stop) renderShots(stop)
-    const key = stop ? `${stop.id}:${label}` : ''
-    if (key === photoKey) return
-    photoKey = key
-    const panel = $('w-photo')
-    panel.hidden = !stop
-    if (!stop) { panel.replaceChildren(); return }
-    shotStatus('')
-    const meta = stopMetadata(stop, window.location.href)
-    const metres = photoDistance(stop) // only when it is known for this photo
-    const away = metres === null ? '' : `, about ${metres} m away`
-    const shot = [meta.sol ? `Sol ${meta.sol}` : null, meta.camera].filter(Boolean).join(' · ')
-    panel.innerHTML = `
-      <div class="walk-photo-head"><span class="walk-eyebrow">${label}</span>${meta.bonus ? '<span class="walk-photo-badge">OPTIONAL BONUS</span>' : ''}</div>
-      <h2>${safe(meta.name)}</h2>
-      ${stop.why ? `<p class="walk-photo-task"><b>TASK</b>${safe(stop.why)}${meta.visitMinutes ? ` <span>${meta.visitMinutes} min</span>` : ''}</p>` : ''}
-      ${meta.photo ? `<figure>
-        <img alt="${safe(meta.caption || `Photo near ${meta.name}`)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">
-        <p class="walk-photo-missing" hidden>Photo could not load.</p>
-        <figcaption>${meta.nearby ? `<strong class="walk-photo-nearby">Nearby view${away}</strong>` : ''}
-          ${shot ? `${safe(shot)} · ` : ''}Image: ${safe(meta.credit || 'credit pending')}${meta.source ? ` · <a href="${safe(meta.source)}" target="_blank" rel="noopener noreferrer">Source ↗</a>` : ''}</figcaption>
-      </figure>` : '<p class="walk-photo-missing">No photo for this stop yet.</p>'}
-      <details><summary>More about this stop</summary><p>${safe(meta.description)}</p>${meta.caption ? `<p>${safe(meta.caption)}</p>` : ''}</details>`
-    const image = panel.querySelector('img')
-    if (!image) return
-    image.addEventListener('error', () => { image.hidden = true; panel.querySelector('.walk-photo-missing').hidden = false }, { once: true })
-    image.src = meta.photo // set after the listener, so a failed load is always shown
+    if (!stop) return
+    if (stop.id !== photoKey) { photoKey = stop.id; shotStatus('') } // a new stop: clear an old error
+    renderShots(stop)
   }
 
   // Radiation counter: dose so far (×2 while a solar storm is on), next to the dose for the whole
@@ -816,6 +883,7 @@ function start(route, navigation, grid) {
   let groundLeg = null
   // Under an alert's full text on the Data page: where to shelter (solar storm, route alerts), or until when.
   function dataAlertLine(alert, point) {
+    if (alert.type === 'solar_storm' && shelterNow) return shelterNow.message // Nigel's whole message
     if (!alert.event || alert.type === 'solar_storm') return shelterLine(point, shelterFor(route, alert))
     return alert.endMs ? `Until ${utcTime(alert.endMs)} UTC` : ''
   }

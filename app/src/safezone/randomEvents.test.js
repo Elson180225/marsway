@@ -2,6 +2,7 @@
 // Run from app/:  node src/safezone/randomEvents.test.js
 import assert from 'node:assert/strict'
 import { randomEvents, activeEvents, randomSeed, EVENT_RULES } from './randomEvents.js'
+import { SOLAR_STORM_FACTOR } from './radiation.js'
 
 const walk = { eva: '08', durationMinutes: 261 }
 
@@ -58,6 +59,18 @@ for (let seed = 1; seed <= 2000; seed++) {
     if (rule.maxLength) assert.ok(e.durationMin <= rule.maxLength, `${e.type} not longer than ${rule.maxLength}`)
   }
 }
+
+// Solar storms come with 10–45 min warning, and use the same ×2 as radiation.js
+let solarSeen = 0
+for (let seed = 1; seed <= 2000; seed++) {
+  for (const e of randomEvents({ seed, version: 'foot', ...walk }).events) {
+    if (e.type !== 'solar_storm') continue
+    solarSeen++
+    assert.ok(Number.isInteger(e.warningMin) && e.warningMin >= 10 && e.warningMin <= 45, `warning 10–45 min (seed ${seed})`)
+    assert.equal(e.radiationFactor, SOLAR_STORM_FACTOR)
+  }
+}
+assert.ok(solarSeen > 0, 'some solar storms seen')
 
 // Short walks still work (60 min is the shortest allowed)
 for (let seed = 1; seed <= 2000; seed++) {

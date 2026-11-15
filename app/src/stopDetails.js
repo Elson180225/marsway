@@ -63,7 +63,9 @@ export function renderStopDetails(container, stop, { targetStatus = 'pending' } 
     more.append(element('summary', '', 'More about this stop'), element('p', '', displayDescription))
     card.append(more)
   }
-  card.append(element('p', 'science-coordinates', meta.coordinates))
+  const coordinatesInfo = element('details', 'science-location')
+  coordinatesInfo.append(element('summary', '', 'ⓘ Coordinates'), element('p', 'science-coordinates', meta.coordinates))
+  card.append(coordinatesInfo)
   if (meta.visitMinutes !== null) card.append(element('p', 'science-visit', `${meta.visitMinutes} min science${meta.bonus ? ' · Optional, check return time' : ''}`))
   if (meta.moved) {
     card.append(element('p', 'science-moved', `Route stop relocated ${meta.moved} m onto reachable terrain. Original: ${meta.original || 'coordinates unavailable'}.`))

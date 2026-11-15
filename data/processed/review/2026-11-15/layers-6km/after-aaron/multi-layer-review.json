@@ -1,0 +1,59 @@
+{
+  "date": "2026-11-15",
+  "base": "78236b9",
+  "scope": "Aaron PR53 composition with CTX, slope, roughness and live safe zone together",
+  "eva": "08",
+  "enabled": {
+    "ctx": "true",
+    "slope": "true",
+    "roughness": "true",
+    "safety": "true"
+  },
+  "finalTextureDraws": [
+    {
+      "source": "http://127.0.0.1:5176/terrain/basemap.webp",
+      "args": [
+        0,
+        0,
+        2048,
+        2048
+      ]
+    },
+    {
+      "source": "http://127.0.0.1:5176/terrain/slope.png",
+      "args": [
+        0,
+        0,
+        2048,
+        2048
+      ]
+    },
+    {
+      "source": "data-image",
+      "args": [
+        0,
+        0,
+        2048,
+        2048
+      ]
+    },
+    {
+      "source": "http://127.0.0.1:5176/terrain/ctx.png",
+      "args": [
+        0,
+        0,
+        2048,
+        2048
+      ]
+    },
+    {
+      "source": "data-image",
+      "args": [
+        0,
+        0,
+        2048,
+        2048
+      ]
+    }
+  ]
+}

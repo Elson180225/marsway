@@ -1,4 +1,26 @@
 {
+  "area_size_m": 6000.0,
+  "bounds_projected": {
+    "west": 8141000.0,
+    "east": 8147000.0,
+    "south": -287000.0,
+    "north": -281000.0,
+    "crs": "Mars 2000 sphere, Equidistant Cylindrical, centre lon 0 (metres)"
+  },
+  "output_px": 1200,
+  "output_m_per_px": 5.0,
+  "row_order": "north_to_south",
+  "pixel_reference": "pixel centres; first centre west + half a pixel, north - half a pixel",
+  "leaflet_image_bounds": [
+    [
+      0,
+      0
+    ],
+    [
+      6000,
+      6000
+    ]
+  ],
   "name": "CRISM mineral browse layers for the MarsWay EVA area",
   "dataset": "CRISM Specialized Browse Product Mosaics, MSL Gale Crater, 23 July 2012 (MTRDR prototypes)",
   "instrument": "Compact Reconnaissance Imaging Spectrometer for Mars (CRISM), Mars Reconnaissance Orbiter",
@@ -6,17 +28,7 @@
   "source_page": "http://crism.jhuapl.edu/msl_landing_sites/index_news.php",
   "source_crs": "Simple cylindrical, Mars 2000 sphere, centre (0, 0), 3072 px/deg = 19.295 m/px",
   "project_crs": "Mars 2000 sphere, Equidistant Cylindrical, centre lon 0 (metres)",
-  "registration": "CRISM team warped each observation onto a CTX basemap (ENVI RST); small offsets may remain.",
-  "leaflet_image_bounds": [
-    [
-      0,
-      0
-    ],
-    [
-      3000,
-      3000
-    ]
-  ],
+  "registration": "CRISM team warped each observation onto a CTX basemap (ENVI RST); registration to this terrain DEM is unverified; offsets may remain.",
   "products": {
     "HYD": {
       "file": "crism_hyd.png",
@@ -36,15 +48,19 @@
         2208
       ],
       "window_cols": [
-        592,
-        747
+        561,
+        871
       ],
       "window_rows": [
-        1549,
-        1705
+        1415,
+        1725
       ],
-      "source_pixels_across_area": 156,
-      "fraction_of_area_with_signal": 0.861
+      "source_pixels_across_area": 311,
+      "source_m_per_px": 19.295149,
+      "fraction_inside_source_extent": 1.0,
+      "fraction_with_visible_browse_colour": 0.67134,
+      "fraction_transparent": 0.32866,
+      "coverage_note": "Outside-mosaic and black browse pixels are transparent. Black pixels may reflect no coverage, dust, weak signal or the browse stretch floor, not mineral absence."
     },
     "ALT": {
       "file": "crism_alt.png",
@@ -64,20 +80,24 @@
         2208
       ],
       "window_cols": [
-        592,
-        747
+        561,
+        871
       ],
       "window_rows": [
-        1549,
-        1705
+        1415,
+        1725
       ],
-      "source_pixels_across_area": 156,
-      "fraction_of_area_with_signal": 0.855
+      "source_pixels_across_area": 311,
+      "source_m_per_px": 19.295149,
+      "fraction_inside_source_extent": 1.0,
+      "fraction_with_visible_browse_colour": 0.670341,
+      "fraction_transparent": 0.329659,
+      "coverage_note": "Outside-mosaic and black browse pixels are transparent. Black pixels may reflect no coverage, dust, weak signal or the browse stretch floor, not mineral absence."
     }
   },
   "limitations": [
     "Qualitative browse colours with a Gale-specific stretch. Brighter colour is a stronger spectral signal than elsewhere at Gale, not a percentage of mineral.",
-    "About 19 m per pixel, so roughly 155 pixels across the 3 km area. Individual boxwork ridges (metres wide) are not resolved.",
+    "About 19.3 m source pixels, roughly 311 across the area. A 5 m output grid adds no detail; individual boxwork ridges are not resolved.",
     "Dust hides minerals: a black or bland pixel does not mean the mineral is absent.",
     "2012 prototype products, before the final PDS MTRDR release. Ice haze can add false blue."
   ]

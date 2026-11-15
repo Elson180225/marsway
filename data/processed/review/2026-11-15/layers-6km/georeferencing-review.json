@@ -1,0 +1,213 @@
+{
+  "date": "2026-11-15",
+  "area_bounds_projected": {
+    "west": 8141000,
+    "east": 8147000,
+    "south": -287000,
+    "north": -281000
+  },
+  "pixel_centres": {
+    "northwest": [
+      8141002.5,
+      -281002.5
+    ],
+    "southeast": [
+      8146997.5,
+      -286997.5
+    ]
+  },
+  "old_3km_window_in_new_image": {
+    "row_start": 520,
+    "row_end_exclusive": 1120,
+    "col_start": 120,
+    "col_end_exclusive": 720
+  },
+  "layers": {
+    "ctx.png": {
+      "output_px": [
+        1200,
+        1200
+      ],
+      "spacing_m": 5,
+      "fraction_visible": 1.0,
+      "old_overlap_pixel_match": 1.0,
+      "sha256": "c6b7b30bf96e20163ff8d16e63bcf8bb3d6270fd2eb35f988562b4d41cf5d671"
+    },
+    "crism_hyd.png": {
+      "output_px": [
+        1200,
+        1200
+      ],
+      "spacing_m": 5,
+      "fraction_visible": 0.67134,
+      "old_overlap_pixel_match": 1.0,
+      "sha256": "6a2a22c8d77ccef195e490817fa3bde8bd114e9680099c77b60740ca6a2a0e68"
+    },
+    "crism_alt.png": {
+      "output_px": [
+        1200,
+        1200
+      ],
+      "spacing_m": 5,
+      "fraction_visible": 0.670341,
+      "old_overlap_pixel_match": 1.0,
+      "sha256": "92a5e3bb6e4a613b1cd12bd7664ff172bd9c6698d9d033a876f9476f7bab4f9a"
+    },
+    "themis_night.png": {
+      "output_px": [
+        1200,
+        1200
+      ],
+      "spacing_m": 5,
+      "fraction_visible": 1.0,
+      "old_overlap_pixel_match": 1.0,
+      "sha256": "640f9247e3cddfc8908eefc32895d3eb7b4a1c10102dea91881896f83fc845f8"
+    }
+  },
+  "stops": [
+    {
+      "dataset": "science-stops.json",
+      "id": "boxwork-lookout",
+      "xy_m": [
+        2161.5,
+        2039.7
+      ],
+      "pixel_col_row": [
+        432,
+        792
+      ],
+      "visible": {
+        "ctx.png": true,
+        "crism_hyd.png": true,
+        "crism_alt.png": true,
+        "themis_night.png": true
+      }
+    },
+    {
+      "dataset": "science-stops.json",
+      "id": "ridge-sample",
+      "xy_m": [
+        2233.2,
+        1991.2
+      ],
+      "pixel_col_row": [
+        446,
+        801
+      ],
+      "visible": {
+        "ctx.png": true,
+        "crism_hyd.png": true,
+        "crism_alt.png": true,
+        "themis_night.png": true
+      }
+    },
+    {
+      "dataset": "science-stops.json",
+      "id": "hollow-comparison",
+      "xy_m": [
+        2117.7,
+        2200.5
+      ],
+      "pixel_col_row": [
+        423,
+        759
+      ],
+      "visible": {
+        "ctx.png": true,
+        "crism_hyd.png": true,
+        "crism_alt.png": true,
+        "themis_night.png": true
+      }
+    },
+    {
+      "dataset": "science-stops.json",
+      "id": "mineral-investigation",
+      "xy_m": [
+        2367.9,
+        2490.5
+      ],
+      "pixel_col_row": [
+        473,
+        701
+      ],
+      "visible": {
+        "ctx.png": true,
+        "crism_hyd.png": true,
+        "crism_alt.png": true,
+        "themis_night.png": true
+      }
+    },
+    {
+      "dataset": "gediz-stops.json",
+      "id": "mineral-king",
+      "xy_m": [
+        3779.3,
+        3660.0
+      ],
+      "pixel_col_row": [
+        755,
+        468
+      ],
+      "visible": {
+        "ctx.png": true,
+        "crism_hyd.png": true,
+        "crism_alt.png": true,
+        "themis_night.png": true
+      }
+    },
+    {
+      "dataset": "gediz-stops.json",
+      "id": "sulfur-crystals",
+      "xy_m": [
+        3868.8,
+        3328.7
+      ],
+      "pixel_col_row": [
+        773,
+        534
+      ],
+      "visible": {
+        "ctx.png": true,
+        "crism_hyd.png": false,
+        "crism_alt.png": false,
+        "themis_night.png": true
+      }
+    },
+    {
+      "dataset": "gediz-stops.json",
+      "id": "kings-canyon",
+      "xy_m": [
+        3884.5,
+        3233.1
+      ],
+      "pixel_col_row": [
+        776,
+        553
+      ],
+      "visible": {
+        "ctx.png": true,
+        "crism_hyd.png": false,
+        "crism_alt.png": false,
+        "themis_night.png": true
+      }
+    },
+    {
+      "dataset": "gediz-stops.json",
+      "id": "channel-panorama",
+      "xy_m": [
+        3619.0,
+        3512.8
+      ],
+      "pixel_col_row": [
+        723,
+        497
+      ],
+      "visible": {
+        "ctx.png": true,
+        "crism_hyd.png": true,
+        "crism_alt.png": true,
+        "themis_night.png": true
+      }
+    }
+  ]
+}

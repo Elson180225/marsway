@@ -21,7 +21,7 @@ export function webglAvailable() {
 export function createPlanning3D(container, opts) {
   const { grid, basemapUrl, layers = {}, onSelectStop = () => {}, meshSize = 300 } = opts
   let { legs = [], stops = [], returnPath = [] } = opts
-  let ex = opts.exaggeration ?? 1.5, selected = -1, active = 'terrain'
+  let ex = opts.exaggeration ?? 1.5, selected = -1, activeLayers = [], baseVisible = true
   const SX = grid.sizeX, SY = grid.sizeY
 
   const renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -58,20 +58,34 @@ export function createPlanning3D(container, opts) {
   }
   const toWorld = (p, lift = 0) => new THREE.Vector3(p.x - SX / 2, heightAt(p.x, p.y) * ex + lift, -(p.y - SY / 2))
 
-  // surface picture: basemap + one overlay layer
-  const images = {}
+  // Compose the same enabled overlays as the 2D map, in the same order.
+  const images = new Map()
+  let paintId = 0
+  const imageFor = (url) => {
+    if (!images.has(url)) images.set(url, loadImage(url).catch((error) => { images.delete(url); throw error }))
+    return images.get(url)
+  }
   async function paint() {
-    images.base = images.base || await loadImage(basemapUrl)
-    ctx2d.globalAlpha = 1; ctx2d.drawImage(images.base, 0, 0, canvas.width, canvas.height)
-    const L = layers[active]
-    if (L) {
-      images[active] = images[active] || await loadImage(L.url)
-      const b = L.bounds || { x0: 0, y0: 0, x1: SX, y1: SY }, px = canvas.width / SX, py = canvas.height / SY
-      ctx2d.globalAlpha = L.opacity ?? DEFAULT_ALPHA[active] ?? 0.7
-      ctx2d.drawImage(images[active], b.x0 * px, (SY - b.y1) * py, (b.x1 - b.x0) * px, (b.y1 - b.y0) * py)
+    const id = ++paintId
+    const selected = activeLayers.map((name) => [name, layers[name]]).filter(([, layer]) => layer)
+    try {
+      const base = baseVisible ? await imageFor(basemapUrl) : null
+      const overlays = await Promise.all(selected.map(async ([name, layer]) => [name, layer, await imageFor(layer.url)]))
+      if (id !== paintId) return
       ctx2d.globalAlpha = 1
+      ctx2d.fillStyle = '#26333a'
+      ctx2d.fillRect(0, 0, canvas.width, canvas.height)
+      if (base) ctx2d.drawImage(base, 0, 0, canvas.width, canvas.height)
+      for (const [name, layer, img] of overlays) {
+        const b = layer.bounds || { x0: 0, y0: 0, x1: SX, y1: SY }, px = canvas.width / SX, py = canvas.height / SY
+        ctx2d.globalAlpha = layer.opacity ?? DEFAULT_ALPHA[name] ?? 0.7
+        ctx2d.drawImage(img, b.x0 * px, (SY - b.y1) * py, (b.x1 - b.x0) * px, (b.y1 - b.y0) * py)
+      }
+      ctx2d.globalAlpha = 1
+      texture.needsUpdate = true
+    } catch (error) {
+      console.error('Could not paint Planning 3D terrain layer:', error)
     }
-    texture.needsUpdate = true
   }
 
   // route, return path and stop pins
@@ -134,7 +148,8 @@ export function createPlanning3D(container, opts) {
 
   applyHeights(); paint(); resetView()
   return {
-    setLayer(name) { active = name; return paint() },
+    setLayers(names, showBase = true) { activeLayers = [...names]; baseVisible = showBase; return paint() },
+    setLayer(name) { activeLayers = name === 'terrain' ? [] : [name]; baseVisible = true; return paint() },
     setExaggeration(v) { ex = v; applyHeights() },
     setRoute(next) { legs = next.legs ?? legs; stops = next.stops ?? stops; returnPath = next.returnPath ?? returnPath; selected = -1; drawOverlays(); resetView() },
     setReturnPath(path) { returnPath = path || []; drawOverlays() },

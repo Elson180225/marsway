@@ -8,15 +8,19 @@
  *
  * - Local dust storm: can come out of season with little warning (MY37 "rocket" storm). Walking 0.6×.
  * - Dust devil: very common (1,039 tracked in a 2025 study). The crew stops and waits it out.
- * - Solar storm: radiation ×2 (see radiation.js).
+ * - Solar storm: radiation ×2 (SOLAR_STORM_FACTOR in radiation.js). The crew gets 10–45 min warning
+ *   (warningMin) before it starts: our assumption, roughly the time between a flare being seen and
+ *   the particles arriving.
  * - Global dust storm: lasts weeks to months, so it is known before the walk. The walk is cancelled.
  * - Rover breakdown: rover versions only. The crew uses the walk-back plan.
  */
+import { SOLAR_STORM_FACTOR } from './radiation.js'
+
 export const EVENT_RULES = {
   global_dust_storm: { chance: 0.02 },
   dust_storm: { chance: 0.35, minLength: 20, maxLength: 90, speedFactor: 0.6 },
   dust_devil: { chance: 0.3, minLength: 5, maxLength: 10 },
-  solar_storm: { chance: 0.15, minLength: 30, maxLength: 180, radiationFactor: 2 },
+  solar_storm: { chance: 0.15, minLength: 30, maxLength: 180, radiationFactor: SOLAR_STORM_FACTOR, minWarning: 10, maxWarning: 45 },
   rover_breakdown: { chance: 0.1 },
 }
 
@@ -89,6 +93,9 @@ export function randomEvents({ seed, eva = '', version = 'foot', durationMinutes
   const breakdown = roll(R.rover_breakdown.chance)
   const breakdownStart = between(Math.min(60, end - 30), end - 30)
 
+  // Added later: keep new rolls at the end, so every seed still gives the same events as before.
+  const solarWarning = between(R.solar_storm.minWarning, R.solar_storm.maxWarning)
+
   if (globalStorm) {
     result.cancelled = true
     result.events = [makeEvent('global_dust_storm', 0, null)]
@@ -96,7 +103,7 @@ export function randomEvents({ seed, eva = '', version = 'foot', durationMinutes
   }
   if (dust) result.events.push(makeEvent('dust_storm', dustStart, Math.min(dustLength, end - dustStart), { speedFactor: R.dust_storm.speedFactor }))
   if (devil) result.events.push(makeEvent('dust_devil', devilStart, Math.min(devilLength, end - devilStart), { pauseMinutes: Math.min(devilLength, end - devilStart) }))
-  if (solar) result.events.push(makeEvent('solar_storm', solarStart, Math.min(solarLength, end - solarStart), { radiationFactor: R.solar_storm.radiationFactor }))
+  if (solar) result.events.push(makeEvent('solar_storm', solarStart, Math.min(solarLength, end - solarStart), { radiationFactor: R.solar_storm.radiationFactor, warningMin: solarWarning }))
   if (breakdown && version === 'rover') result.events.push(makeEvent('rover_breakdown', breakdownStart, null))
 
   result.events.sort((a, b) => a.startMin - b.startMin)

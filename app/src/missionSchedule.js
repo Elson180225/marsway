@@ -55,15 +55,33 @@ export function renderMissionSchedule(container, route, scenario = null, { previ
   const panel = el('div', 'mission-schedule')
   panel.append(el('span', 'eyebrow', 'SIMULATED EVA · MISSION TIME (UTC)'), el('h2', '', 'Planned walk and science time'))
   panel.append(el('p', `ms-summary${plan.margin < 0 ? ' ms-over-budget' : ''}`, `${minutesLabel(plan.total)} total · ${plan.margin >= 0 ? `${minutesLabel(plan.margin)} before reserve` : `${minutesLabel(-plan.margin)} into reserve`}`))
-  panel.append(el('p', 'ms-breakdown', `${plan.driveOut ? `${minutesLabel(plan.driveOut)} drive out + ` : ''}${minutesLabel(plan.walking)} walking + ${minutesLabel(plan.science)} science${plan.driveHome ? ` + ${minutesLabel(plan.driveHome)} drive home` : ''}${plan.hasBonus ? ' · Includes bonus stop' : ''}`))
+  const breakdown = el('div', 'ms-breakdown ms-chips')
+  if (plan.driveOut) breakdown.append(el('span', 'ms-chip', `🚙 ${minutesLabel(plan.driveOut)}`))
+  breakdown.append(el('span', 'ms-chip', `🚶 ${minutesLabel(plan.walking)}`))
+  breakdown.append(el('span', 'ms-chip', `🔬 ${minutesLabel(plan.science)}`))
+  if (plan.driveHome) breakdown.append(el('span', 'ms-chip', `🚙 ${minutesLabel(plan.driveHome)}`))
+  if (plan.hasBonus) breakdown.append(el('span', 'ms-chip', 'Includes bonus stop'))
+  panel.append(breakdown)
   const habitat = route.mission.habitat_label ?? 'H1'
   const rover = route.mission.home_label ?? 'G2'
-  if (plan.driveOut) panel.append(el('p', 'ms-note', `${habitat} → ${rover}: ${minutesLabel(plan.driveOut)} suited drive (about ${(route.mission.drive_distance_m / 1000).toFixed(1)} km at an assumed 5 km/h plus 10 min to board and disembark). Open rover; no storm shelter.`))
-  panel.append(el('p', 'ms-dose', `Planned surface dose: ${plan.baselineDoseMSv.toFixed(3)} mSv (RAD baseline).${scenario ? ` Simulated storm exposure: ${minutesLabel(plan.stormExposure)}. Dust-storm simulation changes walking time only; radiation effects and shielding are not modelled.` : ''}`))
+  if (plan.driveOut) {
+    const driveInfo = el('details', 'ms-info')
+    driveInfo.append(
+      el('summary', '', 'ⓘ Rover-drive assumptions'),
+      el('p', 'ms-note', `${habitat} → ${rover}: ${minutesLabel(plan.driveOut)} suited drive (about ${(route.mission.drive_distance_m / 1000).toFixed(1)} km at an assumed 5 km/h plus 10 min to board and disembark). Open rover; no storm shelter.`)
+    )
+    panel.append(driveInfo)
+  }
   const career = careerTotal({ previousMSv: previousCareerMSv ?? 0, evaDosesMSv: [plan.baselineDoseMSv] })
-  panel.append(el('p', 'ms-career', previousCareerMSv == null
-    ? `This EVA alone: ${percentLabel(career.percentOfLimit)} of NASA's ${career.limitMSv} mSv career limit. Previous career dose not entered.`
-    : `Career running total after this EVA: ${career.totalMSv.toFixed(3)} mSv of ${career.limitMSv} mSv (${percentLabel(career.percentOfLimit)}); ${career.remainingMSv.toFixed(1)} mSv left.`))
+  panel.append(el('p', 'ms-dose',
+    `Dose ${plan.baselineDoseMSv.toFixed(3)} mSv · ${previousCareerMSv == null ? `${percentLabel(career.percentOfLimit)} of career limit` : `Career total ${percentLabel(career.percentOfLimit)} of limit`}`
+  ))
+  const doseInfo = el('details', 'ms-info')
+  doseInfo.append(
+    el('summary', '', 'ⓘ Radiation estimate'),
+    el('p', 'ms-note', `RAD baseline estimate, not a measured personal dose. NASA career limit used: ${career.limitMSv} mSv. ${previousCareerMSv == null ? 'Previous career dose not entered.' : `Previous career dose: ${previousCareerMSv.toFixed(3)} mSv. Running total: ${career.totalMSv.toFixed(3)} mSv; ${career.remainingMSv.toFixed(1)} mSv remaining.`} ${scenario ? `Simulated storm exposure: ${minutesLabel(plan.stormExposure)}. Dust-storm simulation changes walking time only; radiation effects and shielding are not modelled.` : ''}`)
+  )
+  panel.append(doseInfo)
   const list = el('ol', 'ms-list')
   for (const row of plan.rows) {
     const item = el('li', 'ms-row')

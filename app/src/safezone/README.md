@@ -202,7 +202,7 @@ numbers are in `EVENT_RULES` at the top of `randomEvents.js`: change them there 
 | --- | --- | --- | --- | --- |
 | `dust_storm` | 35% of walks | 20–90 min, starts between 30 min in and 30 min before the end | Walking 0.6× (`speedFactor`) | Strong local storms can come out of season with little warning (MY37 "rocket" storm) |
 | `dust_devil` | 30% | 5–10 min | The crew stops and waits; the wait (`pauseMinutes`) counts against suit time | Very common (1,039 tracked in a 2025 study); grit inside hits hard |
-| `solar_storm` | 15% | 30 min – 3 h | Radiation ×2 (`radiationFactor`, same as `SOLAR_STORM_FACTOR`) | Curiosity RAD: Sept 2017 event doubled the dose (see Radiation above) |
+| `solar_storm` | 15% | 30 min – 3 h | Radiation ×2 (`radiationFactor`, taken from `SOLAR_STORM_FACTOR`). Warning 10–45 min before it starts (`warningMin`, our assumption; the warning can come before the walk starts if the storm starts early) | Curiosity RAD: Sept 2017 event doubled the dose (see Radiation above) |
 | `global_dust_storm` | 2% | Whole day | NO-GO: the walk is cancelled (`cancelled: true`, comes alone) | Lasts weeks to months, so the crew would know before going out. None since 2018 |
 | `rover_breakdown` | 10%, rover versions only | Until the end | The crew uses the walk-back plan; home becomes the habitat | Not weather, but a real risk we already check (`roverSafety.js`) |
 
