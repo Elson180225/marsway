@@ -51,7 +51,7 @@ export function showScienceLayerInfo(container, key, failed = false) {
     return node
   }
   if (!key) {
-    container.textContent = 'Orbital layers: select to see legend, credit and source.'
+    container.replaceChildren()
     return
   }
   const info = scienceLayerInfo[key]

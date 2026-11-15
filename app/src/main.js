@@ -116,7 +116,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
             <div id="map" role="img" aria-label="Terrain map showing ordered route stops and calculated return path"></div>
             <div id="map3d" hidden style="flex:1;min-height:68vh"></div>
             <div class="map-footer"><div><span class="legend-line"></span> Planned path <span class="legend-dash"></span> Return from selected stop</div><span>Drag to explore · scroll to zoom</span></div>
-            <div id="science-layer-note" class="science-layer-note" role="status" aria-live="polite">Orbital layers: select to see legend, credit and source.</div>
+            <div id="science-layer-note" class="science-layer-note" role="status" aria-live="polite"></div>
           </div>
         </section>
         <div class="planning-columns">
