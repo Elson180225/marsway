@@ -135,6 +135,22 @@ export function cellToXY(grid, i) {
   return { x: (col + 0.5) * grid.cellSize, y: grid.sizeY - (row + 0.5) * grid.cellSize }
 }
 
+/**
+ * Height at any point, blended smoothly between the 4 nearest cell centres. Using whole cells
+ * instead would turn a slope into 5 m stairs and overstate the climbing.
+ */
+export function heightAt(grid, x, y) {
+  const { cellSize, width, height, elevation } = grid
+  const fc = Math.min(Math.max(x / cellSize - 0.5, 0), width - 1.001)
+  const fr = Math.min(Math.max((grid.sizeY - y) / cellSize - 0.5, 0), height - 1.001)
+  const c = Math.floor(fc)
+  const r = Math.floor(fr)
+  const u = fc - c
+  const v = fr - r
+  const e = (cc, rr) => elevation[rr * width + cc]
+  return (1 - u) * (1 - v) * e(c, r) + u * (1 - v) * e(c + 1, r) + (1 - u) * v * e(c, r + 1) + u * v * e(c + 1, r + 1)
+}
+
 /** Cell index containing point (x, y), or -1 if it is outside the map. */
 export function xyToCell(grid, x, y) {
   const col = Math.floor(x / grid.cellSize)

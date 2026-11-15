@@ -1,0 +1,5 @@
+.travel-picker{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:0 0 16px}
+.travel-picker a{padding:9px 13px;border:1px solid #42565c;border-radius:8px;color:#b5cbd0;text-decoration:none;font-weight:700}
+.travel-picker a[aria-current="page"]{background:#483327;border-color:#f6b77c;color:#ffe3c5}
+.travel-picker a:focus-visible{outline:2px solid #8ce0d6;outline-offset:2px}
+.travel-picker span{color:#b8e4d5;font-size:13px;font-weight:700}

@@ -59,17 +59,19 @@ export function mountPlanningSafety({ root, map, grid, route }) {
       <div title="Time home from the selected route stop, calculated on the terrain grid."><small>TIME HOME</small><strong id="ps-home">Calculating</strong></div>
       <div><small>TURN BACK IN</small><strong id="ps-turnback">Calculating</strong><small>Before protected reserve</small></div>
       <div title="Suit time remaining on arrival home, including the protected reserve."><small>SUIT LEFT AT HOME</small><strong id="ps-reserve">Calculating</strong></div>
-      <div title="Estimate from Curiosity RAD baseline (0.67 mSv/day), not a measured personal dose. Storm radiation and shielding are excluded."><small>DOSE ESTIMATE</small><strong id="ps-dose">Calculating</strong></div>
+      <div title="Estimate from Curiosity RAD baseline (0.67 mSv/day) for the time already out, not a measured personal dose. Dust-storm simulation changes walking time only; radiation effects and shielding are not modelled."><small>Elapsed dose estimate</small><strong id="ps-dose">Calculating</strong></div>
     </div>
     <div class="ps-legend" aria-label="Safe zone legend"><span title="30 or more minutes before reserve"><i style="background:#46c878"></i>30+ min spare</span><span title="Under 30 minutes before reserve"><i style="background:#f0af3c"></i>&lt;30 min spare</span><span title="Return uses protected reserve"><i style="background:#ff7068"></i>Uses reserve</span></div>
     <p id="ps-probe" class="ps-probe" role="status">Click a map point to check it.</p>
     <p id="ps-storm-note" class="ps-storm-note" role="status"></p>
     <p id="ps-budget" class="ps-note"></p>
     <p class="ps-note">Map colours include the candidate-stop time; turn-back excludes it. Transparent areas are unreachable or outside the suit budget. Walk uses its own simulated clock.</p>`
-  const $ = (id) => root.querySelector(`#${id}`)
+  // The form moves to the desktop sidebar after mounting; its controls remain
+  // part of this planner even when they are no longer descendants of root.
+  const $ = (id) => document.getElementById(id)
   const form = root.querySelector('form')
   $('ps-elapsed').max = String(route.mission.max_walk_minutes / 60)
-  $('ps-budget').textContent = `Suit budget: ${duration(route.mission.max_walk_minutes)}; protected reserve: ${duration(route.mission.reserve_minutes)}.${route.mission.drive_home_minutes ? ' EVA-08 includes an assumed 55 min suited drive each way; G2 is not storm shelter. Elapsed time starts after the outbound drive.' : ''} No live suit or position feed.`
+  $('ps-budget').textContent = `Suit budget: ${duration(route.mission.max_walk_minutes)}; protected reserve: ${duration(route.mission.reserve_minutes)}.${route.mission.drive_home_minutes ? ` ${route.mission.id} includes an assumed ${duration(route.mission.drive_home_minutes)} suited drive each way; ${homeLabel} is not storm shelter. Elapsed time starts after the outbound drive.` : ''} No live suit or position feed.`
   const metric = document.querySelector('#planning-turnback')
   const metricLabel = document.querySelector('#planning-turnback-note')
 
@@ -120,7 +122,7 @@ export function mountPlanningSafety({ root, map, grid, route }) {
     const path = result.storm.path
     if (path.length > 1) stormLine.setLatLngs(path.map((p) => [p.y, p.x])).addTo(map)
     $('ps-storm-note').textContent = path.length > 1
-      ? `SIMULATED storm route to ${route.mission.drive_home_minutes ? 'G2 rover, then assumed 55 min drive to H1' : homeLabel}: ${(result.storm.distance_m / 1000).toFixed(2)} km, ${duration(result.storm.seconds / 60)} on foot. This is a modelled return route, not a live storm alert or shelter certification.`
+      ? `SIMULATED storm route to ${route.mission.drive_home_minutes ? `${homeLabel} rover, then assumed ${duration(route.mission.drive_home_minutes)} drive to ${route.mission.habitat_label ?? 'H1'}` : homeLabel}: ${(result.storm.distance_m / 1000).toFixed(2)} km, ${duration(result.storm.seconds / 60)} on foot. This is a modelled return route, not a live storm alert or shelter certification.`
       : `SIMULATED storm: the reference is already in ${homeLabel}'s grid cell.`
   }
   function calculate() {

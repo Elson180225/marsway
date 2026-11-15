@@ -4,12 +4,16 @@ import './style.css'
 import './scienceLayers.css'
 import './planningCompact.css'
 import './missionSchedule.css'
+import './planningTravel.css'
 import { mountPlanningScenario } from './planningScenario.js'
+import { mountPlanningSidebarControls } from './planningSidebar.js'
+import './planningSidebar.css'
 import { showScienceLayerInfo } from './scienceLayerInfo.js'
 import { mountPlanningSafety } from './safezone/planningPanel.js'
 import './stopDetails.css'
 import { renderStopDetails } from './stopDetails.js'
 import { loadRouteForEva, loadScenarioCatalog, roughnessImage } from './terrainRoute.js'
+import { planningTravelVersions, travelComparison } from './planningTravel.js'
 
 const root = document.querySelector('#app')
 
@@ -40,8 +44,10 @@ function mapPoint(point) {
 function prominentWarnings(warnings) {
   return warnings.filter((warning) => {
     if (warning.type !== 'rough_ground') return true
-    const metres = /^About (\d+) m of rocky or uneven ground/.exec(warning.message)?.[1]
-    return metres === undefined || Number(metres) > 15
+    const metres = Number.isFinite(warning.distance_m)
+      ? warning.distance_m
+      : Number(/^About (\d+) m of rocky or uneven ground/.exec(warning.message)?.[1])
+    return !Number.isFinite(metres) || metres > 15
   })
 }
 
@@ -67,7 +73,7 @@ const BUILTIN_SCENARIOS = [
   { eva: '08', id: 'EVA-08', label: 'EVA-08 · Gediz' },
 ]
 
-function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
+function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mode = 'foot') {
   const { mission, stops, legs } = route
   const totalDistance = legs.reduce((sum, leg) => sum + leg.distance_m, 0)
   const totalMinutes = Math.round(legs.reduce((sum, leg) => sum + (leg.seconds ?? leg.walk_minutes * 60), 0) / 60)
@@ -75,46 +81,54 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
   root.innerHTML = `
     <div class="shell">
       <aside class="sidebar">
-        <div class="brand"><span class="brand-symbol">✦</span><span>MARS<span class="brand-accent">WAY</span><small>EXPEDITION CONTROL</small></span></div>
+        <div class="brand"><span class="brand-symbol"><img src="/marsway-mark.svg" alt="" width="36" height="36"></span><span>MARS<span class="brand-accent">WAY</span><small>EXPEDITION CONTROL</small></span></div>
         <div class="sidebar-divider"></div>
         <div class="sidebar-label">MISSION CONTROL</div>
-        <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a><a class="nav-item" href="/walk.html${mission.drive_out_minutes ? '' : `?eva=${encodeURIComponent(mission.id.replace('EVA-', ''))}`}"><span>⌖</span> Walk screen <small>Russell's view</small></a><a class="nav-item" href="/terrain-lab.html"><span>◇</span> Explore terrain in 3D <small>5 km view</small></a></nav>
+        <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a>${mission.drive_out_minutes ? '<span class="nav-item quiet" title="The Walk screen does not model the suited rover drive yet"><span>⌖</span> Walk screen <small>On foot only</small></span>' : `<a class="nav-item" href="/walk.html?eva=${encodeURIComponent(mission.id.replace('EVA-', ''))}"><span>⌖</span> Walk screen <small>Russell's view</small></a>`}<a class="nav-item" href="/terrain-lab.html"><span>◇</span> Terrain in 3D <small>5 km view</small></a></nav>
+        <div class="planning-sidebar-controls" aria-label="Planning controls">
+          <section class="planning-sidebar-section" aria-labelledby="sidebar-weather-title"><h2 id="sidebar-weather-title">Weather</h2><div id="sidebar-weather-form"></div></section>
+          <section class="planning-sidebar-section" aria-labelledby="sidebar-safety-title"><h2 id="sidebar-safety-title">Safety check</h2><div id="sidebar-safety-form"></div></section>
+        </div>
         <div class="sidebar-bottom"><div class="sample-pulse"></div><div><strong>Prototype mode</strong><span>Terrain route estimates</span></div></div>
       </aside>
       <main id="planning" class="main">
-        <header class="topbar"><div><span class="eyebrow">MISSION / ${safe(mission.id)}</span><h1>Plan the walk. <em>Get home safely.</em></h1><p>${safe(mission.site)} · ${safe(mission.name)}</p></div><div class="top-badge"><span class="sample-pulse"></span> TERRAIN ROUTING DEMO</div></header>
+        <header class="topbar"><div><span class="eyebrow">MISSION / ${safe(mission.id)}</span></div><div class="top-badge"><span class="sample-pulse"></span> TERRAIN ROUTING DEMO</div></header>
         <div class="notice" role="note"><span>Demo mission · ${route.provenance.target_status === 'draft' ? 'proposed Gediz stops' : route.provenance.target_status === 'ready' ? 'terrain estimates' : 'test target'} · no live telemetry</span></div>
         <nav class="eva-picker" aria-label="Select EVA">${scenarios.map((item) => `<a href="/?eva=${encodeURIComponent(item.eva)}" aria-current="${mission.id === item.id ? 'page' : 'false'}">${safe(item.label)}</a>`).join('')}</nav>
+        ${versions ? `<nav class="travel-picker" aria-label="Travel version"><a href="/?eva=${encodeURIComponent(mission.id.slice(-2))}&travel=foot" aria-current="${mode === 'foot' ? 'page' : 'false'}">On foot</a><a href="/?eva=${encodeURIComponent(mission.id.slice(-2))}&travel=rover" aria-current="${mode === 'rover' ? 'page' : 'false'}">With rover</a><span>${safe(travelComparison(versions))}</span></nav>` : ''}
         <section class="metrics" aria-label="Mission summary">
-          <div class="metric"><span>${mission.drive_out_minutes ? 'WALK DISTANCE' : 'DISTANCE'}</span><strong>${distance(totalDistance)}</strong><small>${mission.drive_out_minutes ? 'G2 loop; suited drive below' : 'Round trip'}</small></div>
+          <div class="metric"><span>${mission.drive_out_minutes ? 'WALK DISTANCE' : 'DISTANCE'}</span><strong>${distance(totalDistance)}</strong><small>${mission.drive_out_minutes ? 'Rover loop; suited drive below' : 'Round trip'}</small></div>
           <div class="metric"><span>WALKING</span><strong id="planning-walking">${duration(totalMinutes)}</strong><small>Science time below</small></div>
           <div class="metric"><span>TURN BACK IN</span><strong id="planning-turnback">Calculating</strong><small id="planning-turnback-note">From selected reference</small></div>
           <div class="metric"><span>TERRAIN NOTES</span><strong>${warnings.length}</strong><small>Across the route</small></div>
         </section>
-        <section id="mission-schedule" aria-label="Planned EVA schedule"></section>
-        <section id="planning-safety" aria-label="Safe-to-go planning scenario"></section>
+
         <section class="workspace" aria-label="Route planner">
           <div class="map-panel">
             <div class="panel-header"><div><span class="eyebrow">GALE CRATER / LOCAL GRID</span><h2>Route overview</h2></div><span class="map-scale">LOCAL METRES · TERRAIN GRID</span></div>
-            <div class="layer-toolbar" role="group" aria-label="Terrain map layers"><span>LAYERS</span><button type="button" data-layer="terrain" aria-pressed="true">◈ Basemap</button><button type="button" data-layer="slope" aria-pressed="false">▥ Slope</button><button type="button" data-layer="roughness" aria-pressed="false">⁙ Roughness</button><button type="button" data-layer="safety" aria-pressed="true">Safe zone</button><button type="button" data-layer="ctx" aria-pressed="false">CTX photo</button><button type="button" data-layer="crismHyd" aria-pressed="false">CRISM hydrated</button><button type="button" data-layer="crismAlt" aria-pressed="false">CRISM alteration</button><button type="button" data-layer="themis" aria-pressed="false">THEMIS night</button></div>
+            <div class="layer-toolbar" role="group" aria-label="Terrain map layers"><span>LAYERS</span><button type="button" data-layer="terrain" aria-pressed="true">◈ Basemap</button><button type="button" data-layer="slope" aria-pressed="false">▥ Slope</button><button type="button" data-layer="roughness" aria-pressed="false">⁙ Roughness</button><button type="button" data-layer="safety" aria-pressed="true">Safe zone</button><button type="button" data-layer="ctx" aria-pressed="false">CTX photo</button><button type="button" data-layer="crismHyd" aria-pressed="false">CRISM hydrated</button><button type="button" data-layer="crismAlt" aria-pressed="false">CRISM alteration</button><button type="button" data-layer="themis" aria-pressed="false">THEMIS night</button><button type="button" id="toggle3d" aria-pressed="false">🧭 3D view</button></div>
             <div id="map" role="img" aria-label="Terrain map showing ordered route stops and calculated return path"></div>
+            <div id="map3d" hidden style="flex:1;min-height:68vh"></div>
             <div class="map-footer"><div><span class="legend-line"></span> Planned path <span class="legend-dash"></span> Return from selected stop</div><span>Drag to explore · scroll to zoom</span></div>
             <div id="science-layer-note" class="science-layer-note" role="status" aria-live="polite">Orbital layers: select to see legend, credit and source.</div>
           </div>
-          <div class="route-panel">
-            <div class="panel-header"><div><span class="eyebrow">${safe(mission.id)} / FLIGHT PLAN</span><h2>Route stops</h2></div><span class="count">${stops.length} STOPS</span></div>
-            <div id="stop-list" class="stop-list"></div>
-            <div id="return-summary" class="return-summary" aria-live="polite"></div>
-          </div>
         </section>
-        <section id="selected-stop-science" aria-label="Selected stop science and photo"></section>
-        <section class="details"><div class="details-heading"><div><span class="eyebrow">NEXT LEG</span><h2 id="leg-title">Route details</h2></div><span id="leg-distance"></span></div><div id="warning-list" class="warning-list"></div></section>
+        <div class="planning-columns">
+          <div class="planning-left">
+            <section id="mission-schedule" aria-label="Planned EVA schedule"></section>
+            <section id="planning-safety" aria-label="Safe-to-go planning scenario"></section>
+          </div>
+          <div class="planning-right">
+            <section id="selected-stop-science" aria-label="Selected stop science and photo"></section>
+            <section class="details"><div class="details-heading"><div><span class="eyebrow">NEXT LEG</span><h2 id="leg-title">Route details</h2></div><span id="leg-distance"></span></div><div id="warning-list" class="warning-list"></div></section>
+          </div>
+        </div>
         <footer>Built for the NASA Space Apps Challenge · MarsWay planning prototype · No official NASA route or hazard assessment</footer>
       </main>
     </div>`
 
   // Bring the map and ordered stops above the deeper safety and schedule sections.
-  document.querySelector('.metrics').after(document.querySelector('.workspace'))
+  document.querySelector('.eva-picker').after(document.querySelector('.workspace'))
 
   const map = L.map('map', { crs: L.CRS.Simple, minZoom: -1.7, maxZoom: 1.2, zoomSnap: 0.25, zoomControl: false })
   L.control.zoom({ position: 'bottomright' }).addTo(map)
@@ -141,6 +155,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
   })
   const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route })
   mountPlanningScenario(document.querySelector('#mission-schedule'), route, (scenario) => safety.setWeather(scenario))
+  mountPlanningSidebarControls(document.querySelector('.sidebar'))
   const safetyNotes = document.createElement('details')
   safetyNotes.className = 'planning-model-notes'
   const safetyNotesTitle = document.createElement('summary')
@@ -168,6 +183,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
     returnLayer.bringToFront()
   }))
   const lineLayers = legs.map((leg) => L.polyline(leg.path.map(mapPoint), { color: '#f6b77c', weight: 5, opacity: 0.86, lineCap: 'round' }).addTo(map))
+  if (route.drivePath?.length > 1) L.polyline(route.drivePath.map(mapPoint), { color: '#e0b485', weight: 3, opacity: 0.8, dashArray: '6 8', interactive: false }).addTo(map)
   const returnLayer = L.polyline([], { color: '#8ce0d6', weight: 3, opacity: 0.92, dashArray: '8 9' }).addTo(map)
   const markers = stops.slice(0, -1).map((stop, index) => {
     const icon = L.divIcon({ className: 'stop-icon', html: `<span class="stop-marker ${index === 0 ? 'home-marker' : ''}">${index === 0 ? '⌂' : index}</span>`, iconSize: [36, 36], iconAnchor: [18, 18] })
@@ -175,18 +191,39 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
   })
   map.fitBounds(bounds.pad(0.03), { padding: [18, 18] })
 
+    // ---- 3D view ----
+  let view3d = null
+  const map3dEl = document.querySelector('#map3d')
+  const scienceBox = { x0: 600, y0: 400, x1: 3600, y1: 3400 }
+  const layers3d = {
+    slope: { url: '/terrain/slope.png' },
+    roughness: { url: roughnessImage(grid) },
+    ctx: { url: '/terrain/ctx.png', bounds: scienceBox },
+    crismHyd: { url: '/terrain/crism_hyd.png', bounds: scienceBox },
+    crismAlt: { url: '/terrain/crism_alt.png', bounds: scienceBox },
+    themis: { url: '/terrain/themis_night.png', bounds: scienceBox },
+  }
+  document.querySelector('#toggle3d').addEventListener('click', async (event) => {
+    const button = event.currentTarget
+    const on = button.getAttribute('aria-pressed') !== 'true'
+    const { createPlanning3D, webglAvailable } = await import('./planning3d.js')
+    if (on && !webglAvailable()) { button.textContent = '3D not supported here'; return }
+    button.setAttribute('aria-pressed', String(on))
+    if (view3d) view3d.setLayer(enabled && layers3d[key] ? key : 'terrain')
+    document.querySelector('#map').hidden = on
+    map3dEl.hidden = !on
+    if (on && !view3d) view3d = createPlanning3D(map3dEl, { grid, basemapUrl: '/terrain/basemap.webp', layers: layers3d, legs, stops, onSelectStop: (i) => selectStop(i, false) })
+    if (!on) map.invalidateSize()
+  })
+
   function selectStop(index, pan = true) {
     const stop = stops[index]
     safety.selectStop(stop)
     renderStopDetails(document.querySelector('#selected-stop-science'), stop, { targetStatus: route.provenance?.target_status })
     const leg = legs[index] || legs[legs.length - 1]
     const home = route.returns.find((item) => item.from_stop_id === stop.id)
-    document.querySelector('#stop-list').innerHTML = stops.map((item, number) => {
-      const next = legs[number]
-      return `<button type="button" class="stop-row ${number === index ? 'selected' : ''}" data-stop="${number}" aria-pressed="${number === index}"><span class="timeline-node">${number === 0 || item.type === 'home' ? '⌂' : number}</span><span class="stop-copy"><strong>${safe(item.name)}${item.is_bonus ? ' <span class="bonus-chip" data-bonus-verdict>BONUS</span>' : ''}</strong><small>${safe(item.type.replace('_', ' '))}${next ? ` · ${distance(next.distance_m)} to next` : ''}</small></span><span class="stop-arrow">›</span></button>`
-    }).join('')
-    document.querySelectorAll('[data-stop]').forEach((button) => button.addEventListener('click', () => selectStop(Number(button.dataset.stop))))
-    document.querySelector('#return-summary').innerHTML = `<span class="eyebrow">${mission.drive_home_minutes ? 'ROVER G2 FROM' : 'HOME FROM'} ${safe(stop.name.toUpperCase())}</span><strong>${distance(home.distance_m)} · ${duration(home.walk_minutes)}</strong><small>${mission.drive_home_minutes ? 'Walking to rover only; add 55 min assumed suited drive to H1.' : 'Calm-weather terrain estimate · storm-adjusted time below'}</small>`
+    if (view3d) { view3d.select(index); view3d.setReturnPath(home?.path) }
+
     document.querySelector('#leg-title').textContent = index < legs.length ? `${stop.name} → ${stops[index + 1].name}` : 'EVA complete'
     document.querySelector('#leg-distance').textContent = index < legs.length ? `${distance(leg.distance_m)}  /  ${duration(leg.walk_minutes)}` : ''
     document.querySelector('#warning-list').innerHTML = index < legs.length ? prominentWarnings(leg.warnings || []).map((warning) => `<div class="warning ${safe(warning.level)}"><span>${warning.level === 'danger' ? '!' : '⚑'}</span><div><strong>${safe(warning.type.replaceAll('_', ' '))} · ${safe(warning.level)}</strong><small>${safe(warning.message)}</small></div></div>`).join('') || '<span class="no-warning">No significant terrain notices for this leg. Route safety is estimated.</span>' : '<span class="no-warning">End of planned route.</span>'
@@ -200,7 +237,15 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
 }
 
 root.innerHTML = '<div class="loading-screen">Loading terrain and calculating the demo route…</div>'
-const catalog = loadScenarioCatalog().then((file) => (Array.isArray(file?.scenarios) && file.scenarios.length ? file.scenarios : BUILTIN_SCENARIOS)).catch(() => BUILTIN_SCENARIOS)
-Promise.all([loadRouteForEva(new URLSearchParams(location.search).get('eva')), catalog])
-  .then(([{ route, grid }, scenarios]) => { assertRoute(route); render(route, grid, scenarios) })
+const params = new URLSearchParams(location.search)
+const eva = params.get('eva') || '07'
+Promise.all([loadRouteForEva(eva), loadScenarioCatalog(), fetch('/terrain/area.json').then((r) => r.json()), fetch('/routes/rover-parking.json').then((r) => r.json())])
+  .then(([initial, catalog, area, parking]) => {
+    const versions = planningTravelVersions(initial, area, catalog, parking)
+    const requested = params.get('travel')
+    const mode = requested === 'foot' || requested === 'rover' ? requested : versions.defaultMode
+    const route = versions[mode]
+    assertRoute(route)
+    render(route, initial.grid, catalog.scenarios, versions, mode)
+  })
   .catch((error) => { root.innerHTML = `<div class="error-screen"><h1>Unable to calculate the route</h1><p>${safe(error.message)}</p><p>Check the terrain files in <code>public/terrain/</code> and the mission template in <code>public/routes/sample-route.json</code>. No sample route has been substituted.</p></div>` })

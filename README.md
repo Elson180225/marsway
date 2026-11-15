@@ -31,8 +31,9 @@ MarsWay has two screens, both in one web app:
 - 🥾 **Easiest-path routing** that avoids steep and rocky ground, with walking times for a suited astronaut
 - 🟢 **"Safe to go" zone** showing where the crew can still reach and return from before their suit reserve runs low
 - ⏱️ **Turn-back timer** on the phone screen
-- ☢️ **Radiation estimate** for each walk, based on Curiosity's measurements
-- ☀️ **Solar storm alert** with a route to the nearest shelter
+- ☢️ **Radiation estimate** for each walk, based on Curiosity's measurements: doubled during a solar storm, halved inside the habitat, and a running total against NASA's 600 mSv career limit (details and sources in [app/src/safezone/README.md](app/src/safezone/README.md#radiation))
+- ☀️ **Solar storm alert** with a route to the nearest shelter (radiation only: it does not slow the walk)
+- 🌪️ **Dust storm simulation** on the Planning screen: walking speed drops to 0.6× from a chosen time, which updates the safe zone, turn-back time and bonus GO / NO-GO (it does not change the dose)
 - 📷 **Real Mars photos** at each stop, so the crew know what to expect
 
 ## Our mission: EVA-07, the Boxwork Walk
@@ -82,6 +83,7 @@ These are our own estimates, not official NASA figures, and are easy to change:
 - Suit time budget: 8 hours, planned walk 6 hours, 2 hours reserve
 - Slope limits: warning above 15°, no-go above 25°
 - Suited walking speed: about half of normal hiking speed
+- Rover (open, suits on): 5 km/h average plus 10 min on/off per drive, slopes up to about 15°; the drive counts against the suit time. Every EVA has an on-foot and a with-rover version (safety checks in [app/src/safezone/README.md](app/src/safezone/README.md#on-foot-and-with-rover-every-eva-eva-07-to-12))
 
 ## Tech stack
 
@@ -106,6 +108,16 @@ marsway/
 ## Getting started
 
 _Coming during the hackathon._
+
+### Android app
+
+The phone app is the web app wrapped with [Capacitor](https://capacitorjs.com/). It opens on the Walk screen.
+
+1. Install [Android Studio](https://developer.android.com/studio). In **Settings → Build Tools → Gradle → Gradle JDK**, pick or download **Java 21** (Gradle 8.14 does not run on the Java 25 built into new Android Studio).
+2. From `app/`: `npm install`, then `npm run android` (builds the website and copies it into the Android project).
+3. `npm run android:open`, pick a phone or emulator, and press **Run ▶**.
+
+Run `npm run android` again after every change to the website.
 
 ## Team
 

@@ -1,10 +1,13 @@
 // Pure route maths for the Walk screen. No DOM or Leaflet here, so it can be tested in Node.
 // Coordinates are local metres from the shared route contract: x = east, y = north.
 import { bonusStopCheck } from '../../safezone/bonusStop.js'
-import { walkDoseMSv } from '../../safezone/radiation.js'
-import { xyToCell } from '../../pathfinding/walkingTime.js'
+import { walkDoseMSv, doseSoFar } from '../../safezone/radiation.js'
+import { heightAt, xyToCell } from '../../pathfinding/walkingTime.js'
+import { etaFor, paceFactor } from '../../pathfinding/navigation.js'
+import { nextDirection } from '../../pathfinding/directions.js'
 
 const LEVEL_RANK = { danger: 0, caution: 1, info: 2 }
+export const PACE_WINDOW_MINUTES = 10 // the pace is measured over about the last 10 planned minutes of walking
 
 // Walking minutes for a leg: the terrain estimate in seconds when there is one.
 function legMinutes(leg) {
@@ -94,6 +97,51 @@ export function hazardSpots(grid, trip) {
   return spots
 }
 
+/**
+ * The ground at a point, for the Data page: height, slope and roughness from the terrain grid, and how
+ * it compares with the suit's limits (warning above slopeWarnDeg or roughWarnDeg, no-go above slopeNoGoDeg).
+ * Returns { heightM, slopeDeg, roughDeg, level: 'ok' | 'caution' | 'danger' }, or null off the map.
+ */
+export function groundAt(grid, point) {
+  const cell = xyToCell(grid, point.x, point.y)
+  if (cell < 0) return null
+  const slopeDeg = grid.slope ? grid.slope[cell] : null
+  const roughDeg = grid.roughness ? grid.roughness[cell] : null
+  const { slopeWarnDeg, slopeNoGoDeg, roughWarnDeg } = grid.suit
+  const level = slopeDeg > slopeNoGoDeg ? 'danger' : slopeDeg > slopeWarnDeg || roughDeg > roughWarnDeg ? 'caution' : 'ok'
+  return { heightM: heightAt(grid, point.x, point.y), slopeDeg, roughDeg, level }
+}
+
+/**
+ * Up, down and the worst ground along a path (one leg), checked every grid cell, for the Data page.
+ * Returns { climbM, descentM, steepestDeg, roughestDeg }.
+ */
+export function pathGround(grid, path) {
+  const step = grid.cellSize
+  let climbM = 0
+  let descentM = 0
+  let steepestDeg = 0
+  let roughestDeg = 0
+  let last = null
+  const visit = (x, y) => {
+    const h = heightAt(grid, x, y)
+    if (last !== null) { if (h > last) climbM += h - last; else descentM += last - h }
+    last = h
+    const cell = xyToCell(grid, x, y)
+    if (cell < 0) return
+    if (grid.slope) steepestDeg = Math.max(steepestDeg, grid.slope[cell])
+    if (grid.roughness) roughestDeg = Math.max(roughestDeg, grid.roughness[cell])
+  }
+  if (path.length) visit(path[0].x, path[0].y)
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1]
+    const b = path[i]
+    const n = Math.max(1, Math.ceil(segmentLength(a, b) / step))
+    for (let k = 1; k <= n; k++) visit(a.x + ((b.x - a.x) * k) / n, a.y + ((b.y - a.y) * k) / n)
+  }
+  return { climbM, descentM, steepestDeg, roughestDeg }
+}
+
 export function sortWarnings(warnings) {
   return [...warnings].sort((a, b) => (LEVEL_RANK[a.level] ?? 3) - (LEVEL_RANK[b.level] ?? 3))
 }
@@ -149,20 +197,44 @@ export function buildReturnTrip(route, state, navigation = null) {
   }
 }
 
-// Estimated minutes to walk home from the current position.
+/**
+ * How much slower than planned the crew is walking: 1 = on plan, 1.3 = 30% slower. Measured from the
+ * walking timed so far (state.paceLog, kept by advance()) with Nigel's paceFactor(), so it stays 1
+ * until about 5 planned minutes have been walked. Science time is not part of it.
+ */
+export function walkPace(state) {
+  const log = state.paceLog
+  return log ? paceFactor({ plannedMinutes: log.planned, actualMinutes: log.actual }) : 1
+}
+
+// Add walking to the pace log. Older walking fades out, so the pace follows the last few minutes.
+function logPace(state, plannedMinutes, actualMinutes) {
+  const log = state.paceLog ?? (state.paceLog = { planned: 0, actual: 0 })
+  log.planned += plannedMinutes
+  log.actual += actualMinutes
+  if (log.planned > PACE_WINDOW_MINUTES) {
+    const keep = PACE_WINDOW_MINUTES / log.planned
+    log.planned *= keep
+    log.actual *= keep
+  }
+}
+
+// Estimated minutes to walk home from the current position, at the crew's measured pace.
 export function minutesHome(route, state, navigation = null) {
   if (state.mode === 'complete') return 0
+  const pace = walkPace(state)
   const trip = currentTrip(route, state)
-  if (navigation) return navigation.homeFrom(pointAlong(trip.path, state.progress).point).walk_minutes
-  if (state.mode === 'return' || trip.to?.type === 'home') return trip.walk_minutes * (1 - state.progress)
+  if (navigation) return navigation.homeFrom(pointAlong(trip.path, state.progress).point).walk_minutes * pace
+  if (state.mode === 'return' || trip.to?.type === 'home') return trip.walk_minutes * (1 - state.progress) * pace
   const fromHome = returnFor(route, trip.from.id).walk_minutes
   const toHome = returnFor(route, trip.to.id).walk_minutes
-  return fromHome + (toHome - fromHome) * state.progress
+  return (fromHome + (toHome - fromHome) * state.progress) * pace
 }
 
 /**
  * Safety check against the suit budget. Turn-back is computed, not taken from the route file:
  *   turn back by = suit deadline − protected reserve − time to walk home from here
+ * Walking times are at the crew's measured pace (walkPace), so walking slower brings turn-back closer.
  * Returns { level, title, message, homeMinutes, reserveAtHome, turnbackIn, nextStopOk }.
  *   turnbackIn: minutes until the crew must start heading home (negative = already late).
  *   nextStopOk: false when walking on to the next stop would leave too little time to get home
@@ -180,8 +252,9 @@ export function safetyStatus(route, state, clockMs, navigation = null) {
   const nextScience = scienceMinutes(trip.to)
   if (state.mode === 'outbound' && trip.to.type !== 'home') {
     // Finish the science here, walk there, do the science planned there, then walk home.
-    const arriveMs = clockMs + ((state.scienceLeft || 0) + trip.walk_minutes * (1 - state.progress)) * 60000
-    const homeFromNext = navigation ? navigation.homeFrom(trip.to).walk_minutes : returnFor(route, trip.to.id).walk_minutes
+    const pace = walkPace(state)
+    const arriveMs = clockMs + ((state.scienceLeft || 0) + trip.walk_minutes * (1 - state.progress) * pace) * 60000
+    const homeFromNext = (navigation ? navigation.homeFrom(trip.to).walk_minutes : returnFor(route, trip.to.id).walk_minutes) * pace
     nextStopOk = (suitEnd - arriveMs) / 60000 - nextScience - homeFromNext >= mission.reserve_minutes
   }
 
@@ -204,6 +277,8 @@ export function safetyStatus(route, state, clockMs, navigation = null) {
  * Arriving at a stop starts the science planned there (state.scienceLeft), which uses suit time
  * like walking does. The walk pauses when that science is done (or on arrival if none is planned),
  * so the crew can choose to walk on or head home.
+ * state.simPace (demo, default 1) is how much slower than planned the simulated crew really walks.
+ * The screen doesn't use it for its estimates: it measures the pace from the walking (walkPace).
  */
 export function advance(route, state, minutes) {
   if (state.mode === 'complete' || !(minutes > 0)) return state
@@ -218,9 +293,12 @@ export function advance(route, state, minutes) {
     return state
   }
   const trip = currentTrip(route, state)
-  const used = Math.min(minutes, Math.max(0, (1 - state.progress) * trip.walk_minutes))
+  const slower = state.simPace > 0 ? state.simPace : 1
+  const legMinutesNow = trip.walk_minutes * slower // how long this leg really takes the crew
+  const used = Math.min(minutes, Math.max(0, (1 - state.progress) * legMinutesNow))
   state.clockMs += used * 60000
-  state.progress += used / trip.walk_minutes
+  state.progress += used / legMinutesNow
+  logPace(state, used / slower, used)
   if (state.progress < 1 - 1e-9) return state
   if (state.mode === 'return' || trip.to.type === 'home') {
     state.mode = 'complete'
@@ -259,12 +337,47 @@ export function headHome(route, state, navigation = null) {
   return state
 }
 
-// Planned minutes from now until the crew arrives at stop `target` (outbound): the science still to
-// do here, the rest of this leg, then the science and walking at each stop in between.
+// Minutes from now until the crew arrives at stop `target` (outbound): the science still to do here,
+// the rest of this leg, then the science and walking at each stop in between. Walking is at the
+// crew's measured pace.
 export function minutesToReach(route, state, target) {
-  let minutes = (state.scienceLeft || 0) + legMinutes(route.legs[state.legIndex]) * (1 - state.progress)
-  for (let k = state.legIndex + 1; k < target; k++) minutes += scienceMinutes(route.stops[k]) + legMinutes(route.legs[k])
+  const pace = walkPace(state)
+  let minutes = (state.scienceLeft || 0) + legMinutes(route.legs[state.legIndex]) * (1 - state.progress) * pace
+  for (let k = state.legIndex + 1; k < target; k++) minutes += scienceMinutes(route.stops[k]) + legMinutes(route.legs[k]) * pace
   return minutes
+}
+
+/**
+ * Arrival time at every stop still ahead and at home, at the crew's measured pace (Nigel's etaFor()).
+ * Outbound this follows the plan: every stop left, then home. On the way home it is just home.
+ * Returns etaFor()'s { stops: [{ id, name, is_bonus, arrive_ms, leave_ms, science_minutes }], home_ms, ... }
+ */
+export function arrivalTimes(route, state) {
+  const nowMs = state.clockMs
+  if (state.mode === 'complete') return { stops: [], home_ms: nowMs, walking_minutes: 0, science_minutes: 0, minutes_left: 0 }
+  const options = { nowMs, progress: state.progress, paceFactor: walkPace(state) }
+  if (state.mode === 'return') {
+    const trip = currentTrip(route, state)
+    return etaFor({ stops: [trip.from, trip.to], legs: [trip] }, options)
+  }
+  return etaFor(route, { ...options, legIndex: state.legIndex, scienceLeft: state.scienceLeft || 0 })
+}
+
+/**
+ * The turn-by-turn line for the next-stop card, from Nigel's directionsFor() steps for this trip.
+ * metresAlong: how far along the trip's path the crew is (progress × pathLength(path)).
+ * Before setting off it is the first step ("Head north-east, gently uphill, for 180 m"); after that
+ * the next turn ("In 200 m, bear left to head north, …").
+ * Returns { turn, lead, rest, text }: lead is the part to read first ("In 200 m, bear left"), rest the
+ * part after it (" to head north, downhill (about 8°), for 350 m"), text both together.
+ */
+export function directionLine(steps, metresAlong) {
+  if (!steps?.length) return null
+  const { next, text } = metresAlong < 1 && steps[0].turn === 'start'
+    ? { next: steps[0], text: steps[0].text }
+    : nextDirection(steps, metresAlong)
+  const cut = text.indexOf(' to head ')
+  return { turn: next.turn, lead: cut < 0 ? text : text.slice(0, cut), rest: cut < 0 ? '' : text.slice(cut), text }
 }
 
 // Minutes behind the planned walking and science times (e.g. after staying longer at a stop).
@@ -280,6 +393,7 @@ export function minutesBehindPlan(route, state, clockMs) {
  * Bonus-stop GO / NO-GO with Mia's bonusStopCheck() (safezone/bonusStop.js), so the phone agrees
  * with the safe zone on the Planning map. "Walk there" is the planned time from here to the bonus
  * stop (minutesToReach), so far from it this answers "if we keep to the plan, will it fit?".
+ * Walking there and home from it are at the crew's measured pace (walkPace).
  * safezone: { grid, timeHome }, the terrain grid and the time-home map (navigation.timeHome).
  * Returns null if the route has no bonus stop, otherwise { stop, phase, decideNow, ...Mia's result }
  *   phase      'ahead' (still to come) | 'here' (at it) | 'done' (its science was finished)
@@ -305,6 +419,7 @@ export function bonusStatus(route, state, clockMs, { grid, timeHome }) {
     stopMinutes: scienceMinutes(stop),
     walkThereMinutes: minutesToReach(route, state, index),
     settings: { suitHours: mission.max_walk_minutes / 60, reserveHours: mission.reserve_minutes / 60 },
+    paceFactor: walkPace(state), // walking home from it at the crew's measured pace too
   })
   return { ...check, stop, phase: 'ahead', decideNow: state.legIndex === index - 1 }
 }
@@ -320,13 +435,25 @@ export function photoStop(route, state) {
   return stop && stop.type !== 'home' && stop.type !== 'habitat' ? { stop, here } : null
 }
 
+// How far from the stop a "nearby view" photo was taken, in whole metres (19.5 m -> 20), or null when
+// that photo's distance isn't known. Kelly: no number when it is unverified (photo_offset_status
+// 'unverified', e.g. the reviewed Gediz photos), even if a number is filled in.
+export function photoDistance(stop) {
+  if (stop?.photo_view !== 'nearby' || stop.photo_offset_status === 'unverified') return null
+  return Number.isFinite(stop.photo_offset_m) ? Math.round(stop.photo_offset_m) : null
+}
+
 // Radiation so far, and for the whole walking budget (suit time minus the reserve: 8 h - 2 h = 6 h),
-// from Mia's walkDoseMSv(): about 0.67 mSv a day on the surface at Gale Crater (Curiosity's RAD).
-export function radiationDose(route, clockMs) {
+// from Mia's radiation.js: about 0.67 mSv a day on the surface at Gale Crater (Curiosity's RAD),
+// doubled while a solar storm is on. The crew is outside from the start until now (the walk clock
+// stops once they are home). storms: [{ startMs, endMs }] solar storm windows, endMs null = still on.
+// Returns { soFarMSv, walkHours, fullWalkMSv, stormMinutes, stormExtraMSv }.
+export function radiationDose(route, clockMs, storms = []) {
   const { mission } = route
   const walkHours = (mission.max_walk_minutes - mission.reserve_minutes) / 60
-  const hoursOut = Math.max(0, clockMs - Date.parse(mission.start_time)) / 3600000
-  return { soFarMSv: walkDoseMSv(hoursOut), walkHours, fullWalkMSv: walkDoseMSv(walkHours) }
+  const startMs = Date.parse(mission.start_time)
+  const dose = doseSoFar({ periods: [{ startMs, endMs: Math.max(startMs, clockMs), inside: false }], storms })
+  return { soFarMSv: dose.doseMSv, walkHours, fullWalkMSv: walkDoseMSv(walkHours), stormMinutes: dose.stormMinutes, stormExtraMSv: dose.stormExtraMSv }
 }
 
 // Alerts from the route file, e.g. solar storms. Shelter must be an existing stop or null.

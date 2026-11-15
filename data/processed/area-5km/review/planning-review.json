@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-14",
+  "scope": "Local Planning EVA-08, reviewed data branch before commit; no deployment or physical-phone claim",
+  "stops": [
+    {
+      "id": "mineral-king",
+      "name": "Mineral King Drill Site",
+      "nearby": "Nearby view - not an exact stop photograph.",
+      "source": "https://science.nasa.gov/blog/sols-4112-4113-in-the-presence-of-royalty/",
+      "noDraftBadge": true,
+      "bonus": null
+    },
+    {
+      "id": "sulfur-crystals",
+      "name": "Sulfur Crystal Field",
+      "nearby": "Nearby view - not an exact stop photograph.",
+      "source": "https://science.nasa.gov/photojournal/curiosity-views-sulfur-crystals-within-a-crushed-rock/",
+      "noDraftBadge": true,
+      "bonus": null
+    },
+    {
+      "id": "kings-canyon",
+      "name": "Kings Canyon Drill Site",
+      "nearby": "Nearby view - not an exact stop photograph.",
+      "source": "https://science.nasa.gov/blog/sols-4268-4269-admiring-kings-canyon/",
+      "noDraftBadge": true,
+      "bonus": null
+    },
+    {
+      "id": "channel-panorama",
+      "name": "Gediz Vallis Panorama",
+      "nearby": "Nearby view - not an exact stop photograph.",
+      "source": "https://science.nasa.gov/photojournal/curiosity-makes-rover-tracks-while-heading-west/",
+      "noDraftBadge": true,
+      "bonus": "OPTIONAL BONUS STOP"
+    }
+  ]
+}

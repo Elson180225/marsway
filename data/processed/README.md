@@ -23,7 +23,7 @@ Made by `scripts/prepare_terrain.py` from the USGS *MSL Gale Merged DEM 1m v3*.
 | `slope.png` | See-through steepness overlay, one pixel per cell (green < 10°, yellow 10–15°, orange 15–25°, red > 25°) | Aaron, Russell |
 | `curiosity_track.json` | Curiosity's real stops in our area (sol, x, y), from NASA's waypoint list | Kelly, Aaron, Russell |
 | `SCIENCE-STOPS.md` | Provenance for the four EVA science stops. The file the app loads is `app/public/routes/science-stops.json` | Kelly, Nigel, Aaron, Russell |
-| `area-5km/gediz-stops.json` | **Draft:** four Gediz Vallis stops for the 5 km map, with Curiosity photos. Not loaded by the app yet. See `area-5km/README.md` | Kelly, Nigel, Mia |
+| `area-5km/gediz-stops.json` | **Science ready:** four reviewed Gediz Vallis stops with nearby Curiosity context photos. Matching runtime data is in `app/public/routes/gediz-stops.json`; current Planning uses the shared 6 km origin. See `area-5km/SCIENCE-REVIEW.md` | Kelly, Nigel, Mia |
 
 ## Leaflet (Aaron, Russell)
 
@@ -59,4 +59,4 @@ Change the area with `--center-x`, `--center-y` (DEM metres) and `--size`; chang
 
 ## Kelly science layers and stops
 
-CTX photo (`ctx.png`), CRISM mineral browse overlays (`crism_hyd.png`, `crism_alt.png`) and THEMIS night infrared (`themis_night.png`) are cropped to this same area. Each has a JSON source/limitations sidecar. THEMIS is relative brightness, not temperature in degrees. See `data/processed/KELLY-HANDOFF.md` for legends, stop exports, rebuild commands and integration details. Four photo stops with one-line `why` fields are in `app/public/routes/science-stops.json`; matching `stops.json` exports are in `data/processed/` and `app/public/routes/`.
+CTX photo (`ctx.png`), CRISM mineral browse overlays (`crism_hyd.png`, `crism_alt.png`) and THEMIS night infrared (`themis_night.png`) are cropped to this same area. Each has a JSON source/limitations sidecar. THEMIS is relative brightness, not temperature in degrees. See `data/processed/KELLY-HANDOFF.md` for legends, stop exports, rebuild commands and integration details. Four photo stops with one-line `why` fields are in `app/public/routes/science-stops.json`; the optional offline `data/processed/stops.json` handoff is generated from that source. The app uses only `science-stops.json`.
