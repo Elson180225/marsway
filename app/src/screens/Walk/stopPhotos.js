@@ -1,12 +1,13 @@
 // Photos the crew takes at a science stop, kept on this device only (IndexedDB). Nothing is uploaded.
 // Each photo is saved with the EVA, the stop, the simulated mission time and the simulated position.
 //
-//   savePhoto({ blob, eva, stopId, stopName, simTimeMs, position, sampleCredit })  -> the saved record
+//   savePhoto({ blob, eva, stopId, stopName, simTimeMs, position, generated })  -> the saved record
 //   photosFor(eva, stopId)                                            -> records, oldest first
 //   photoFileName(record)                                             -> "MarsWay_EVA-07_boxwork-lookout_08-49-12.jpg"
 //
 // A record: { id, blob, type, eva, stopId, stopName, simTimeMs, takenAtMs, position: { x, y } | null,
-//             sampleCredit: 'NASA/JPL-Caltech' | null }  (sampleCredit: a simulated photo made from that image)
+//             generated: true | false,  (a simulated camera photo of a made-up Mars view, fakeCamera.js)
+//             sampleCredit: 'NASA/JPL-Caltech' | null }  (older simulated photos, made from that NASA image)
 
 const DB_NAME = 'marsway-stop-photos'
 const STORE = 'photos'
@@ -36,11 +37,12 @@ function run(mode, work) {
   }))
 }
 
-export async function savePhoto({ blob, eva, stopId, stopName, simTimeMs, position = null, sampleCredit = null }) {
+export async function savePhoto({ blob, eva, stopId, stopName, simTimeMs, position = null, generated = false, sampleCredit = null }) {
   if (!(blob instanceof Blob) || !blob.size) throw new Error('No photo to save.')
   const record = {
     blob, type: blob.type || 'image/jpeg', eva, stopId, stopName, simTimeMs, takenAtMs: Date.now(),
     position: position && Number.isFinite(position.x) && Number.isFinite(position.y) ? { x: position.x, y: position.y } : null,
+    generated: generated === true,
     sampleCredit: typeof sampleCredit === 'string' && sampleCredit ? sampleCredit : null,
   }
   const id = await run('readwrite', (store) => store.add(record))
