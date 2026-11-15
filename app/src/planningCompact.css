@@ -2,7 +2,7 @@
 #planning .notice{display:block;padding:10px 14px;margin-bottom:16px}
 #planning .notice span{display:block}
 #planning .workspace{margin-top:12px;margin-bottom:18px}
-#planning .metric strong{font-variant-numeric:tabular-nums}
+#planning .metric strong{font-variant-numeric:tabular-nums;margin-bottom:0}
 #planning .science-more,#planning .science-photo-more,#planning .science-layer-more,
 #planning .ms-more,#planning .planning-model-notes{margin-top:10px}
 #planning details summary{cursor:pointer;color:#8ce0d6;font-weight:600;line-height:1.4}

@@ -103,10 +103,10 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
         <nav class="eva-picker" aria-label="Select EVA">${scenarios.map((item) => `<a href="${withScenario(`/?eva=${encodeURIComponent(item.eva)}`, seed)}" aria-current="${mission.id === item.id ? 'page' : 'false'}">${safe(item.label)}</a>`).join('')}</nav>
         ${versions ? `<nav class="travel-picker" aria-label="Travel version"><a href="${withScenario(`/?eva=${encodeURIComponent(mission.id.slice(-2))}&travel=foot`, seed)}" aria-current="${mode === 'foot' ? 'page' : 'false'}">On foot</a><a href="${withScenario(`/?eva=${encodeURIComponent(mission.id.slice(-2))}&travel=rover`, seed)}" aria-current="${mode === 'rover' ? 'page' : 'false'}">With rover</a><span>${safe(travelComparison(versions))}</span></nav>` : ''}
         <section class="metrics" aria-label="Mission summary">
-          <div class="metric"><span>${mission.drive_out_minutes ? 'WALK DISTANCE' : 'DISTANCE'}</span><strong>${distance(totalDistance)}</strong><small>${mission.drive_out_minutes ? 'Rover loop; suited drive below' : 'Round trip'}</small></div>
-          <div class="metric"><span>WALKING</span><strong id="planning-walking">${duration(totalMinutes)}</strong><small>Science time below</small></div>
-          <div class="metric"><span>TURN BACK IN</span><strong id="planning-turnback">Calculating</strong><small id="planning-turnback-note">From selected reference</small></div>
-          <div class="metric"><span>TERRAIN NOTES</span><strong>${warnings.length}</strong><small>Across the route</small></div>
+          <div class="metric"><span>${mission.drive_out_minutes ? 'WALK DISTANCE' : 'DISTANCE'}</span><strong>${distance(totalDistance)}</strong></div>
+          <div class="metric"><span>WALKING</span><strong id="planning-walking">${duration(totalMinutes)}</strong></div>
+          <div class="metric"><span>TURN BACK IN</span><strong id="planning-turnback">Calculating</strong></div>
+          <div class="metric"><span>TERRAIN NOTES</span><strong>${warnings.length}</strong></div>
         </section>
 
         <section class="workspace" aria-label="Route planner">
