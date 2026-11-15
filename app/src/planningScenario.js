@@ -21,9 +21,9 @@ export function mountPlanningScenario(container, route, onChange) {
     <p id="random-scenario-status"></p>
     <div id="random-events-list"></div>
   </div>
-  <p class="psc-note">Demo assumption: walking speed becomes 0.6× after the selected time. Dust-storm simulation changes walking time only; radiation effects and shielding are not modelled. The Walk screen is unaffected.</p>
-  <div class="psc-export"><button type="button" data-export="summary">Download planned summary CSV</button><button type="button" data-export="timeline">Download planned timeline CSV</button></div>
-  <small class="psc-note">RAD baseline estimate (0.67 mSv/day), not a measured personal dose. These are planned events; visited stops and bonus completion are unknown. The running total uses the previous career dose only if you enter one.</small>`
+
+  <details class="psc-info"><summary>ⓘ How these estimates work</summary><p class="psc-note">Demo assumption: walking speed becomes 0.6× after the selected time. Dust-storm simulation changes walking time only; radiation effects and shielding are not modelled. The Walk screen is unaffected.</p><small class="psc-note">RAD baseline estimate (0.67 mSv/day), not a measured personal dose. These are planned events; visited stops and bonus completion are unknown. The running total uses the previous career dose only if you enter one.</small></details><div class="psc-export"><button type="button" data-export="summary">Download planned summary CSV</button><button type="button" data-export="timeline">Download planned timeline CSV</button></div>
+  `
   const output = document.createElement('div')
   container.replaceChildren(controls, output)
   const form = controls.querySelector('form')
