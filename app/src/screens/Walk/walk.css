@@ -209,6 +209,8 @@ button { font: inherit; }
 .walk-page-btn small { width: 100%; overflow: hidden; color: var(--w-muted); font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
 .walk-page-btn[data-level="danger"] { border-color: var(--w-danger); }
 .walk-page-btn[data-level="danger"] small { color: var(--w-danger); }
+.walk-page-btn[data-here="yes"] { border-color: var(--w-route); background: #2a2420; } /* at a stop: time for photos */
+.walk-page-btn[data-here="yes"] small { color: var(--w-route); }
 .walk-page-btn:focus-visible, .walk-back:focus-visible, .walk-shot-pick:focus-visible { outline: 3px solid #fff0ce; outline-offset: 2px; }
 .walk-page-head { display: flex; align-items: center; gap: 12px; }
 .walk-back { flex: none; min-height: 44px; padding: 0 14px; border: 1px solid var(--w-line); border-radius: 10px; background: var(--w-panel); color: var(--w-text); font-weight: 700; font-size: 15px; cursor: pointer; }
