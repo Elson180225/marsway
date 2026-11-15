@@ -7,12 +7,10 @@ import { createTerrainNavigation } from '../../terrainNavigation.js'
 import { bonusStopCheck, TIGHT_MINUTES } from '../../safezone/bonusStop.js'
 import { xyToCell } from '../../pathfinding/walkingTime.js'
 import { stopMetadata } from '../../stopDetails.js'
-import { calculateMissionSchedule } from '../../missionSchedule.js'
-import { randomEvents } from '../../safezone/randomEvents.js'
 import { directionsFor } from '../../pathfinding/directions.js'
 import {
   advance, arrivalTimes, bonusStatus, canHeadHome, currentTrip, directionLine, eventAlerts, eventSolarStorms, groundAt, hazardSpots, headHome, minutesBehindPlan, minutesHome, pathGround,
-  pathLength, photoDistance, photoStop, plannedWalkMinutes, pointAlong, radiationDose, safetyStatus, walkPace,
+  pathLength, photoDistance, photoStop, pointAlong, radiationDose, safetyStatus, walkPace,
 } from './walk-model.js'
 
 const close = (a, b, tolerance, message) => assert.ok(Math.abs(a - b) <= tolerance, `${message}: ${a} vs ${b}`)
@@ -239,9 +237,7 @@ close(west.descentM, 100, 1e-6, 'descent coming back west')
 assert.equal(pathGround(steepGrid, firstLeg.path).steepestDeg, grid.suit.slopeWarnDeg + 10, 'steepest spot on the leg')
 
 // 13. Mia's random events on the Walk screen: a pop-up (alert) only while each event is under way,
-//     the planned walk length exactly as on Planning (so one scenario number gives the same events),
-//     and random solar storms doubling the radiation.
-assert.equal(plannedWalkMinutes(route), calculateMissionSchedule(route).total)
+//     and random solar storms doubling the radiation. (Same events as Planning: src/scenarioEvents.test.js.)
 const events = [
   { type: 'dust_storm', startMin: 30, durationMin: 20, speedFactor: 0.6, title: 'Dust storm', message: 'Walking slows.' },
   { type: 'solar_storm', startMin: 60, durationMin: 60, radiationFactor: 2, title: 'Solar storm', message: 'Radiation doubled.' },
@@ -256,8 +252,6 @@ assert.equal(eventAlerts(route, [{ type: 'global_dust_storm', startMin: 0, durat
 const stormHour = radiationDose(route, start + 6 * 3600000, eventSolarStorms(route, events))
 close(stormHour.soFarMSv, dose.fullWalkMSv * 7 / 6, 1e-12, 'a 1 h random solar storm counts double')
 close(stormHour.stormMinutes, 60, 1e-9, 'storm minutes')
-const walkEvents = randomEvents({ seed: 4821, eva: 'TEST', version: 'foot', durationMinutes: plannedWalkMinutes(route) })
-assert.deepEqual(walkEvents, randomEvents({ seed: 4821, eva: 'TEST', version: 'foot', durationMinutes: calculateMissionSchedule(route).total }), 'same events as Planning')
 
 console.log(`Walk screen passed: science time at stops, bonus GO / tight / NO-GO matching the status line, skipped / here / done / incomplete, photo panel stop, hazard pins, radiation ${dose.fullWalkMSv.toFixed(2)} mSv for ${dose.walkHours} h, measured pace 1.3x in times home / turn back / bonus / arrivals, turn-by-turn line.`)
 

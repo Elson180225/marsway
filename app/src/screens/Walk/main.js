@@ -8,11 +8,12 @@ import { stopMetadata } from '../../stopDetails.js'
 import { directionsFor } from '../../pathfinding/directions.js'
 import { RAD_SURFACE_MSV_PER_DAY, SOLAR_STORM_FACTOR } from '../../safezone/radiation.js'
 import { photoFileName, photosFor, savePhoto } from './stopPhotos.js'
-import { randomEvents, randomSeed } from '../../safezone/randomEvents.js'
+import { randomSeed } from '../../safezone/randomEvents.js'
+import { scenarioEvents, scenarioFromSearch, withScenario } from '../../scenarioEvents.js'
 import {
   ALERT_LEVELS, advance, arrivalTimes, bearing, bonusStatus, buildReturnTrip, canHeadHome, cardinal, currentTrip, directionLine,
   eventAlerts, eventSolarStorms, groundAt, hazardSpots, headHome, minutesBehindPlan, pathGround, pathLength, photoDistance, photoStop, pointAlong, radiationDose,
-  plannedWalkMinutes, safetyStatus, segmentLength, shelterFor, sortWarnings, walkPace,
+  safetyStatus, segmentLength, shelterFor, sortWarnings, walkPace,
 } from './walk-model.js'
 
 const root = document.querySelector('#walk')
@@ -98,20 +99,19 @@ function start(route, navigation, grid) {
   let simAlert = null
 
   // Mia's random events (safezone/randomEvents.js): ?scenario=4821 gives a repeatable set of dust storms,
-  // dust devils and solar storms, the same as on the Planning screen for that number. On foot only.
-  const walkMinutes = plannedWalkMinutes(route)
+  // dust devils and solar storms. scenarioEvents() uses the same walk length as Planning, so one number
+  // gives the same events on both screens; the number stays in this page's link and the link back.
   let scenario = null
   function setScenario(seed) {
     scenario = null
-    if (Number.isInteger(seed) && seed >= 1 && seed <= 9999) {
-      try { scenario = randomEvents({ seed, eva: mission.id.replace('EVA-', ''), version: 'foot', durationMinutes: walkMinutes }) }
+    if (seed) {
+      try { scenario = scenarioEvents(route, seed) }
       catch (error) { console.warn(`Random events unavailable (${error.message}).`) }
     }
-    const url = new URL(location.href)
-    if (scenario) url.searchParams.set('scenario', String(seed)); else url.searchParams.delete('scenario')
-    history.replaceState(history.state, '', url)
+    history.replaceState(history.state, '', withScenario(location.pathname + location.search + location.hash, scenario?.seed))
+    root.querySelector('.walk-brand')?.setAttribute('href', withScenario(planningHref, scenario?.seed))
   }
-  setScenario(Number.parseInt(new URLSearchParams(location.search).get('scenario'), 10))
+  setScenario(scenarioFromSearch(location.search))
   const minutesOut = () => (state.clockMs - Date.parse(mission.start_time)) / 60000
   // Every alert now: from the route file, the ☀︎ Storm demo button, and the random events under way.
   const currentAlerts = () => [
@@ -123,7 +123,7 @@ function start(route, navigation, grid) {
   root.innerHTML = `
     <div class="walk">
       <header class="walk-top">
-        <a class="walk-brand" href="${planningHref}" aria-label="MarsWay — back to Planning"><span class="walk-brand-mark"><img src="/marsway-mark.svg" alt="" width="28" height="28"></span>MARS<span>WAY</span></a>
+        <a class="walk-brand" href="${withScenario(planningHref, scenario?.seed)}" aria-label="MarsWay — back to Planning"><span class="walk-brand-mark"><img src="/marsway-mark.svg" alt="" width="28" height="28"></span>MARS<span>WAY</span></a>
         <div class="walk-mission"><span>${safe(mission.id)}</span><strong id="w-clock">--:--:--</strong><small>UTC</small></div>
       </header>
 
@@ -913,4 +913,4 @@ Promise.all([loadRouteForEva(eva), homeFile, habitat])
     if (file && navigation.source !== 'home file') console.warn(`Home file does not match this terrain, so the phone worked out the way home itself. Rebuild it: node src/safezone/buildHomeFile.js --home <x,y> --id ${id} --out home-${id.toLowerCase()}-6km`)
     start(route, navigation, grid)
   })
-  .catch((error) => { root.innerHTML = `<div class="walk-loading is-error"><h1>Unable to load the route</h1><p>${safe(error.message)}</p><p><a href="${planningHref}">Back to Planning</a></p></div>` })
+  .catch((error) => { root.innerHTML = `<div class="walk-loading is-error"><h1>Unable to load the route</h1><p>${safe(error.message)}</p><p><a href="${withScenario(planningHref, scenarioFromSearch(location.search))}">Back to Planning</a></p></div>` })
