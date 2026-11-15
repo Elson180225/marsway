@@ -17,3 +17,6 @@
 .psc-scenario-actions{display:flex;align-items:center;gap:12px}
 .psc-scenario-actions a{color:#8ce0d6;font-size:12px}
 .psc-replay{color:#9fb4b6;font-size:11px}.psc-replay code{color:#cfe3e0}
+.psc-cancelled{padding:16px;border:1px solid #a45e5a;border-radius:12px;background:#432b2e}
+.psc-cancelled h2{margin:6px 0;color:#ffb9a3}.psc-cancelled p{margin:0;color:#f1d6cf;font-size:13px}
+.psc-export button:disabled{opacity:.5;cursor:not-allowed}
