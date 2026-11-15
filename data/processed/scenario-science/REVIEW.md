@@ -1,6 +1,6 @@
 # Kelly science review: EVA-09 to EVA-12
 
-Science reviewed 14 November 2026 against PR #35 at `c16a75e21aeeb5455f1f4cafcff32121d66f6556`. On 15 November the science branch was updated by merging main (`7a13983`) so the follow-up PR can target main directly. The route conflict keeps both main's `/terrain/basemap.webp` and Kelly's reviewed `targets` summary. Regression checks verify that all four built scenario routes retain the WebP map, ready status, review summary and photo URLs.
+Science reviewed 14 November 2026 against PR #35 at `c16a75e21aeeb5455f1f4cafcff32121d66f6556`. The reviewed science data and all 15 photos reached main through PR #55 on 15 November. PR #58 now merges main (`78236b9`), retains its corrected multi-sol labels, and adds regression checks confirming all four built routes keep the WebP map, ready status, reviewed targets summary and photo URLs. No duplicate photo data is introduced.
 
 All 15 science descriptions and media records are ready. Names describe proposed astronaut observations, not official target names assigned to the coordinates. Order, IDs, projected coordinates, visit minutes, bonus flags and habitat records are unchanged. H2-H4 remain candidate sites; science readiness does not approve habitat placement, route safety or timing.
 
@@ -9,14 +9,14 @@ Removed claims that gaps between recorded waypoint sols prove how long Curiosity
 ## Photo and positioning limits
 
 - Twelve NASA panoramas are from the same sols as their stop waypoints. Same-sol provenance does not independently register camera pose, footprint or depicted rocks to the terrain grid.
-- Three contextual images use the visible Nearby view flag with a full explanation and an unverified distance: sol 4417 uses a sols 4417?4423 panorama; sol 4977 uses the earlier sol 4976 Tunas Khasa workspace; sol 5021 uses the earlier sol 5016 Salar de Vacas close-up. These are not photos of the precise stop coordinates.
+- Three contextual images use the visible Nearby view flag with a full explanation and an unverified distance: sol 4417 uses a sols 4417–4423 panorama; sol 4977 uses the earlier sol 4976 Tunas Khasa workspace; sol 5021 uses the earlier sol 5016 Salar de Vacas close-up. These are not photos of the precise stop coordinates.
 - The sol 3878, 3815 and 3749 panoramas cover 118, 220 and 316 degrees respectively; captions disclose partial coverage. Black areas in panoramas contain no image data.
 - All files are unaltered NASA-published display renditions. The download URLs, original links where available, file sizes and SHA-256 checksums are in [photo-sources.json](photo-sources.json). These are display assets, not calibrated analysis products.
 - Original same-sol raw Navcam sources were identified for [4977](https://mars.nasa.gov/raw_images/1623499/?site=msl) and [5021](https://mars.nasa.gov/raw_images/1641440/?site=msl), but their downloads repeatedly reset the connection here. Accessible mission-blog photographs were used with contextual labels instead. No image was fabricated.
 
 ## Submission credits and sources
 
-All images are from NASA Curiosity. Navcam and Front Hazcam credit: **NASA/JPL-Caltech**. MAHLI credit: **NASA/JPL-Caltech/MSSS**. Each row below links to NASA?s captioned source.
+All images are from NASA Curiosity. Navcam and Front Hazcam credit: **NASA/JPL-Caltech**. MAHLI credit: **NASA/JPL-Caltech/MSSS**. Each row below links to NASA’s captioned source.
 
 | EVA | Stop | Visit | Bonus | Photo sol / camera | Credit | NASA photo source |
 | --- | --- | ---: | --- | --- | --- | --- |
@@ -25,7 +25,7 @@ All images are from NASA Curiosity. Navcam and Front Hazcam credit: **NASA/JPL-C
 | 09 | Layer Relationships (`sol-4977`) | 20 min | No | 4976 / Front Hazard Avoidance Camera (Front Hazcam) | NASA/JPL-Caltech | [Source](https://science.nasa.gov/blog/curiosity-blog-sols-4975-4981-happy-14th-landing-anniversary/) |
 | 09 | Disc Texture Comparison (`sol-5021`) | 15 min | Yes | 5016 / Mars Hand Lens Imager (MAHLI) | NASA/JPL-Caltech/MSSS | [Source](https://science.nasa.gov/blog/curiosity-blog-sols-5016-5021-fantastic-minerals-and-how-to-detect-them/) |
 | 10 | Western Bedrock Survey (`sol-4456`) | 20 min | No | 4456 / Right Navigation Camera (Navcam) | NASA/JPL-Caltech | [Source](https://science.nasa.gov/resource/sol-4456-right-navigation-camera-cylindrical-projection/) |
-| 10 | Butte and Bedrock Context (`sol-4417`) | 20 min | No | 4417?4423 / Right Navigation Camera (Navcam) | NASA/JPL-Caltech | [Source](https://science.nasa.gov/resource/sol-4423-right-navigation-camera-cylindrical-projection/) |
+| 10 | Butte and Bedrock Context (`sol-4417`) | 20 min | No | 4417–4423 / Right Navigation Camera (Navcam) | NASA/JPL-Caltech | [Source](https://science.nasa.gov/resource/sol-4423-right-navigation-camera-cylindrical-projection/) |
 | 10 | Sequoia Drill Context (`sol-3974`) | 30 min | Yes | 3974 / Right Navigation Camera (Navcam) | NASA/JPL-Caltech | [Source](https://science.nasa.gov/resource/sol-3974-right-navigation-camera-cylindrical-projection/) |
 | 11 | Boxwork Approach Panorama (`sol-4507`) | 20 min | No | 4507 / Right Navigation Camera (Navcam) | NASA/JPL-Caltech | [Source](https://science.nasa.gov/resource/sol-4507-right-navigation-camera-cylindrical-projection/) |
 | 11 | Fracture Pattern Survey (`sol-4527`) | 20 min | No | 4527 / Right Navigation Camera (Navcam) | NASA/JPL-Caltech | [Source](https://science.nasa.gov/resource/sol-4527-right-navigation-camera-cylindrical-projection/) |
