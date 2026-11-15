@@ -6,6 +6,7 @@
 // buildRoverHomeFiles.js. A rover version shows "waiting" until Nigel adds its parking spot
 // and its home file is built. See roverSafety.js for what each check means.
 import { readFileSync, existsSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
 import { makeGrid } from '../pathfinding/walkingTime.js'
 import { decodeHomeFile } from './homeFile.js'
 import { checkEvaVersion, ROVER } from './roverSafety.js'
@@ -80,7 +81,8 @@ function line(result) {
   return parts.join(' · ')
 }
 
-if (import.meta.url === new URL(process.argv[1], 'file:').href) {
+// pathToFileURL handles Windows paths (C:\...) too, so the report prints on every system.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const results = checkAllEvas()
   if (process.argv.includes('--json')) console.log(JSON.stringify(results, null, 2))
   else {
