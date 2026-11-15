@@ -41,6 +41,23 @@ export function mountPlanningScenario(container, route, onChange, { grid = null 
   let previousCareerMSv = null
   const walkingMetric = document.querySelector('#planning-walking')
   const render = () => {
+    if (fx?.cancelled) {
+      // A global dust storm cancels the walk: show NO-GO, not a normal schedule (fx.plan is null).
+      const panel = document.createElement('div')
+      panel.className = 'mission-schedule psc-cancelled'
+      const eyebrow = document.createElement('span')
+      eyebrow.className = 'eyebrow'
+      eyebrow.textContent = `SCENARIO #${fx.seed} · NO-GO`
+      const title = document.createElement('h2')
+      title.textContent = 'Walk cancelled'
+      const why = document.createElement('p')
+      why.textContent = fx.verdict.reasons.join(' ')
+      panel.append(eyebrow, title, why)
+      output.replaceChildren(panel)
+      if (walkingMetric) walkingMetric.textContent = '–'
+      controls.querySelectorAll('[data-export]').forEach((button) => { button.disabled = true; button.title = 'No schedule: the walk is cancelled' })
+      return
+    }
     renderMissionSchedule(output, route, weather, { previousCareerMSv, plan })
     const walking = Math.round((plan ?? calculateMissionSchedule(route, weather)).walking)
     if (walkingMetric) walkingMetric.textContent = walking >= 60 ? `${Math.floor(walking / 60)}h ${walking % 60}m` : `${walking}m`
