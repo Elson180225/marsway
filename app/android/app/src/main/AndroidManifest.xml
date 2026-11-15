@@ -38,4 +38,12 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- "Take photo" on the Science stop page opens the phone's camera app (Android 11+ needs this to find it).
+         No camera permission: the camera app takes the photo and hands it back. -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
 </manifest>

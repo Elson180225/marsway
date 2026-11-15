@@ -9,7 +9,7 @@ import { xyToCell } from '../../pathfinding/walkingTime.js'
 import { stopMetadata } from '../../stopDetails.js'
 import { directionsFor } from '../../pathfinding/directions.js'
 import {
-  advance, arrivalTimes, bonusStatus, canHeadHome, currentTrip, directionLine, hazardSpots, headHome, minutesBehindPlan, minutesHome,
+  advance, arrivalTimes, bonusStatus, canHeadHome, currentTrip, directionLine, groundAt, hazardSpots, headHome, minutesBehindPlan, minutesHome, pathGround,
   pathLength, photoDistance, photoStop, pointAlong, radiationDose, safetyStatus, walkPace,
 } from './walk-model.js'
 
@@ -217,6 +217,25 @@ const turnLine = directionLine([{ turn: 'start', start_m: 0, text: 'Head east, o
 assert.deepEqual([turnLine.turn, turnLine.lead, turnLine.rest], ['slight_left', 'In 200 m, bear left', ' to head north-east, gently uphill, for 200 m'])
 assert.equal(directionLine(null, 0), null)
 
+// 12. Data page terrain: the ground here against the suit limits, and up / down / steepest along a leg.
+//     The made-up map rises 10 m for every 100 m east.
+assert.equal(groundAt(grid, { x: 950, y: 950 }).level, 'ok')
+assert.equal(groundAt(grid, { x: -50, y: 950 }), null, 'off the map')
+const midCell = xyToCell(grid, midway.x, midway.y)
+assert.equal(groundAt(steepGrid, midway).level, 'caution', 'steeper than the warning limit')
+const noGoGrid = { ...grid, slope: Float32Array.from(grid.slope) }
+noGoGrid.slope[midCell] = grid.suit.slopeNoGoDeg + 1
+assert.equal(groundAt(noGoGrid, midway).level, 'danger', 'steeper than the no-go limit')
+const roughGrid = { ...grid, roughness: Float32Array.from(grid.roughness) }
+roughGrid.roughness[midCell] = grid.suit.roughWarnDeg + 1
+assert.equal(groundAt(roughGrid, midway).level, 'caution', 'rough ground')
+const east = pathGround(grid, [{ x: 250, y: 950 }, { x: 1250, y: 950 }])
+close(east.climbM, 100, 1e-6, 'climb over 1 km east')
+close(east.descentM, 0, 1e-6, 'no descent going east')
+const west = pathGround(grid, [{ x: 1250, y: 950 }, { x: 250, y: 950 }])
+close(west.descentM, 100, 1e-6, 'descent coming back west')
+assert.equal(pathGround(steepGrid, firstLeg.path).steepestDeg, grid.suit.slopeWarnDeg + 10, 'steepest spot on the leg')
+
 console.log(`Walk screen passed: science time at stops, bonus GO / tight / NO-GO matching the status line, skipped / here / done / incomplete, photo panel stop, hazard pins, radiation ${dose.fullWalkMSv.toFixed(2)} mSv for ${dose.walkHours} h, measured pace 1.3x in times home / turn back / bonus / arrivals, turn-by-turn line.`)
 
 // 8. The real route with Kelly's stops (skipped if the terrain files are not in this workspace).
@@ -279,6 +298,10 @@ if (real) {
     assert.match(directionLine(legSteps, 0).text, /^(Head |Arriv)/, `leg ${k + 1} starts with a heading`)
   })
   close((arrivalTimes(kelly, { mode: 'outbound', legIndex: 0, progress: 0, scienceLeft: 0, clockMs: kellyStart }).home_ms - kellyStart) / 60000, planned, 1e-6, 'home on plan')
+  // Data page on the real terrain: a leg the planner calls steep is steep on the Data page too.
+  const steepLeg = kelly.legs.find((leg) => leg.warnings?.some((w) => w.type === 'steep_slope'))
+  if (steepLeg) assert.ok(pathGround(kellyGrid, steepLeg.path).steepestDeg > kellyGrid.suit.slopeWarnDeg, 'steep leg shows as steep')
+  assert.ok(Number.isFinite(groundAt(kellyGrid, kelly.stops[0]).heightM), 'height at the habitat')
   console.log(`Real route passed: ${kelly.stops[b].name} is GO with ${Math.round(ours.spareMinutes)} min to spare on plan `
     + `(NO-GO once ${Math.round(ours.spareMinutes)} min behind); full plan ${Math.round(planned)} min, radiation ${radiationDose(kelly, kellyStart + planned * 60000).soFarMSv.toFixed(2)} mSv; `
     + `${science.length} stop photos with credits.`)
