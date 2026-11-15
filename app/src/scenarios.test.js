@@ -40,6 +40,13 @@ for (const scenario of catalog.scenarios.filter((s) => s.stops)) {
   assert.equal(scenario.stops.at(-1).id, scenario.bonus_stop_id, `${scenario.id} bonus stop is last`)
 
   const { route, grid } = buildScenarioRoute(template, area, terrain, catalog, scenario.eva)
+  assert.equal(route.map.basemap_url, '/terrain/basemap.webp', `${scenario.id} keeps main's WebP basemap`)
+  assert.equal(route.provenance.target_status, 'ready')
+  assert.equal(route.provenance.targets, catalog.science_review.summary, `${scenario.id} keeps Kelly's science review`)
+  for (const stop of scenario.stops) {
+    assert.equal(route.stops.find((item) => item.id === stop.id)?.photo_url, stop.photo_url,
+      `${scenario.id} ${stop.id} keeps its photo in the built route`)
+  }
   // The Walk screen loads this habitat's pre-calculated way home; it must match this terrain.
   const base = `../public/safezone/home-${scenario.habitat.toLowerCase()}-6km`
   const homeFile = decodeHomeFile(await json(`${base}.json`), await readFile(new URL(`${base}.bin`, import.meta.url)))

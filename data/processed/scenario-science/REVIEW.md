@@ -1,6 +1,6 @@
 # Kelly science review: EVA-09 to EVA-12
 
-Reviewed 14 November 2026, against PR #35 at `c16a75e21aeeb5455f1f4cafcff32121d66f6556`. The science branch is based on that PR, not main. The parent PR has merge conflicts to resolve separately.
+Science reviewed 14 November 2026 against PR #35 at `c16a75e21aeeb5455f1f4cafcff32121d66f6556`. The reviewed science data and all 15 photos reached main through PR #55 on 15 November. PR #58 now merges main (`78236b9`), retains its corrected multi-sol labels, and adds regression checks confirming all four built routes keep the WebP map, ready status, reviewed targets summary and photo URLs. No duplicate photo data is introduced.
 
 All 15 science descriptions and media records are ready. Names describe proposed astronaut observations, not official target names assigned to the coordinates. Order, IDs, projected coordinates, visit minutes, bonus flags and habitat records are unchanged. H2-H4 remain candidate sites; science readiness does not approve habitat placement, route safety or timing.
 
