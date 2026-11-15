@@ -1,52 +1,62 @@
-import { weatherScenario } from './planningWeather.js'
 import { calculateMissionSchedule, renderMissionSchedule } from './missionSchedule.js'
 import { plannedCsv, downloadCsv } from './planningCsv.js'
+import { planningEventEffects, conditionLines } from './planningEvents.js'
+import { scenarioFromSearch } from './scenarioEvents.js'
 import './planningScenario.css'
 
-export function mountPlanningScenario(container, route, onChange) {
+// Conditions come from Mia's random events (?scenario=4821), the same as the Walk screen.
+// There is no hand-set weather any more: one source of weather. grid is needed for the events'
+// shelter and walk-back routes (planningEventEffects).
+export function mountPlanningScenario(container, route, onChange, { grid = null } = {}) {
+  const seed = scenarioFromSearch(location.search)
+  const fx = seed && grid ? planningEventEffects({ route, grid, seed }) : null
+  const weather = fx?.weather ?? null
+  const plan = fx?.plan ?? null
   const controls = document.createElement('div')
   controls.className = 'planning-scenario-controls'
   controls.innerHTML = `<form class="psc-form">
-    <label>Weather scenario
-      <select name="weather"><option value="none">Clear-weather estimate</option><option value="storm">Simulated dust storm</option></select>
-    </label>
-    <label>Storm starts (UTC)<input name="start" type="time" value="10:30" disabled required></label>
+    <div class="psc-conditions" role="status">
+      <strong>Conditions: ${seed ? `Scenario #${seed}` : 'clear weather'}</strong>
+      <ul></ul>
+      ${seed ? '<small class="psc-replay">Events happen by themselves. Replay this day with <code>?scenario=' + seed + '</code></small>' : ''}
+    </div>
     <label>Previous career dose (mSv, optional)<input name="career" type="number" min="0" max="10000" step="0.001" inputmode="decimal" placeholder="Not entered"></label>
-    <button type="submit">Update plan</button>
   </form>
 
   <details class="psc-info">
     <summary>ⓘ How these estimates work</summary>
-    <p class="psc-note">Demo assumption: walking speed becomes 0.6× after the selected time. Dust-storm simulation changes walking time only; radiation effects and shielding are not modelled. The Walk screen is unaffected.</p>
+    <p class="psc-note">Conditions are random events from the scenario number (our simulation assumptions, same on the Walk screen). A dust storm slows walking to 0.6× while it lasts; a dust devil adds a wait; a solar storm doubles the radiation outside and sends the crew to shelter; a rover breakdown means walking home.</p>
     <small class="psc-note">RAD baseline estimate (0.67 mSv/day), not a measured personal dose. These are planned events; visited stops and bonus completion are unknown. The running total uses the previous career dose only if you enter one.</small>
   </details>
   <div class="psc-export"><button type="button" data-export="summary">Download planned summary CSV</button><button type="button" data-export="timeline">Download planned timeline CSV</button></div>
 `
+  controls.querySelector('.psc-conditions ul').replaceChildren(...conditionLines(fx).map((line) => {
+    const item = document.createElement('li')
+    item.textContent = line
+    return item
+  }))
   const output = document.createElement('div')
   container.replaceChildren(controls, output)
   const form = controls.querySelector('form')
-  let scenario = null
   let previousCareerMSv = null
-  renderMissionSchedule(output, route)
   const walkingMetric = document.querySelector('#planning-walking')
-  form.elements.weather.addEventListener('change', () => {
-    form.elements.start.disabled = form.elements.weather.value !== 'storm'
-    form.requestSubmit()
-  })
-  form.addEventListener('submit', (event) => {
-    event.preventDefault()
-    if (!form.reportValidity()) return
-    scenario = form.elements.weather.value === 'storm'
-      ? weatherScenario(`${route.mission.start_time.slice(0, 10)}T${form.elements.start.value}:00Z`)
-      : null
-    previousCareerMSv = form.elements.career.value === '' ? null : Number(form.elements.career.value)
-    renderMissionSchedule(output, route, scenario, { previousCareerMSv })
-    const walking = Math.round(calculateMissionSchedule(route, scenario).walking)
+  const render = () => {
+    renderMissionSchedule(output, route, weather, { previousCareerMSv, plan })
+    const walking = Math.round((plan ?? calculateMissionSchedule(route, weather)).walking)
     if (walkingMetric) walkingMetric.textContent = walking >= 60 ? `${Math.floor(walking / 60)}h ${walking % 60}m` : `${walking}m`
-    onChange(scenario)
+  }
+  render()
+  onChange(weather) // the safe zone and turn-back use the dust storm window too
+
+  form.addEventListener('submit', (event) => event.preventDefault())
+  form.elements.career.addEventListener('change', () => {
+    if (!form.reportValidity()) return
+    previousCareerMSv = form.elements.career.value === '' ? null : Number(form.elements.career.value)
+    render()
   })
   controls.querySelectorAll('[data-export]').forEach((button) => button.addEventListener('click', () => {
-    const files = plannedCsv(route, scenario, { previousCareerMSv })
+    const files = plannedCsv(route, weather, { previousCareerMSv, plan })
     downloadCsv(button.dataset.export === 'summary' ? 'eva-summary.csv' : 'eva-timeline.csv', files[button.dataset.export])
   }))
+  return { effects: fx }
 }

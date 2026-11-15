@@ -25,7 +25,7 @@ export function mapKeySections({ active, roverMode = false, elevation = null }) 
       { swatch: { kind: 'line', colour: '#f6b77c' }, label: 'Planned walking route' },
       { swatch: { kind: 'dash', colour: '#8ce0d6' }, label: 'Way home from the selected stop' },
       ...(roverMode ? [{ swatch: { kind: 'dash', colour: '#e0b485' }, label: 'Rover drive between the habitat and the parking spot' }] : []),
-      { swatch: { kind: 'dash', colour: '#ff7b6e' }, label: 'Storm route home (when "Storm route" is on)' },
+      { swatch: { kind: 'dash', colour: '#ff7b6e' }, label: 'Shelter route in a solar storm (from the scenario)' },
     ],
   }]
 

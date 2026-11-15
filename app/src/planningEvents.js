@@ -208,3 +208,22 @@ function eventPlan({ schedule, pause, pauseMinutes, emergency, habitat, dose, ex
     baselineDoseMSv: dose.doseMSv, stormExtraMSv: dose.stormExtraMSv, extraEvents: extraEvents.filter((e) => e.elapsed <= total),
   }
 }
+
+const clock = (minutes) => { const m = Math.round(minutes); return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}` }
+
+/** One line per expected event, for the Conditions box. Pure, so Node can test it. */
+export function conditionLines(fx) {
+  if (!fx) return ['No scenario: clear-weather plan.']
+  if (fx.cancelled) return ['Global dust storm: the walk is cancelled (NO-GO).']
+  if (fx.calm) return ['Calm day: no events expected.']
+  return fx.events.map((e) => {
+    const length = e.durationMin == null ? 'to the end of the walk' : `for ${Math.round(e.durationMin)} min`
+    switch (e.type) {
+      case 'dust_storm': return `🌪 Dust storm at ${clock(e.startMin)}, ${length}: walking ${e.speedFactor}×`
+      case 'dust_devil': return `💨 Dust devil at ${clock(e.startMin)}: ${Math.round(e.pauseMinutes ?? e.durationMin)} min wait`
+      case 'solar_storm': return `☀️ Solar storm at ${clock(e.startMin)}, ${length}: radiation ×2${e.warningMin ? ` (warned ${Math.round(e.warningMin)} min before)` : ''}`
+      case 'rover_breakdown': return `🚙 Rover breakdown at ${clock(e.startMin)}: walk home`
+      default: return `${e.title} at ${clock(e.startMin)}`
+    }
+  })
+}
