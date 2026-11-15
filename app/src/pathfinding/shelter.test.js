@@ -93,6 +93,15 @@ close(during.stormMinutesOutside, walkHome, 1e-6, 'storm already on: every minut
 assert.match(during.message, /^Solar storm now/)
 ok(`already on: ${during.message}`)
 
+// Already at the habitat (e.g. before setting out): nothing to walk, so "stay inside".
+assert.equal(foot.atShelter, false)
+const atHome = shelterRoute({ grid, crew: { x: habitat.x, y: habitat.y }, nowMin: now, storm: sunStorm, habitat })
+assert.equal(atHome.atShelter, true)
+assert.equal(atHome.message, 'Solar storm in 20 min. Stay inside H1.')
+const atHomeOn = shelterRoute({ grid, crew: { x: habitat.x, y: habitat.y }, nowMin: now, storm: { ...sunStorm, startMin: now - 10 }, habitat, rover: r07 })
+assert.equal(atHomeOn.message, 'Solar storm now: radiation is doubled outside. Stay inside H1.')
+ok(`at the habitat: ${atHome.message} / ${atHomeOn.message}`)
+
 console.log('\nEVA-12 at its first stop, rover parked next to H4')
 const eva12 = evaSetup('12', files)
 const h4 = shelterRoute({ grid, crew: eva12.stops[0], nowMin: now, storm: sunStorm, habitat: { ...eva12.habitat, name: 'H4' }, rover: roverFor('12') })

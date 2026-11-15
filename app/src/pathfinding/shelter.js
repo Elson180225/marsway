@@ -76,6 +76,7 @@ export function currentSolarStorm(events, nowMin) {
  *   doseMSv        dose on the way (outside, storm counted)
  *   extraDoseMSv   the part of doseMSv the storm adds
  *   other          the option not taken, { via, minutes } (null if there was none), to show why
+ *   atShelter      true if the crew is already at the habitat (under half a minute away): stay inside
  *   message        one line for the alert
  * }  or null if there is no safe way to the habitat at all.
  */
@@ -123,6 +124,7 @@ export function shelterRoute({ grid, crew, nowMin, storm, habitat, rover = null,
     doseMSv: dose.doseMSv,
     extraDoseMSv: dose.stormExtraMSv,
     other: options[1] ? { via: options[1].via, minutes: options[1].minutes } : null,
+    atShelter: best.minutes < 0.5,
   }
   result.message = shelterMessage(result, rover)
   return result
@@ -181,6 +183,7 @@ function shelterMessage(r, rover) {
     : rover && rover.available === false ? `walk ${min(r.minutes)} (the rover is out of action)`
       : `walk ${min(r.minutes)}${rover ? ' (quicker than going back to the rover)' : ''}`
   const when = r.startsInMin > 0 ? `Solar storm in ${min(r.startsInMin)}.` : 'Solar storm now: radiation is doubled outside.'
+  if (r.atShelter) return `${when} Stay inside ${name}.` // not "walk 0 min. Inside 0 min before it starts"
   const outcome = r.beforeStorm
     ? `Inside ${min(r.startsInMin - r.minutes)} before it starts.`
     : `${min(r.stormMinutesOutside)} outside in the storm, +${r.extraDoseMSv.toFixed(3)} mSv extra.`
