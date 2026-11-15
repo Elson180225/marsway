@@ -76,6 +76,8 @@ const BUILTIN_SCENARIOS = [
 
 function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mode = 'foot') {
   const { mission, stops, legs } = route
+  // Mia's scenario number (?scenario=4821) stays in every link, so Planning and Walk show the same events.
+  const seed = scenarioFromSearch(location.search)
   const totalDistance = legs.reduce((sum, leg) => sum + leg.distance_m, 0)
   const totalMinutes = Math.round(legs.reduce((sum, leg) => sum + (leg.seconds ?? leg.walk_minutes * 60), 0) / 60)
   const warnings = prominentWarnings(legs.flatMap((leg) => leg.warnings || []))
@@ -85,7 +87,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
         <div class="brand"><span class="brand-symbol"><img src="/marsway-mark.svg" alt="" width="36" height="36"></span><span>MARS<span class="brand-accent">WAY</span><small>EXPEDITION CONTROL</small></span></div>
         <div class="sidebar-divider"></div>
         <div class="sidebar-label">MISSION CONTROL</div>
-        <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a>${mission.drive_out_minutes || mission.id === 'EVA-08' ? `<span class="nav-item quiet" title="The Walk screen does not support this travel version yet"><span>⌖</span> Walk screen <small>${mission.id === 'EVA-08' ? 'Not available for EVA-08' : 'On foot only'}</small></span>` : `<a class="nav-item" href="${withScenario(`/walk.html?eva=${encodeURIComponent(mission.id.replace('EVA-', ''))}`, scenarioFromSearch(location.search))}"><span>⌖</span> Walk screen <small>Russell's view</small></a>`}<a class="nav-item" href="/terrain-lab.html"><span>◇</span> Terrain in 3D <small>5 km view</small></a></nav>
+        <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a>${mission.drive_out_minutes || mission.id === 'EVA-08' ? `<span class="nav-item quiet" title="The Walk screen does not support this travel version yet"><span>⌖</span> Walk screen <small>${mission.id === 'EVA-08' ? 'Not available for EVA-08' : 'On foot only'}</small></span>` : `<a class="nav-item" href="${withScenario(`/walk.html?eva=${encodeURIComponent(mission.id.replace('EVA-', ''))}`, seed)}"><span>⌖</span> Walk screen <small>Russell's view</small></a>`}<a class="nav-item" href="/terrain-lab.html"><span>◇</span> Terrain in 3D <small>5 km view</small></a></nav>
         <div class="planning-sidebar-controls" aria-label="Planning controls">
           <section class="planning-sidebar-section" aria-labelledby="sidebar-weather-title"><h2 id="sidebar-weather-title">Weather</h2><div id="sidebar-weather-form"></div></section>
           <section class="planning-sidebar-section" aria-labelledby="sidebar-safety-title"><h2 id="sidebar-safety-title">Safety check</h2><div id="sidebar-safety-form"></div></section>
@@ -95,8 +97,8 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
       <main id="planning" class="main">
         <header class="topbar"><div><span class="eyebrow">MISSION / ${safe(mission.id)}</span></div><div class="top-badge"><span class="sample-pulse"></span> TERRAIN ROUTING DEMO</div></header>
         <div class="notice" role="note"><span>Demo mission · ${route.provenance.target_status === 'draft' ? 'proposed Gediz stops' : route.provenance.target_status === 'ready' ? 'terrain estimates' : 'test target'} · no live telemetry</span></div>
-        <nav class="eva-picker" aria-label="Select EVA">${scenarios.map((item) => `<a href="/?eva=${encodeURIComponent(item.eva)}" aria-current="${mission.id === item.id ? 'page' : 'false'}">${safe(item.label)}</a>`).join('')}</nav>
-        ${versions ? `<nav class="travel-picker" aria-label="Travel version"><a href="/?eva=${encodeURIComponent(mission.id.slice(-2))}&travel=foot" aria-current="${mode === 'foot' ? 'page' : 'false'}">On foot</a><a href="/?eva=${encodeURIComponent(mission.id.slice(-2))}&travel=rover" aria-current="${mode === 'rover' ? 'page' : 'false'}">With rover</a><span>${safe(travelComparison(versions))}</span></nav>` : ''}
+        <nav class="eva-picker" aria-label="Select EVA">${scenarios.map((item) => `<a href="${withScenario(`/?eva=${encodeURIComponent(item.eva)}`, seed)}" aria-current="${mission.id === item.id ? 'page' : 'false'}">${safe(item.label)}</a>`).join('')}</nav>
+        ${versions ? `<nav class="travel-picker" aria-label="Travel version"><a href="${withScenario(`/?eva=${encodeURIComponent(mission.id.slice(-2))}&travel=foot`, seed)}" aria-current="${mode === 'foot' ? 'page' : 'false'}">On foot</a><a href="${withScenario(`/?eva=${encodeURIComponent(mission.id.slice(-2))}&travel=rover`, seed)}" aria-current="${mode === 'rover' ? 'page' : 'false'}">With rover</a><span>${safe(travelComparison(versions))}</span></nav>` : ''}
         <section class="metrics" aria-label="Mission summary">
           <div class="metric"><span>${mission.drive_out_minutes ? 'WALK DISTANCE' : 'DISTANCE'}</span><strong>${distance(totalDistance)}</strong><small>${mission.drive_out_minutes ? 'Rover loop; suited drive below' : 'Round trip'}</small></div>
           <div class="metric"><span>WALKING</span><strong id="planning-walking">${duration(totalMinutes)}</strong><small>Science time below</small></div>
