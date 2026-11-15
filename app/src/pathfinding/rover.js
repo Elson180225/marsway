@@ -15,6 +15,11 @@ import { forEachNeighbour, cellToXY, xyToCell } from './walkingTime.js'
 
 export const ROVER_RULES = { speedKmh: 5, onOffMinutes: 10, maxSlopeDeg: 15 }
 
+/** Default displayed by the Planning travel-mode picker. */
+export function defaultTravelMode(eva) {
+  return String(eva).replace(/^EVA-/, '') === '08' ? 'rover' : 'foot'
+}
+
 /** The "rules" block of rover-parking.json in ROVER_RULES form (missing values use the defaults). */
 export function roverRulesFrom(file) {
   const r = file?.rules ?? {}

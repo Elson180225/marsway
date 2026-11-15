@@ -1,5 +1,6 @@
 import { makeGrid } from './pathfinding/walkingTime.js'
 import { planRoute } from './pathfinding/astar.js'
+import { driveMinutes, roverRulesFrom } from './pathfinding/rover.js'
 
 export function validateTerrain({ elevation, slope, roughness }) {
   for (const [name, file] of Object.entries({ elevation, slope, roughness })) {
@@ -98,14 +99,17 @@ export async function loadTerrainRoute(fetcher = fetch) {
 
 // EVA-08 starts and ends on foot at the parked open rover, G2. The two
 // H1/G2 drive legs are labelled assumptions in the Planning schedule.
-export function buildGedizRoute(template, area, terrain, science) {
+export function buildGedizRoute(template, area, terrain, science, parking) {
   validateTerrain(terrain)
   const grid = makeGrid(terrain)
   if (area?.sizeMetres !== 6000 || science?.stops?.length !== 4) throw new Error('EVA-08 needs the 6 km terrain and four Gediz stops.')
   const g2 = { id: 'g2', name: 'Rover staging (G2)', type: 'habitat', x: 3192.5, y: 3542.5, description: 'Open-rover staging point. The rover is not storm shelter.' }
+  const spot = parking?.evas?.find((item) => item.eva === '08')?.spot
+  if (spot?.id !== 'G2' || !Number.isFinite(spot.drive_distance_m)) throw new Error('EVA-08 needs G2 drive distance from rover-parking.json.')
+  const drive = Math.round(driveMinutes(spot.drive_distance_m, roverRulesFrom(parking)))
   const result = planRoute(grid, [g2, ...science.stops, { ...g2, id: 'home', name: 'Return to rover (G2)', type: 'home' }])
   const mission = { ...template.mission, id: 'EVA-08', name: 'The Gediz Vallis Walk', data_status: 'TERRAIN_ESTIMATE', latest_turnback_time: null,
-    drive_out_minutes: 55, drive_home_minutes: 55, drive_distance_m: 3800 }
+    drive_out_minutes: drive, drive_home_minutes: drive, drive_distance_m: spot.drive_distance_m }
   return { grid, route: { ...template, mission, ...result,
     coordinate_system: { ...template.coordinate_system, unit: 'meter', origin_note: area.localCoords, description: '6 km terrain grid; local metres x east, y north. Leaflet [y,x].' },
     map: { bounds: [[0, 0], [grid.sizeY, grid.sizeX]], basemap_url: '/terrain/basemap.webp' },
@@ -118,10 +122,10 @@ export async function loadGedizRoute(fetcher = fetch) {
     if (!response.ok) throw new Error(`${url} unavailable (${response.status}).`)
     return response.json()
   }
-  const [template, area, elevation, slope, roughness, science] = await Promise.all([
-    json('/routes/sample-route.json'), json('/terrain/area.json'), json('/terrain/elevation.json'), json('/terrain/slope.json'), json('/terrain/roughness.json'), json('/routes/gediz-stops.json'),
+  const [template, area, elevation, slope, roughness, science, parking] = await Promise.all([
+    json('/routes/sample-route.json'), json('/terrain/area.json'), json('/terrain/elevation.json'), json('/terrain/slope.json'), json('/terrain/roughness.json'), json('/routes/gediz-stops.json'), json('/routes/rover-parking.json'),
   ])
-  return buildGedizRoute(template, area, { elevation, slope, roughness }, science)
+  return buildGedizRoute(template, area, { elevation, slope, roughness }, science, parking)
 }
 
 // EVA-09 onward: one walking loop per habitat (H1-H4), listed in public/routes/scenarios.json.
