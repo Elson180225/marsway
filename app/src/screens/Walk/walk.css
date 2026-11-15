@@ -257,3 +257,13 @@ button { font: inherit; }
 .walk-shot-list li { display: grid; gap: 4px; min-width: 0; color: var(--w-muted); font-size: 11px; line-height: 1.35; }
 .walk-shot-list img { display: block; width: 100%; aspect-ratio: 1; border-radius: 8px; background: #0b1116; object-fit: cover; }
 .walk-shot-save { padding: 6px 0; color: var(--w-home); font-size: 13px; font-weight: 700; }
+
+/* Random events (Mia's randomEvents.js): scenario number, 🎲 to pick another, and the events so far */
+.walk-scenario { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.walk-scenario span { flex: 1 1 120px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.walk-scenario .walk-btn { min-height: 44px; }
+.walk-scenario .walk-btn[hidden] { display: none; }
+.walk-scenario-log { display: grid; gap: 4px; margin: 10px 0 0; padding: 0; color: var(--w-muted); font-size: 13px; list-style: none; }
+.walk-scenario-log[hidden] { display: none; }
+.walk-scenario-log b { color: var(--w-text); font-variant-numeric: tabular-nums; }
+.walk-btn-primary:disabled { background: var(--w-panel-2); color: var(--w-danger); border-color: var(--w-danger); cursor: default; }

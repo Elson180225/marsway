@@ -186,6 +186,10 @@ activeEvents(result.events, minutesOut) // → the events happening now (for pop
 - Events are sorted by `startMin`. Each has a `title` and `message` ready for a pop-up.
 - **Planning and Walk must pass the same `seed`, `version` and `durationMinutes`** (the planned walk
   length), or they get different events. Pass the seed between screens as `?scenario=4821`.
+  The simple way: both screens call `scenarioEvents(route, seed)` from `src/scenarioEvents.js`. It takes
+  the walk length from the Planning schedule (`calculateMissionSchedule(route).total`) and uses `'rover'`
+  when the route has a rover drive. `scenarioFromSearch(location.search)` reads the number from the link;
+  `withScenario(href, seed)` adds it to a link.
 - Foot and rover versions of one seed get the same weather; only the rover breakdown differs.
 
 ### The events

@@ -9,7 +9,7 @@ import { xyToCell } from '../../pathfinding/walkingTime.js'
 import { stopMetadata } from '../../stopDetails.js'
 import { directionsFor } from '../../pathfinding/directions.js'
 import {
-  advance, arrivalTimes, bonusStatus, canHeadHome, currentTrip, directionLine, groundAt, hazardSpots, headHome, minutesBehindPlan, minutesHome, pathGround,
+  advance, arrivalTimes, bonusStatus, canHeadHome, currentTrip, directionLine, eventAlerts, eventSolarStorms, groundAt, hazardSpots, headHome, minutesBehindPlan, minutesHome, pathGround,
   pathLength, photoDistance, photoStop, pointAlong, radiationDose, safetyStatus, walkPace,
 } from './walk-model.js'
 
@@ -235,6 +235,23 @@ close(east.descentM, 0, 1e-6, 'no descent going east')
 const west = pathGround(grid, [{ x: 1250, y: 950 }, { x: 250, y: 950 }])
 close(west.descentM, 100, 1e-6, 'descent coming back west')
 assert.equal(pathGround(steepGrid, firstLeg.path).steepestDeg, grid.suit.slopeWarnDeg + 10, 'steepest spot on the leg')
+
+// 13. Mia's random events on the Walk screen: a pop-up (alert) only while each event is under way,
+//     and random solar storms doubling the radiation. (Same events as Planning: src/scenarioEvents.test.js.)
+const events = [
+  { type: 'dust_storm', startMin: 30, durationMin: 20, speedFactor: 0.6, title: 'Dust storm', message: 'Walking slows.' },
+  { type: 'solar_storm', startMin: 60, durationMin: 60, radiationFactor: 2, title: 'Solar storm', message: 'Radiation doubled.' },
+]
+assert.deepEqual(eventAlerts(route, events, 29.9), [], 'nothing before it starts')
+const [dust] = eventAlerts(route, events, 30)
+assert.deepEqual([dust.type, dust.level, dust.simulated, dust.shelter_stop_id, dust.endMs - start], ['dust_storm', 'caution', true, null, 50 * 60000])
+assert.deepEqual(eventAlerts(route, events, 50), [], 'gone when it ends')
+const [solar] = eventAlerts(route, events, 90)
+assert.deepEqual([solar.level, solar.shelter_stop_id], ['danger', route.stops[0].id], 'solar storm: shelter at the habitat')
+assert.equal(eventAlerts(route, [{ type: 'global_dust_storm', startMin: 0, durationMin: null, title: 'Global dust storm', message: '' }], 400)[0].endMs, null, 'lasts to the end')
+const stormHour = radiationDose(route, start + 6 * 3600000, eventSolarStorms(route, events))
+close(stormHour.soFarMSv, dose.fullWalkMSv * 7 / 6, 1e-12, 'a 1 h random solar storm counts double')
+close(stormHour.stormMinutes, 60, 1e-9, 'storm minutes')
 
 console.log(`Walk screen passed: science time at stops, bonus GO / tight / NO-GO matching the status line, skipped / here / done / incomplete, photo panel stop, hazard pins, radiation ${dose.fullWalkMSv.toFixed(2)} mSv for ${dose.walkHours} h, measured pace 1.3x in times home / turn back / bonus / arrivals, turn-by-turn line.`)
 
