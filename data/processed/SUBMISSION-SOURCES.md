@@ -49,3 +49,20 @@ Product identifiers, for traceability:
 MarsWay uses NASA mission imagery and data: CTX imagery from NASA/JPL/MSSS and The Murray Lab (Caltech), served by Esri; CRISM Gale prototype mineral browse mosaics from NASA/JPL/JHUAPL, prepared by F. Seelos, K. Seelos and C. Viviano; THEMIS night infrared imagery from NASA/JPL-Caltech/Arizona State University via NASA Mars Trek; and Curiosity Navcam photographs credited to NASA/JPL-Caltech and Mastcam imagery credited to NASA/JPL-Caltech/MSSS. Terrain derives from the USGS MSL Gale Merged DEM v3 by Timothy Parker and Fred J. Calef III, with local terrain products prepared by MarsWay. Stop coordinates use NASA/JPL Curiosity waypoints. Orbital alignment is approximate, mineral colours are qualitative, and the THEMIS layer represents relative night brightness rather than calibrated temperature. Astronaut stops and their visit durations are team proposals.
 
 Keep the linked tables with this paragraph so each dataset and photograph has its own source. Acknowledgement does not imply NASA endorsement.
+
+
+## Radiation and weather sources
+
+**Radiation (used in the app)**
+- **Surface dose baseline:** Hassler et al. (2014), "Mars' Surface Radiation Environment Measured with the Mars Science Laboratory's Curiosity Rover", *Science* 343, 1244797, doi:10.1126/science.1244797. Measured 0.64 ± 0.12 mSv/day at Gale Crater. MarsWay uses 0.67 mSv/day, within this measured range (about 0.17 mSv for a 6-hour walk). Credit: Curiosity RAD / MSL science team.
+- **Solar storm (2× dose rate, team assumption based on):** NASA JPL news, 29 Sept 2017 (the 11 Sept 2017 event "more than doubled" RAD readings); Hassler et al. (2018), *Space Weather*, doi:10.1029/2018SW001959; Zeitlin et al. (2018), *Geophysical Research Letters*, doi:10.1029/2018GL077760.
+- **Habitat shielding (half the outside dose, team assumption between):** published regolith-shielding studies, including Planetary and Space Science (2022, about 41% less behind 1 m of regolith) and a TU Delft MGS-1 study (more than 90% less behind 2.5 m).
+- **Career limit (600 mSv):** NASA-STD-3001 Volume 1; NASA OCHMO radiation protection technical brief.
+
+**Weather (background references only, no data imported)**
+- **REMS, Curiosity's weather station:** NASA PDS Atmospheres Node REMS archive, https://atmos.nmsu.edu/data_and_services/atmospheres_data/MARS/curiosity/rems.html. Credit: Curiosity REMS science team; NASA Planetary Data System, Atmospheres Node.
+- **Mars Climate Database:** https://www-mars.lmd.jussieu.fr/mars/info_web/index.html. Credit: LMD/CNRS and collaborating institutions, supported by ESA/CNES. Modelled climate and dust scenarios, not live weather.
+
+**Our own assumptions (not measured values)**
+- Dust-storm walking slowdown (0.6× speed), the solar-storm factor (2×) and habitat shielding (0.5×) are team simulation assumptions.
+- The radiation counter is a baseline estimate, not a personal dose measurement or a solar-storm forecast.
