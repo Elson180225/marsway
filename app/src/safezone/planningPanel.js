@@ -124,7 +124,20 @@ export function mountPlanningSafety({ root, map, grid, route, onOverlayChange = 
       ? `SIMULATED storm route to ${route.mission.drive_home_minutes ? `${homeLabel} rover, then assumed ${duration(route.mission.drive_home_minutes)} drive to ${route.mission.habitat_label ?? 'H1'}` : homeLabel}: ${(result.storm.distance_m / 1000).toFixed(2)} km, ${duration(result.storm.seconds / 60)} on foot. This is a modelled return route, not a live storm alert or shelter certification.`
       : `SIMULATED storm: the reference is already in ${homeLabel}'s grid cell.`
   }
+  // A scenario that cancels the walk (global dust storm): no safe zone, just the NO-GO.
+  let cancelled = null
+  function showCancelled() {
+    ++latest // drop any calculation already running
+    result = null
+    clearResult('NO-GO')
+    probeMarker.remove()
+    $('ps-status').dataset.level = 'danger'
+    $('ps-status').textContent = `NO-GO: walk cancelled. ${cancelled}`
+    $('ps-status').title = $('ps-status').textContent
+    $('ps-probe').textContent = 'No safe zone: the walk does not go ahead.'
+  }
   function calculate() {
+    if (cancelled) { showCancelled(); return }
     // Invalidate an in-flight worker response even if the edited scenario is invalid.
     const id = ++latest
     if (!form.reportValidity()) { error('Check the elapsed time and stop duration.'); return }
@@ -177,7 +190,7 @@ export function mountPlanningSafety({ root, map, grid, route, onOverlayChange = 
   try {
     worker = new Worker(new URL('./planningWorker.js', import.meta.url), { type: 'module' })
     worker.onmessage = ({ data }) => {
-      if (data.type === 'ready') return
+      if (data.type === 'ready' || cancelled) return
       if (data.type === 'bonus' || data.request === 'bonus') { showProbe(data); return }
       if (data.id !== 0 && data.id !== latest) return
       if (data.type === 'error') { ++latest; error(data.message); return }
@@ -215,6 +228,11 @@ export function mountPlanningSafety({ root, map, grid, route, onOverlayChange = 
       selected = stop
       $('ps-reference').textContent = stop.name
       calculate()
+    },
+    // Planning calls this when the random events cancel the walk (reason: one line for the status).
+    setCancelled(reason) {
+      cancelled = reason || 'The walk does not go ahead.'
+      showCancelled()
     },
   }
 }

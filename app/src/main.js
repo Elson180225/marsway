@@ -168,6 +168,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
   const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route,
     onOverlayChange: (url) => { safetyImage = url; sync3dLayers() } })
   const conditions = mountPlanningScenario(document.querySelector('#mission-schedule'), route, (scenario) => safety.setWeather(scenario), { grid })
+  if (conditions.effects?.cancelled) safety.setCancelled(conditions.effects.verdict.reasons.join(' ')) // no normal safe zone under a NO-GO
   mountPlanningSidebarControls(document.querySelector('.sidebar'))
   const safetyNotes = document.createElement('details')
   safetyNotes.className = 'planning-model-notes'
