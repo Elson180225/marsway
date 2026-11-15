@@ -56,7 +56,9 @@ export function renderMissionSchedule(container, route, scenario = null, { previ
   panel.append(el('span', 'eyebrow', 'SIMULATED EVA · MISSION TIME (UTC)'), el('h2', '', 'Planned walk and science time'))
   panel.append(el('p', `ms-summary${plan.margin < 0 ? ' ms-over-budget' : ''}`, `${minutesLabel(plan.total)} total · ${plan.margin >= 0 ? `${minutesLabel(plan.margin)} before reserve` : `${minutesLabel(-plan.margin)} into reserve`}`))
   panel.append(el('p', 'ms-breakdown', `${plan.driveOut ? `${minutesLabel(plan.driveOut)} drive out + ` : ''}${minutesLabel(plan.walking)} walking + ${minutesLabel(plan.science)} science${plan.driveHome ? ` + ${minutesLabel(plan.driveHome)} drive home` : ''}${plan.hasBonus ? ' · Includes bonus stop' : ''}`))
-  if (plan.driveOut) panel.append(el('p', 'ms-note', `H1 → G2: ${minutesLabel(plan.driveOut)} suited drive (about ${(route.mission.drive_distance_m / 1000).toFixed(1)} km at an assumed 5 km/h, including boarding). Open rover; no storm shelter.`))
+  const habitat = route.mission.habitat_label ?? 'H1'
+  const rover = route.mission.home_label ?? 'G2'
+  if (plan.driveOut) panel.append(el('p', 'ms-note', `${habitat} → ${rover}: ${minutesLabel(plan.driveOut)} suited drive (about ${(route.mission.drive_distance_m / 1000).toFixed(1)} km at an assumed 5 km/h plus 10 min to board and disembark). Open rover; no storm shelter.`))
   panel.append(el('p', 'ms-dose', `Planned surface dose: ${plan.baselineDoseMSv.toFixed(3)} mSv (RAD baseline).${scenario ? ` Simulated storm exposure: ${minutesLabel(plan.stormExposure)}. Dust-storm simulation changes walking time only; radiation effects and shielding are not modelled.` : ''}`))
   const career = careerTotal({ previousMSv: previousCareerMSv ?? 0, evaDosesMSv: [plan.baselineDoseMSv] })
   panel.append(el('p', 'ms-career', previousCareerMSv == null
@@ -67,12 +69,12 @@ export function renderMissionSchedule(container, route, scenario = null, { previ
     const item = el('li', 'ms-row')
     const name = el('strong', '', row.name)
     if (row.isBonus) name.append(el('span', 'ms-bonus', 'OPTIONAL BONUS'))
-    item.append(name, el('span', '', `Arrive ${utc(plan.start, row.arrival)}${row.isHome ? (plan.driveHome ? ' · Board rover for H1' : ' · EVA complete') : ` · Science ${row.visit} min · Depart ${utc(plan.start, row.departure)}`}`))
+    item.append(name, el('span', '', `Arrive ${utc(plan.start, row.arrival)}${row.isHome ? (plan.driveHome ? ` · Board rover for ${habitat}` : ' · EVA complete') : ` · Science ${row.visit} min · Depart ${utc(plan.start, row.departure)}`}`))
     list.append(item)
   }
   if (plan.driveHome) {
     const item = el('li', 'ms-row')
-    item.append(el('strong', '', 'Drive G2 → H1'), el('span', '', `Arrive ${utc(plan.start, plan.total)} · EVA complete · Assumed ${minutesLabel(plan.driveHome)} suited drive`))
+    item.append(el('strong', '', `Drive ${rover} → ${habitat}`), el('span', '', `Arrive ${utc(plan.start, plan.total)} · EVA complete · Assumed ${minutesLabel(plan.driveHome)} suited drive`))
     list.append(item)
   }
   const more = el('details', 'ms-more')

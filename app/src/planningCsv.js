@@ -25,15 +25,17 @@ export function plannedCsv(route, scenario = null, { previousCareerMSv = null } 
     '', '', plan.stormExposure.toFixed(1), plan.baselineDoseMSv.toFixed(3),
     previousCareerMSv == null ? '' : careerTotal({ previousMSv: previousCareerMSv, evaDosesMSv: [plan.baselineDoseMSv] }).totalMSv.toFixed(3),
   ])].join('\r\n') + '\r\n'
-  const h1 = { name: 'Habitat (H1)', x: 1047.5, y: 917.5 }
-  const events = [{ elapsed: 0, phase: 'planned_start', stop: plan.driveOut ? h1 : route.stops[0], event: 'SIMULATED plan begins' }]
-  if (plan.driveOut) events.push({ elapsed: plan.driveOut, phase: 'planned_drive_arrival', stop: route.stops[0], event: 'SIMULATED suited drive H1 to G2; assumed time' })
+  const habitat = route.mission.habitat_label ?? 'H1'
+  const rover = route.mission.home_label ?? 'G2'
+  const base = { name: `Habitat (${habitat})`, ...(route.mission.habitat_position ?? { x: 1047.5, y: 917.5 }) }
+  const events = [{ elapsed: 0, phase: 'planned_start', stop: plan.driveOut ? base : route.stops[0], event: 'SIMULATED plan begins' }]
+  if (plan.driveOut) events.push({ elapsed: plan.driveOut, phase: 'planned_drive_arrival', stop: route.stops[0], event: `SIMULATED suited drive ${habitat} to ${rover}; assumed time` })
   for (const row of plan.rows) {
     const stop = route.stops.find((s) => s.id === row.id)
-    events.push({ elapsed: row.arrival, phase: row.isHome ? (plan.driveHome ? 'planned_rover_return' : 'planned_home') : 'planned_arrival', stop, event: row.isHome ? (plan.driveHome ? 'SIMULATED return to G2 rover; drive to H1 follows' : 'SIMULATED EVA complete') : `SIMULATED arrival${row.isBonus ? ' at optional bonus stop' : ''}` })
+    events.push({ elapsed: row.arrival, phase: row.isHome ? (plan.driveHome ? 'planned_rover_return' : 'planned_home') : 'planned_arrival', stop, event: row.isHome ? (plan.driveHome ? `SIMULATED return to ${rover} rover; drive to ${habitat} follows` : 'SIMULATED EVA complete') : `SIMULATED arrival${row.isBonus ? ' at optional bonus stop' : ''}` })
     if (!row.isHome) events.push({ elapsed: row.departure, phase: 'planned_departure', stop, event: `SIMULATED science activity: ${row.visit} min` })
   }
-  if (plan.driveHome) events.push({ elapsed: plan.total, phase: 'planned_home', stop: h1, event: 'SIMULATED suited drive G2 to H1 complete; assumed time' })
+  if (plan.driveHome) events.push({ elapsed: plan.total, phase: 'planned_home', stop: base, event: `SIMULATED suited drive ${rover} to ${habitat} complete; assumed time` })
   const timeline = [TIMELINE_COLUMNS, ...events.map(({ elapsed, phase, stop, event }) => csv([
     utc(plan.start, elapsed), phase, stop.name, stop.x, stop.y,
     RAD_SURFACE_MSV_PER_DAY, walkDoseMSv(elapsed / 60).toFixed(3),

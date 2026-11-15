@@ -4,6 +4,7 @@ import './style.css'
 import './scienceLayers.css'
 import './planningCompact.css'
 import './missionSchedule.css'
+import './planningTravel.css'
 import { mountPlanningScenario } from './planningScenario.js'
 import { mountPlanningSidebarControls } from './planningSidebar.js'
 import './planningSidebar.css'
@@ -12,6 +13,7 @@ import { mountPlanningSafety } from './safezone/planningPanel.js'
 import './stopDetails.css'
 import { renderStopDetails } from './stopDetails.js'
 import { loadRouteForEva, loadScenarioCatalog, roughnessImage } from './terrainRoute.js'
+import { planningTravelVersions, travelComparison } from './planningTravel.js'
 
 const root = document.querySelector('#app')
 
@@ -71,7 +73,7 @@ const BUILTIN_SCENARIOS = [
   { eva: '08', id: 'EVA-08', label: 'EVA-08 · Gediz' },
 ]
 
-function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
+function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mode = 'foot') {
   const { mission, stops, legs } = route
   const totalDistance = legs.reduce((sum, leg) => sum + leg.distance_m, 0)
   const totalMinutes = Math.round(legs.reduce((sum, leg) => sum + (leg.seconds ?? leg.walk_minutes * 60), 0) / 60)
@@ -82,7 +84,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
         <div class="brand"><span class="brand-symbol"><img src="/marsway-mark.svg" alt="" width="36" height="36"></span><span>MARS<span class="brand-accent">WAY</span><small>EXPEDITION CONTROL</small></span></div>
         <div class="sidebar-divider"></div>
         <div class="sidebar-label">MISSION CONTROL</div>
-        <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a><a class="nav-item" href="/walk.html${mission.drive_out_minutes ? '' : `?eva=${encodeURIComponent(mission.id.replace('EVA-', ''))}`}"><span>⌖</span> Walk screen <small>Russell's view</small></a><a class="nav-item" href="/terrain-lab.html"><span>◇</span> Terrain in 3D <small>5 km view</small></a></nav>
+        <nav aria-label="Application"><a class="nav-item active" href="#planning"><span>▦</span> EVA Planning</a>${mission.drive_out_minutes ? '<span class="nav-item quiet" title="The Walk screen does not model the suited rover drive yet"><span>⌖</span> Walk screen <small>On foot only</small></span>' : `<a class="nav-item" href="/walk.html?eva=${encodeURIComponent(mission.id.replace('EVA-', ''))}"><span>⌖</span> Walk screen <small>Russell's view</small></a>`}<a class="nav-item" href="/terrain-lab.html"><span>◇</span> Terrain in 3D <small>5 km view</small></a></nav>
         <div class="planning-sidebar-controls" aria-label="Planning controls">
           <section class="planning-sidebar-section" aria-labelledby="sidebar-weather-title"><h2 id="sidebar-weather-title">Weather</h2><div id="sidebar-weather-form"></div></section>
           <section class="planning-sidebar-section" aria-labelledby="sidebar-safety-title"><h2 id="sidebar-safety-title">Safety check</h2><div id="sidebar-safety-form"></div></section>
@@ -93,8 +95,9 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
         <header class="topbar"><div><span class="eyebrow">MISSION / ${safe(mission.id)}</span></div><div class="top-badge"><span class="sample-pulse"></span> TERRAIN ROUTING DEMO</div></header>
         <div class="notice" role="note"><span>Demo mission · ${route.provenance.target_status === 'draft' ? 'proposed Gediz stops' : route.provenance.target_status === 'ready' ? 'terrain estimates' : 'test target'} · no live telemetry</span></div>
         <nav class="eva-picker" aria-label="Select EVA">${scenarios.map((item) => `<a href="/?eva=${encodeURIComponent(item.eva)}" aria-current="${mission.id === item.id ? 'page' : 'false'}">${safe(item.label)}</a>`).join('')}</nav>
+        ${versions ? `<nav class="travel-picker" aria-label="Travel version"><a href="/?eva=${encodeURIComponent(mission.id.slice(-2))}&travel=foot" aria-current="${mode === 'foot' ? 'page' : 'false'}">On foot</a><a href="/?eva=${encodeURIComponent(mission.id.slice(-2))}&travel=rover" aria-current="${mode === 'rover' ? 'page' : 'false'}">With rover</a><span>${safe(travelComparison(versions))}</span></nav>` : ''}
         <section class="metrics" aria-label="Mission summary">
-          <div class="metric"><span>${mission.drive_out_minutes ? 'WALK DISTANCE' : 'DISTANCE'}</span><strong>${distance(totalDistance)}</strong><small>${mission.drive_out_minutes ? 'G2 loop; suited drive below' : 'Round trip'}</small></div>
+          <div class="metric"><span>${mission.drive_out_minutes ? 'WALK DISTANCE' : 'DISTANCE'}</span><strong>${distance(totalDistance)}</strong><small>${mission.drive_out_minutes ? 'Rover loop; suited drive below' : 'Round trip'}</small></div>
           <div class="metric"><span>WALKING</span><strong id="planning-walking">${duration(totalMinutes)}</strong><small>Science time below</small></div>
           <div class="metric"><span>TURN BACK IN</span><strong id="planning-turnback">Calculating</strong><small id="planning-turnback-note">From selected reference</small></div>
           <div class="metric"><span>TERRAIN NOTES</span><strong>${warnings.length}</strong><small>Across the route</small></div>
@@ -127,9 +130,11 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
   // Bring the map and ordered stops above the deeper safety and schedule sections.
   document.querySelector('.eva-picker').after(document.querySelector('.workspace'))
 
-  const map = L.map('map', { crs: L.CRS.Simple, minZoom: -1.7, maxZoom: 1.2, zoomSnap: 0.25, zoomControl: false })
+  const map = L.map('map', { crs: L.CRS.Simple, minZoom: -3, maxZoom: 2.5, zoomSnap: 0.25, zoomControl: false })
   L.control.zoom({ position: 'bottomright' }).addTo(map)
   const bounds = L.latLngBounds([[0, 0], [grid.sizeY, grid.sizeX]])
+  map.setMaxBounds(bounds.pad(0.2))
+  map.options.maxBoundsViscosity = 0.7
   L.rectangle(bounds, { color: '#b68f65', weight: 1, opacity: 0.2, fillOpacity: 0 }).addTo(map)
   const terrain = L.imageOverlay('/terrain/basemap.png', bounds, { opacity: 0.92, interactive: false }).addTo(map)
   const slope = L.imageOverlay('/terrain/slope.png', bounds, { opacity: 0.55, interactive: false })
@@ -150,7 +155,11 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
     const notice = document.querySelector('.notice span')
     notice.textContent = 'A terrain image failed to load. Check public/terrain/basemap.png and slope.png. Route calculations use the JSON grids.'
   })
-  const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route })
+  let view3d = null
+  let safetyImage = null
+  let sync3dLayers = () => {}
+  const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route,
+    onOverlayChange: (url) => { safetyImage = url; sync3dLayers() } })
   mountPlanningScenario(document.querySelector('#mission-schedule'), route, (scenario) => safety.setWeather(scenario))
   mountPlanningSidebarControls(document.querySelector('.sidebar'))
   const safetyNotes = document.createElement('details')
@@ -179,8 +188,10 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
     if (map.hasLayer(terrain)) terrain.bringToBack()
     lineLayers.forEach((line) => line.bringToFront())
     returnLayer.bringToFront()
+    sync3dLayers()
   }))
   const lineLayers = legs.map((leg) => L.polyline(leg.path.map(mapPoint), { color: '#f6b77c', weight: 5, opacity: 0.86, lineCap: 'round' }).addTo(map))
+  if (route.drivePath?.length > 1) L.polyline(route.drivePath.map(mapPoint), { color: '#e0b485', weight: 3, opacity: 0.8, dashArray: '6 8', interactive: false }).addTo(map)
   const returnLayer = L.polyline([], { color: '#8ce0d6', weight: 3, opacity: 0.92, dashArray: '8 9' }).addTo(map)
   const markers = stops.slice(0, -1).map((stop, index) => {
     const icon = L.divIcon({ className: 'stop-icon', html: `<span class="stop-marker ${index === 0 ? 'home-marker' : ''}">${index === 0 ? '⌂' : index}</span>`, iconSize: [36, 36], iconAnchor: [18, 18] })
@@ -189,7 +200,6 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
   map.fitBounds(bounds.pad(0.03), { padding: [18, 18] })
 
     // ---- 3D view ----
-  let view3d = null
   const map3dEl = document.querySelector('#map3d')
   const scienceBox = { x0: 0, y0: 0, x1: 6000, y1: 6000 }
   const layers3d = {
@@ -200,9 +210,19 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
     crismAlt: { url: '/terrain/crism_alt.png', bounds: scienceBox },
     themis: { url: '/terrain/themis_night.png', bounds: scienceBox },
   }
+  sync3dLayers = () => {
+    if (!view3d) return
+    layers3d.safety = safetyImage ? { url: safetyImage, opacity: 0.85 } : null
+    view3d.setLayers(Object.keys(layers3d).filter((key) => layers3d[key] && map.hasLayer(layerMap[key])), map.hasLayer(terrain))
+  }
+  let switching3d = false
+  let view2d = null
   document.querySelector('#toggle3d').addEventListener('click', async (event) => {
+    if (switching3d) return
+    switching3d = true
     const button = event.currentTarget
     const on = button.getAttribute('aria-pressed') !== 'true'
+<<<<<<< HEAD
     const { createPlanning3D, webglAvailable } = await import('./planning3d.js')
     if (on && !webglAvailable()) { button.textContent = '3D not supported here'; return }
     button.setAttribute('aria-pressed', String(on))
@@ -214,6 +234,33 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
       view3d.setLayer(active?.[0] ?? 'terrain')
     }
     if (!on) map.invalidateSize()
+=======
+    try {
+      if (on) {
+        const { createPlanning3D, webglAvailable } = await import('./planning3d.js')
+        if (!webglAvailable()) { button.textContent = '3D not supported here'; return }
+        view2d = { center: map.getCenter(), zoom: map.getZoom() }
+        map3dEl.hidden = false
+        document.querySelector('#map').hidden = true
+        if (!view3d) view3d = createPlanning3D(map3dEl, { grid, basemapUrl: '/terrain/basemap.webp', layers: layers3d, legs, stops, onSelectStop: (i) => selectStop(i, false) })
+        sync3dLayers()
+      } else {
+        map3dEl.hidden = true
+        document.querySelector('#map').hidden = false
+        map.invalidateSize({ pan: false })
+        if (view2d) map.setView(view2d.center, view2d.zoom, { animate: false })
+      }
+      button.setAttribute('aria-pressed', String(on))
+      button.textContent = on ? '🧭 2D view' : '🧭 3D view'
+    } catch (error) {
+      map3dEl.hidden = true
+      document.querySelector('#map').hidden = false
+      map.invalidateSize({ pan: false })
+      button.setAttribute('aria-pressed', 'false')
+      button.textContent = '3D unavailable'
+      console.error('Planning 3D view failed:', error)
+    } finally { switching3d = false }
+>>>>>>> origin/main
   })
 
   function selectStop(index, pan = true) {
@@ -237,7 +284,15 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
 }
 
 root.innerHTML = '<div class="loading-screen">Loading terrain and calculating the demo route…</div>'
-const catalog = loadScenarioCatalog().then((file) => (Array.isArray(file?.scenarios) && file.scenarios.length ? file.scenarios : BUILTIN_SCENARIOS)).catch(() => BUILTIN_SCENARIOS)
-Promise.all([loadRouteForEva(new URLSearchParams(location.search).get('eva')), catalog])
-  .then(([{ route, grid }, scenarios]) => { assertRoute(route); render(route, grid, scenarios) })
+const params = new URLSearchParams(location.search)
+const eva = params.get('eva') || '07'
+Promise.all([loadRouteForEva(eva), loadScenarioCatalog(), fetch('/terrain/area.json').then((r) => r.json()), fetch('/routes/rover-parking.json').then((r) => r.json())])
+  .then(([initial, catalog, area, parking]) => {
+    const versions = planningTravelVersions(initial, area, catalog, parking)
+    const requested = params.get('travel')
+    const mode = requested === 'foot' || requested === 'rover' ? requested : versions.defaultMode
+    const route = versions[mode]
+    assertRoute(route)
+    render(route, initial.grid, catalog.scenarios, versions, mode)
+  })
   .catch((error) => { root.innerHTML = `<div class="error-screen"><h1>Unable to calculate the route</h1><p>${safe(error.message)}</p><p>Check the terrain files in <code>public/terrain/</code> and the mission template in <code>public/routes/sample-route.json</code>. No sample route has been substituted.</p></div>` })

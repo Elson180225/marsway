@@ -28,7 +28,7 @@ const duration = (minutes) => {
   return value >= 60 ? `${Math.floor(value / 60)}h ${value % 60}m` : `${value}m`
 }
 
-export function mountPlanningSafety({ root, map, grid, route }) {
+export function mountPlanningSafety({ root, map, grid, route, onOverlayChange = () => {} }) {
   const layer = L.layerGroup().addTo(map)
   const stormLine = L.polyline([], { color: '#ff7b6e', weight: 5, dashArray: '7 5' })
   const probeMarker = L.circleMarker([0, 0], { radius: 5, color: '#ffffff', fillColor: '#24343a', fillOpacity: 1 })
@@ -71,13 +71,14 @@ export function mountPlanningSafety({ root, map, grid, route }) {
   const $ = (id) => document.getElementById(id)
   const form = root.querySelector('form')
   $('ps-elapsed').max = String(route.mission.max_walk_minutes / 60)
-  $('ps-budget').textContent = `Suit budget: ${duration(route.mission.max_walk_minutes)}; protected reserve: ${duration(route.mission.reserve_minutes)}.${route.mission.drive_home_minutes ? ` EVA-08 includes an assumed ${duration(route.mission.drive_home_minutes)} suited drive each way; G2 is not storm shelter. Elapsed time starts after the outbound drive.` : ''} No live suit or position feed.`
+  $('ps-budget').textContent = `Suit budget: ${duration(route.mission.max_walk_minutes)}; protected reserve: ${duration(route.mission.reserve_minutes)}.${route.mission.drive_home_minutes ? ` ${route.mission.id} includes an assumed ${duration(route.mission.drive_home_minutes)} suited drive each way; ${homeLabel} is not storm shelter. Elapsed time starts after the outbound drive.` : ''} No live suit or position feed.`
   const metric = document.querySelector('#planning-turnback')
   const metricLabel = document.querySelector('#planning-turnback-note')
 
   function clearResult(label) {
     result = null
     layer.clearLayers()
+    onOverlayChange(null)
     stormLine.remove()
     probeMarker.remove()
     for (const id of ['ps-home', 'ps-turnback', 'ps-reserve', 'ps-dose']) $(id).textContent = label
@@ -122,7 +123,7 @@ export function mountPlanningSafety({ root, map, grid, route }) {
     const path = result.storm.path
     if (path.length > 1) stormLine.setLatLngs(path.map((p) => [p.y, p.x])).addTo(map)
     $('ps-storm-note').textContent = path.length > 1
-      ? `SIMULATED storm route to ${route.mission.drive_home_minutes ? `G2 rover, then assumed ${duration(route.mission.drive_home_minutes)} drive to H1` : homeLabel}: ${(result.storm.distance_m / 1000).toFixed(2)} km, ${duration(result.storm.seconds / 60)} on foot. This is a modelled return route, not a live storm alert or shelter certification.`
+      ? `SIMULATED storm route to ${route.mission.drive_home_minutes ? `${homeLabel} rover, then assumed ${duration(route.mission.drive_home_minutes)} drive to ${route.mission.habitat_label ?? 'H1'}` : homeLabel}: ${(result.storm.distance_m / 1000).toFixed(2)} km, ${duration(result.storm.seconds / 60)} on foot. This is a modelled return route, not a live storm alert or shelter certification.`
       : `SIMULATED storm: the reference is already in ${homeLabel}'s grid cell.`
   }
   function calculate() {
@@ -188,7 +189,9 @@ export function mountPlanningSafety({ root, map, grid, route }) {
       if (data.type !== 'result') return
       result = data.result
       layer.clearLayers()
-      L.imageOverlay(spareOverlayUrl(result, grid), [[0, 0], [grid.sizeY, grid.sizeX]], { opacity: 0.85, interactive: false }).addTo(layer)
+      const overlayUrl = spareOverlayUrl(result, grid)
+      L.imageOverlay(overlayUrl, [[0, 0], [grid.sizeY, grid.sizeX]], { opacity: 0.85, interactive: false }).addTo(layer)
+      onOverlayChange(overlayUrl)
       $('ps-home').textContent = duration(result.timer.homeMinutes)
       $('ps-turnback').textContent = result.timer.turnbackIn > 0 ? duration(result.timer.turnbackIn) : 'NOW'
       $('ps-reserve').textContent = result.reserveAtHomeMinutes >= 0 ? duration(result.reserveAtHomeMinutes) : `${duration(-result.reserveAtHomeMinutes)} short`

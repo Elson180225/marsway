@@ -6,10 +6,12 @@ import { createTerrainNavigation } from '../../terrainNavigation.js'
 import { loadHomeFile } from '../../safezone/homeFile.js'
 import { stopMetadata } from '../../stopDetails.js'
 import { directionsFor } from '../../pathfinding/directions.js'
+import { RAD_SURFACE_MSV_PER_DAY, SOLAR_STORM_FACTOR } from '../../safezone/radiation.js'
+import { photoFileName, photosFor, savePhoto } from './stopPhotos.js'
 import {
   ALERT_LEVELS, advance, arrivalTimes, bearing, bonusStatus, buildReturnTrip, canHeadHome, cardinal, currentTrip, directionLine,
-  hazardSpots, headHome, minutesBehindPlan, pathLength, photoDistance, photoStop, pointAlong, radiationDose, safetyStatus, segmentLength,
-  shelterFor, sortWarnings, walkPace,
+  groundAt, hazardSpots, headHome, minutesBehindPlan, pathGround, pathLength, photoDistance, photoStop, pointAlong, radiationDose,
+  safetyStatus, segmentLength, shelterFor, sortWarnings, walkPace,
 } from './walk-model.js'
 
 const root = document.querySelector('#walk')
@@ -104,6 +106,7 @@ function start(route, navigation, grid) {
       <section id="w-status" class="walk-status" role="status" aria-live="polite"></section>
 
 
+      <div id="w-main" class="walk-main">
       <section class="walk-next" aria-label="Next stop">
         <div class="walk-next-head">
           <span id="w-next-label" class="walk-eyebrow">NEXT STOP</span>
@@ -132,16 +135,53 @@ function start(route, navigation, grid) {
         </div>
         <div class="walk-legend"><span class="walk-legend-line"></span>This leg<span class="walk-legend-dash"></span>Path home<span class="walk-hazard is-caution walk-legend-sign"><i>!</i></span>Hazard</div>
       </section>
+      <p id="w-turnback-line" class="walk-turnback-line" hidden></p>
+      <nav class="walk-pages" aria-label="More about this walk">
+        <button type="button" id="w-open-science" class="walk-page-btn"><span><i aria-hidden="true">🔬</i>Science</span><small id="w-science-hint">–</small></button>
+        <button type="button" id="w-open-data" class="walk-page-btn"><span><i aria-hidden="true">📊</i>Data</span><small id="w-data-hint">Radiation, storms, terrain</small></button>
+      </nav>
+      </div>
       <p id="w-announce" class="walk-sr" aria-live="assertive"></p>
 
+      <section id="w-science-page" class="walk-page" aria-labelledby="w-science-title" hidden>
+        <div class="walk-page-head"><button type="button" class="walk-back" data-back>← Back to map</button><h2 id="w-science-title" tabindex="-1">Science stop</h2></div>
+        <section id="w-photo" class="walk-photo" aria-label="Task and reference photo for this stop" hidden></section>
+        <p id="w-photo-none" class="walk-page-empty" hidden></p>
+        <section id="w-shots" class="walk-data-card walk-shots" aria-labelledby="w-shots-title" hidden>
+          <h3 id="w-shots-title">Your photos</h3>
+          <button type="button" id="w-shot-take" class="walk-btn walk-btn-camera"><span aria-hidden="true">📷</span> Take photo</button>
+          <button type="button" id="w-shot-pick" class="walk-shot-pick">No camera? Choose from the gallery</button>
+          <input id="w-shot-camera" type="file" accept="image/*" capture="environment" hidden>
+          <input id="w-shot-gallery" type="file" accept="image/*" hidden>
+          <p id="w-shot-status" class="walk-shot-status" role="status"></p>
+          <ul id="w-shot-list" class="walk-shot-list"></ul>
+          <p class="walk-data-source">Kept on this phone only, never uploaded. Each photo is labelled with the stop, the EVA, the mission time and your simulated position.</p>
+        </section>
+      </section>
+
+      <section id="w-data-page" class="walk-page" aria-labelledby="w-data-title" hidden>
+        <div class="walk-page-head"><button type="button" class="walk-back" data-back>← Back to map</button><h2 id="w-data-title" tabindex="-1">Data</h2></div>
       <section class="walk-tiles" aria-label="Turn-back timer, time home, bonus stop and radiation">
         <div class="walk-tile" id="w-turnback-tile"><span>TURN BACK IN</span><strong id="w-turnback">–</strong><small id="w-turnback-by">–</small></div>
         <div class="walk-tile"><span>HOME FROM HERE</span><strong id="w-home">–</strong><small id="w-reserve">–</small></div>
         <div class="walk-tile" id="w-bonus-tile" hidden><span>BONUS STOP</span><strong id="w-bonus">–</strong><small id="w-bonus-note">–</small></div>
         <div class="walk-tile" id="w-rad-tile" title="Estimate: about 0.67 mSv a day on the surface at Gale Crater, measured by Curiosity's RAD instrument (Hassler et al. 2014). Doubled during a solar storm (team assumption from the September 2017 event). Not a measured personal dose."><span>RADIATION SO FAR</span><strong id="w-rad">–</strong><small id="w-rad-note">–</small></div>
       </section>
-
-      <section id="w-photo" class="walk-photo" aria-label="Photo and task for this stop" hidden></section>
+        <section class="walk-data-card" aria-labelledby="w-data-rad-title">
+          <h3 id="w-data-rad-title">Radiation</h3>
+          <dl id="w-data-rad" class="walk-rows"></dl>
+          <p class="walk-data-source">Estimate, not a personal dose: about ${RAD_SURFACE_MSV_PER_DAY} mSv a day on the surface at Gale Crater, measured by Curiosity's RAD instrument (Hassler et al. 2014). ×${SOLAR_STORM_FACTOR} during a solar storm, from the September 2017 event.</p>
+        </section>
+        <section class="walk-data-card" aria-labelledby="w-data-alerts-title">
+          <h3 id="w-data-alerts-title">Storms and alerts</h3>
+          <div id="w-data-alerts"></div>
+        </section>
+        <section class="walk-data-card" aria-labelledby="w-data-ground-title">
+          <h3 id="w-data-ground-title">Terrain</h3>
+          <dl id="w-data-ground" class="walk-rows"></dl>
+          <ul id="w-data-hazards" class="walk-hazard-list"></ul>
+        </section>
+      </section>
 
       <div class="walk-actions">
         <button type="button" id="w-primary" class="walk-btn walk-btn-primary"></button>
@@ -161,6 +201,7 @@ function start(route, navigation, grid) {
   L.imageOverlay(route.map.basemap_url, route.map.bounds, { opacity: 0.8, interactive: false }).addTo(map).on('error', () => {
     $('w-map-card').insertAdjacentHTML('beforeend', '<p class="walk-map-note">No basemap. Routing still uses the terrain.</p>')
   })
+  const scienceStops = stops.filter((stop, index) => index > 0 && stop.type !== 'home' && stop.type !== 'habitat')
   const allPoints = legs.flatMap((leg) => leg.path.map(mapPoint))
   map.fitBounds(L.latLngBounds(allPoints).pad(0.15))
   legs.forEach((leg) => L.polyline(leg.path.map(mapPoint), { color: '#f6b77c', weight: 3, opacity: 0.25 }).addTo(map))
@@ -170,7 +211,9 @@ function start(route, navigation, grid) {
     if (index > 0 && stop.type === 'home') return
     const kind = index === 0 ? 'is-home' : stop.is_bonus ? 'is-bonus' : ''
     const icon = L.divIcon({ className: 'walk-stop-icon', html: `<span class="walk-stop ${kind}">${index === 0 ? '⌂' : index}</span>`, iconSize: [28, 28], iconAnchor: [14, 14] })
-    L.marker(mapPoint(stop), { icon, interactive: false, keyboard: false }).addTo(map)
+    const science = scienceStops.includes(stop) // tap a science stop to open its page
+    const marker = L.marker(mapPoint(stop), { icon, interactive: science, keyboard: science, title: science ? `${stop.name}: open the science stop page` : '' }).addTo(map)
+    if (science) marker.on('click', () => openPage('science', stop.id))
   })
   const shelterRing = L.circleMarker([0, 0], { radius: 22, color: '#ff7b6e', weight: 3, fill: false, dashArray: '4 5', interactive: false })
   const me = L.marker([0, 0], {
@@ -179,6 +222,110 @@ function start(route, navigation, grid) {
   }).addTo(map)
   map.on('dragstart', () => { follow = false; $('w-recenter').hidden = false })
   $('w-recenter').addEventListener('click', () => { follow = true; $('w-recenter').hidden = true; update() })
+
+  // Pages: the map view, the Science stop page and the Data page. They are views of this same page
+  // (#science/<stop id>, #data), so the walk keeps running and the phone's back button returns to the map.
+  let view = 'main'
+  let scienceId = null // the stop shown on the Science stop page
+  let pushed = false // we added a history entry, so "Back to map" can go back
+  let autoOpened = false // the Science stop page opened by itself when the crew arrived
+  let openedFrom = null // focus returns here on the way back to the map
+  let arrivalSeen = '' // the stop the crew last arrived at, so arriving opens its page only once
+  let crewPoint = null // simulated position, for labelling photos
+
+  function showView(hash) {
+    const [name, rawId] = hash.replace(/^#/, '').split('/')
+    const id = decodeURIComponent(rawId || '')
+    view = name === 'data' ? 'data' : name === 'science' ? 'science' : 'main'
+    if (view === 'science') scienceId = scienceStops.some((stop) => stop.id === id) ? id : photoStop(route, state)?.stop.id ?? null
+    if (view !== 'science') autoOpened = false
+    $('w-main').hidden = view !== 'main'
+    $('w-science-page').hidden = view !== 'science'
+    $('w-data-page').hidden = view !== 'data'
+    window.scrollTo(0, 0)
+    update()
+    ;(view === 'main' ? openedFrom : $(`w-${view}-title`))?.focus({ preventScroll: true })
+  }
+  function openPage(name, stopId = null, { auto = false } = {}) {
+    openedFrom = auto ? null : document.activeElement
+    autoOpened = auto
+    pushed = true
+    location.hash = name === 'science' && stopId ? `science/${encodeURIComponent(stopId)}` : name
+  }
+  function backToMap() {
+    if (pushed) history.back()
+    else { history.replaceState(null, '', location.pathname + location.search); showView('') }
+  }
+  window.addEventListener('hashchange', () => { if (!location.hash) pushed = false; showView(location.hash) })
+  $('w-open-science').addEventListener('click', () => openPage('science', photoStop(route, state)?.stop.id))
+  $('w-open-data').addEventListener('click', () => openPage('data'))
+  root.querySelectorAll('[data-back]').forEach((button) => button.addEventListener('click', backToMap))
+
+  // Photos at a stop: the back camera on phones (capture="environment"), or the gallery if there is
+  // no camera. Saved on this device only (stopPhotos.js, IndexedDB).
+  let shotUrls = []
+  let shotsKey = ''
+  const shotStatus = (text, level = '') => { $('w-shot-status').textContent = text; $('w-shot-status').dataset.level = level }
+  $('w-shot-take').addEventListener('click', () => $('w-shot-camera').click())
+  $('w-shot-pick').addEventListener('click', () => $('w-shot-gallery').click())
+  for (const input of [$('w-shot-camera'), $('w-shot-gallery')]) {
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0]
+      input.value = ''
+      const stop = scienceStops.find((item) => item.id === scienceId)
+      if (!file || !stop) return
+      shotStatus('Saving…')
+      try {
+        await savePhoto({ blob: file, eva: mission.id, stopId: stop.id, stopName: stop.name, simTimeMs: state.clockMs, position: crewPoint })
+        shotStatus(`Saved at ${utcTime(state.clockMs)} UTC.`, 'ok')
+        shotsKey = ''
+        renderShots(stop)
+      } catch (error) {
+        shotStatus(`Photo not saved: ${error.message}`, 'danger')
+      }
+    })
+  }
+
+  // Thumbnails of this stop's photos, newest last, each with a way to keep a copy.
+  async function renderShots(stop) {
+    const key = `${mission.id}:${stop.id}`
+    if (key === shotsKey) return
+    shotsKey = key
+    let list = []
+    try { list = await photosFor(mission.id, stop.id) }
+    catch (error) { shotStatus(`Photos can't be shown: ${error.message}`, 'danger'); return }
+    if (shotsKey !== key) return // the page moved on to another stop meanwhile
+    shotUrls.forEach((url) => URL.revokeObjectURL(url))
+    shotUrls = list.map((record) => URL.createObjectURL(record.blob))
+    const where = (record) => record.position ? ` · x ${Math.round(record.position.x)} m, y ${Math.round(record.position.y)} m` : ''
+    const photosApp = window.Capacitor?.isPluginAvailable?.('MarsWayPhotos') ? window.Capacitor.Plugins.MarsWayPhotos : null
+    const saveLabel = photosApp ? 'Save to Photos' : 'Download'
+    $('w-shot-list').innerHTML = list.map((record, k) => `
+      <li><a class="walk-shot-open" href="${shotUrls[k]}" target="_blank" rel="noopener"><img src="${shotUrls[k]}" alt="Your photo at ${safe(record.stopName)}, ${utcTime(record.simTimeMs, true)} UTC" loading="lazy"></a>
+        <span>${utcTime(record.simTimeMs, true)} UTC${where(record)}</span>
+        <a class="walk-shot-save" href="${shotUrls[k]}" download="${safe(photoFileName(record))}" data-index="${k}">${saveLabel}</a></li>`).join('')
+    $('w-shot-list').hidden = !list.length
+    // In the Android app, the page can't download files: save to the phone's Photos instead
+    // (MarsWayPhotosPlugin.java).
+    if (photosApp) {
+      $('w-shot-list').querySelectorAll('.walk-shot-save').forEach((link) => link.addEventListener('click', async (event) => {
+        event.preventDefault()
+        const record = list[Number(link.dataset.index)]
+        try {
+          const data = await new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(String(reader.result).split(',')[1])
+            reader.onerror = () => reject(reader.error ?? new Error('Could not read the photo.'))
+            reader.readAsDataURL(record.blob)
+          })
+          await photosApp.savePhoto({ data, fileName: photoFileName(record), mimeType: record.type })
+          shotStatus('Saved to the phone\'s Photos (MarsWay album).', 'ok')
+        } catch (error) {
+          shotStatus(`Not saved to Photos: ${error.message}`, 'danger')
+        }
+      }))
+    }
+  }
 
   // Simulation (advance() in walk-model.js moves the clock, the crew and the science time at stops)
   const atStop = () => state.mode === 'outbound' && state.progress === 0 && state.legIndex > 0
@@ -400,6 +547,7 @@ function start(route, navigation, grid) {
   function updateView() {
     const trip = currentTrip(route, state)
     const { point, nextIndex } = pointAlong(trip.path, state.progress)
+    crewPoint = point
     const remainingPath = [point, ...trip.path.slice(nextIndex)]
     const ahead = trip.path.slice(nextIndex).find((p) => p.x !== point.x || p.y !== point.y)
     const pace = walkPace(state)
@@ -455,6 +603,13 @@ function start(route, navigation, grid) {
     $('w-turnback-tile').className = `walk-tile ${outbound && turnbackIn <= 0 ? 'is-danger' : outbound && turnbackIn <= 30 ? 'is-caution' : ''}`
     $('w-home').textContent = complete ? '0m' : duration(safety.homeMinutes)
     $('w-reserve').textContent = `${duration(safety.reserveAtHome)} suit left at home`
+    // The main safety number stays on the map view; the full tiles are on the Data page.
+    const turnbackLine = $('w-turnback-line')
+    turnbackLine.hidden = !outbound
+    turnbackLine.dataset.level = outbound && turnbackIn <= 0 ? 'danger' : outbound && turnbackIn <= 30 ? 'caution' : ''
+    turnbackLine.innerHTML = turnbackIn > 0
+      ? `Turn back in <b>${duration(turnbackIn)}</b> · by ${utcTime(state.clockMs + turnbackIn * 60000)} UTC`
+      : '<b>Turn back now</b> · head home'
 
     // At a stop: how the crew is doing against the planned times, and the demo "+30m here" button.
     $('w-stop-row').hidden = !atStop()
@@ -466,7 +621,19 @@ function start(route, navigation, grid) {
     catch (error) { bonus = { phase: 'error', error } }
     renderBonus(bonus)
     renderRadiation()
-    renderPhoto()
+
+    // Science stop page: opens by itself when the crew arrives at a stop, and goes back to the map
+    // when they walk on (only if it opened by itself). The Science button names the stop it opens.
+    const arrivedAt = atStop() && scienceStops.includes(trip.from) ? trip.from.id : ''
+    if (arrivedAt && arrivedAt !== arrivalSeen && view === 'main') openPage('science', arrivedAt, { auto: true })
+    if (!arrivedAt && autoOpened && view === 'science') { autoOpened = false; backToMap() }
+    arrivalSeen = arrivedAt
+    const nextStop = photoStop(route, state)
+    $('w-science-hint').textContent = nextStop ? `${nextStop.here ? 'Here' : 'Next'}: ${nextStop.stop.name}` : 'Tap a stop on the map'
+    const alertsOn = complete ? [] : sortWarnings([...(route.alerts || []), ...(simAlert ? [simAlert] : [])])
+    $('w-data-hint').textContent = alertsOn.length ? `${alertName(alertsOn[0])} on` : 'Radiation, storms, terrain'
+    $('w-open-data').dataset.level = alertsOn[0]?.level ?? ''
+    if (view === 'science') renderScience()
 
     // Map
     legLine.setLatLngs(complete ? [] : remainingPath.map(mapPoint))
@@ -476,6 +643,7 @@ function start(route, navigation, grid) {
     if (follow) map.panTo(mapPoint(point), { animate: false })
     placeHazards(trip)
     renderNotices(trip, point, safety, bonus)
+    if (view === 'data') renderData(trip, point, alertsOn)
 
     // Buttons
     const primary = $('w-primary')
@@ -533,21 +701,28 @@ function start(route, navigation, grid) {
 
   // Photo and task for the stop the crew is at, or the next stop while walking (Kelly's stop data,
   // read through the Planning screen's stopMetadata so both screens show the same credits).
-  function renderPhoto() {
+  function renderScience() {
+    const stop = scienceStops.find((item) => item.id === scienceId) ?? null
     const current = photoStop(route, state)
-    const key = current ? `${current.stop.id}:${current.here}` : ''
+    const here = Boolean(stop && current?.here && current.stop === stop)
+    const label = !stop ? '' : here ? 'YOU ARE HERE' : current?.stop === stop ? 'NEXT STOP' : `STOP ${stops.indexOf(stop)}`
+    $('w-photo-none').hidden = Boolean(stop)
+    $('w-photo-none').textContent = state.mode === 'outbound' ? 'Tap a stop on the map to see its science page.' : 'No science stops on the way home. Tap a stop on the map to see its photos.'
+    $('w-shots').hidden = !stop
+    if (stop) renderShots(stop)
+    const key = stop ? `${stop.id}:${label}` : ''
     if (key === photoKey) return
     photoKey = key
     const panel = $('w-photo')
-    panel.hidden = !current
-    if (!current) { panel.replaceChildren(); return }
-    const { stop, here } = current
+    panel.hidden = !stop
+    if (!stop) { panel.replaceChildren(); return }
+    shotStatus('')
     const meta = stopMetadata(stop, window.location.href)
     const metres = photoDistance(stop) // only when it is known for this photo
     const away = metres === null ? '' : `, about ${metres} m away`
     const shot = [meta.sol ? `Sol ${meta.sol}` : null, meta.camera].filter(Boolean).join(' · ')
     panel.innerHTML = `
-      <div class="walk-photo-head"><span class="walk-eyebrow">${here ? 'AT THIS STOP' : 'COMING UP'}</span>${meta.bonus ? '<span class="walk-photo-badge">OPTIONAL BONUS</span>' : ''}</div>
+      <div class="walk-photo-head"><span class="walk-eyebrow">${label}</span>${meta.bonus ? '<span class="walk-photo-badge">OPTIONAL BONUS</span>' : ''}</div>
       <h2>${safe(meta.name)}</h2>
       ${stop.why ? `<p class="walk-photo-task"><b>TASK</b>${safe(stop.why)}${meta.visitMinutes ? ` <span>${meta.visitMinutes} min</span>` : ''}</p>` : ''}
       ${meta.photo ? `<figure>
@@ -577,6 +752,58 @@ function start(route, navigation, grid) {
       : `full ${hours} walk: ${dose.fullWalkMSv.toFixed(2)} mSv`
   }
 
+  // Data page: radiation, storms and alerts, and the terrain, in numbers and words. The map keeps its
+  // pop-ups; this page has the detail behind them.
+  let groundPath = null
+  let groundLeg = null
+  function renderData(trip, point, alerts) {
+    const set = (id, html) => { const element = $(id); if (element.innerHTML !== html) element.innerHTML = html }
+    const rows = (list) => list.map(([label, value, level = '']) => `<dt>${label}</dt><dd${level ? ` data-level="${level}"` : ''}>${value}</dd>`).join('')
+
+    const dose = radiationDose(route, state.clockMs, state.solarStorms)
+    const hours = Number.isInteger(dose.walkHours) ? `${dose.walkHours}h` : duration(dose.walkHours * 60)
+    const stormNow = state.mode !== 'complete' && state.solarStorms.some((storm) => storm.endMs == null)
+    set('w-data-rad', rows([
+      ['So far', `${dose.soFarMSv.toFixed(3)} mSv`],
+      ['Dose rate now', `${(RAD_SURFACE_MSV_PER_DAY * (stormNow ? SOLAR_STORM_FACTOR : 1)).toFixed(2)} mSv a day${stormNow ? ` · storm ×${SOLAR_STORM_FACTOR}` : ''}`, stormNow ? 'danger' : ''],
+      ['In solar storms', dose.stormMinutes > 0 ? `${duration(dose.stormMinutes)} · +${dose.stormExtraMSv.toFixed(3)} mSv` : 'none yet'],
+      [`Full ${hours} walk`, `${dose.fullWalkMSv.toFixed(2)} mSv at the normal rate`],
+    ]))
+
+    set('w-data-alerts', `${alerts.length
+      ? `<ul class="walk-alert-list">${alerts.map((alert) => `<li data-level="${safe(alert.level)}"><b>${safe(alertName(alert))}</b><span>${safe(alert.message)}</span><span>${safe(shelterLine(point, shelterFor(route, alert)))}</span></li>`).join('')}</ul>`
+      : '<p class="walk-page-empty">No storms or other alerts right now.</p>'}
+      <p class="walk-data-source">A solar storm doubles the radiation dose rate but doesn't slow walking. The habitat is the shelter.</p>`)
+
+    const { slopeWarnDeg, slopeNoGoDeg, roughWarnDeg } = grid.suit
+    const here = groundAt(grid, point)
+    if (groundPath !== trip.path) { groundPath = trip.path; groundLeg = trip.path.length > 1 ? pathGround(grid, trip.path) : null }
+    const slopeText = (deg) => `${Math.round(deg)}°${deg > slopeNoGoDeg ? ' · no-go' : deg > slopeWarnDeg ? ' · steep' : ''}`
+    const slopeLevel = (deg) => (deg > slopeNoGoDeg ? 'danger' : deg > slopeWarnDeg ? 'caution' : '')
+    set('w-data-ground', rows([
+      ...(here ? [
+        ['Height here', `${Math.round(here.heightM).toLocaleString('en-GB')} m <small>(Mars datum)</small>`],
+        ...(here.slopeDeg == null ? [] : [['Slope here', slopeText(here.slopeDeg), slopeLevel(here.slopeDeg)]]),
+        ...(here.roughDeg == null ? [] : [['Roughness here', `${here.roughDeg.toFixed(1)}°${here.roughDeg > roughWarnDeg ? ' · rough' : ''}`, here.roughDeg > roughWarnDeg ? 'caution' : '']]),
+      ] : []),
+      ...(groundLeg ? [
+        [state.mode === 'return' ? 'Way home' : 'This leg', `${distance(trip.distance_m)} · up ${Math.round(groundLeg.climbM)} m, down ${Math.round(groundLeg.descentM)} m`],
+        ['Steepest on it', slopeText(groundLeg.steepestDeg), slopeLevel(groundLeg.steepestDeg)],
+      ] : []),
+      ['Suit limits', `steep over ${slopeWarnDeg}°, no-go over ${slopeNoGoDeg}°, rough over ${roughWarnDeg}°`],
+    ]))
+    // The planner's warnings for this leg, with how far ahead the worst spot is (the signs on the map).
+    const walked = state.progress * hazardLength
+    const warnings = state.mode === 'complete' ? [] : trip.warnings || []
+    set('w-data-hazards', warnings.length ? warnings.map((warning) => {
+      const spot = hazards.find((hazard) => hazard.spot.type === warning.type)?.spot
+      const gap = spot ? spot.along - walked : null
+      const where = gap == null ? '' : gap > 25 ? ` · ${distance(gap)} ahead` : gap >= -25 ? ' · here' : ' · passed'
+      const title = warning.type === 'steep_slope' ? 'Steep ground' : warning.type === 'rough_ground' ? 'Rough ground' : String(warning.type || 'Note').replaceAll('_', ' ')
+      return `<li data-level="${safe(warning.level)}"><b>${safe(title)}${where}</b><span>${safe(warning.message)}</span></li>`
+    }).join('') : `<li>${state.mode === 'complete' ? 'Walk complete.' : 'No steep or rough ground on this leg.'}</li>`)
+  }
+
   let last = performance.now()
   setInterval(() => {
     const now = performance.now()
@@ -592,6 +819,7 @@ function start(route, navigation, grid) {
   update()
   // The map container's size settles after fonts, layout and phone toolbars; re-measure whenever it changes.
   new ResizeObserver(() => { map.invalidateSize(); update() }).observe($('w-map'))
+  if (location.hash) showView(location.hash) // opened straight on #data or #science/<stop>
 }
 
 root.innerHTML = '<div class="walk-loading">Loading the walk route…</div>'
