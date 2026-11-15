@@ -230,17 +230,21 @@ button { font: inherit; }
 .walk-alert-list li[data-level="caution"], .walk-hazard-list li[data-level="caution"] { border-left-color: var(--w-caution); }
 .walk-alert-list li[data-level="danger"], .walk-hazard-list li[data-level="danger"] { border-left-color: var(--w-danger); }
 
-/* Science stop page: the crew's own photos */
+/* Science stop page: the crew's own photos. The page fills the phone screen: the photos card reaches
+   the bottom, and photos are big, 2 per row on a phone. */
+.walk[data-view="science"] { min-height: 100vh; min-height: 100dvh; }
+.walk[data-view="science"] #w-science-page { flex: 1; }
+.walk-shots:not([hidden]) { flex: 1; }
 .walk-btn-camera { width: 100%; min-height: 60px; background: var(--w-route); color: #1d2328; font-size: 18px; }
 .walk-shot-pick { padding: 12px 0 4px; border: 0; background: none; color: var(--w-home); font-size: 14px; text-decoration: underline; cursor: pointer; }
 .walk-shot-status { margin: 6px 0 0; color: var(--w-muted); font-size: 13px; }
 .walk-shot-status:empty { display: none; }
 .walk-shot-status[data-level="ok"] { color: var(--w-ok); }
 .walk-shot-status[data-level="danger"] { color: var(--w-danger); }
-.walk-shot-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 12px; margin: 12px 0 0; padding: 0; list-style: none; }
+.walk-shot-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin: 12px 0 0; padding: 0; list-style: none; }
 .walk-shot-list[hidden] { display: none; }
-.walk-shot-list li { display: grid; gap: 4px; min-width: 0; color: var(--w-muted); font-size: 11px; line-height: 1.35; }
-.walk-shot-list img { display: block; width: 100%; aspect-ratio: 1; border-radius: 8px; background: #0b1116; object-fit: cover; }
+.walk-shot-list li { display: grid; gap: 4px; min-width: 0; color: var(--w-muted); font-size: 12px; line-height: 1.35; }
+.walk-shot-list img { display: block; width: 100%; aspect-ratio: 3 / 4; border-radius: 10px; background: #0b1116; object-fit: cover; }
 .walk-shot-save { padding: 6px 0; color: var(--w-home); font-size: 13px; font-weight: 700; }
 
 /* Random events (Mia's randomEvents.js): scenario number, 🎲 to pick another, and the events so far */
