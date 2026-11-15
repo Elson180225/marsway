@@ -28,7 +28,7 @@ const duration = (minutes) => {
   return value >= 60 ? `${Math.floor(value / 60)}h ${value % 60}m` : `${value}m`
 }
 
-export function mountPlanningSafety({ root, map, grid, route }) {
+export function mountPlanningSafety({ root, map, grid, route, onOverlayChange = () => {} }) {
   const layer = L.layerGroup().addTo(map)
   const stormLine = L.polyline([], { color: '#ff7b6e', weight: 5, dashArray: '7 5' })
   const probeMarker = L.circleMarker([0, 0], { radius: 5, color: '#ffffff', fillColor: '#24343a', fillOpacity: 1 })
@@ -76,6 +76,7 @@ export function mountPlanningSafety({ root, map, grid, route }) {
   function clearResult(label) {
     result = null
     layer.clearLayers()
+    onOverlayChange(null)
     stormLine.remove()
     probeMarker.remove()
     for (const id of ['ps-home', 'ps-turnback', 'ps-reserve', 'ps-dose']) $(id).textContent = label
@@ -186,7 +187,9 @@ export function mountPlanningSafety({ root, map, grid, route }) {
       if (data.type !== 'result') return
       result = data.result
       layer.clearLayers()
-      L.imageOverlay(spareOverlayUrl(result, grid), [[0, 0], [grid.sizeY, grid.sizeX]], { opacity: 0.85, interactive: false }).addTo(layer)
+      const overlayUrl = spareOverlayUrl(result, grid)
+      L.imageOverlay(overlayUrl, [[0, 0], [grid.sizeY, grid.sizeX]], { opacity: 0.85, interactive: false }).addTo(layer)
+      onOverlayChange(overlayUrl)
       $('ps-home').textContent = duration(result.timer.homeMinutes)
       $('ps-turnback').textContent = result.timer.turnbackIn > 0 ? duration(result.timer.turnbackIn) : 'NOW'
       $('ps-reserve').textContent = result.reserveAtHomeMinutes >= 0 ? duration(result.reserveAtHomeMinutes) : `${duration(-result.reserveAtHomeMinutes)} short`

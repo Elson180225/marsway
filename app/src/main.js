@@ -121,9 +121,11 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
   // Bring the map and ordered stops above the deeper safety and schedule sections.
   document.querySelector('.eva-picker').after(document.querySelector('.workspace'))
 
-  const map = L.map('map', { crs: L.CRS.Simple, minZoom: -1.7, maxZoom: 1.2, zoomSnap: 0.25, zoomControl: false })
+  const map = L.map('map', { crs: L.CRS.Simple, minZoom: -3, maxZoom: 2.5, zoomSnap: 0.25, zoomControl: false })
   L.control.zoom({ position: 'bottomright' }).addTo(map)
   const bounds = L.latLngBounds([[0, 0], [grid.sizeY, grid.sizeX]])
+  map.setMaxBounds(bounds.pad(0.2))
+  map.options.maxBoundsViscosity = 0.7
   L.rectangle(bounds, { color: '#b68f65', weight: 1, opacity: 0.2, fillOpacity: 0 }).addTo(map)
   const terrain = L.imageOverlay('/terrain/basemap.png', bounds, { opacity: 0.92, interactive: false }).addTo(map)
   const slope = L.imageOverlay('/terrain/slope.png', bounds, { opacity: 0.55, interactive: false })
@@ -144,7 +146,11 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
     const notice = document.querySelector('.notice span')
     notice.textContent = 'A terrain image failed to load. Check public/terrain/basemap.png and slope.png. Route calculations use the JSON grids.'
   })
-  const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route })
+  let view3d = null
+  let safetyImage = null
+  let sync3dLayers = () => {}
+  const safety = mountPlanningSafety({ root: document.querySelector('#planning-safety'), map, grid, route,
+    onOverlayChange: (url) => { safetyImage = url; sync3dLayers() } })
   mountPlanningScenario(document.querySelector('#mission-schedule'), route, (scenario) => safety.setWeather(scenario))
   const safetyNotes = document.createElement('details')
   safetyNotes.className = 'planning-model-notes'
@@ -171,6 +177,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
     if (map.hasLayer(terrain)) terrain.bringToBack()
     lineLayers.forEach((line) => line.bringToFront())
     returnLayer.bringToFront()
+    sync3dLayers()
   }))
   const lineLayers = legs.map((leg) => L.polyline(leg.path.map(mapPoint), { color: '#f6b77c', weight: 5, opacity: 0.86, lineCap: 'round' }).addTo(map))
   const returnLayer = L.polyline([], { color: '#8ce0d6', weight: 3, opacity: 0.92, dashArray: '8 9' }).addTo(map)
@@ -181,7 +188,6 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
   map.fitBounds(bounds.pad(0.03), { padding: [18, 18] })
 
     // ---- 3D view ----
-  let view3d = null
   const map3dEl = document.querySelector('#map3d')
   const scienceBox = { x0: 600, y0: 400, x1: 3600, y1: 3400 }
   const layers3d = {
@@ -192,17 +198,43 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS) {
     crismAlt: { url: '/terrain/crism_alt.png', bounds: scienceBox },
     themis: { url: '/terrain/themis_night.png', bounds: scienceBox },
   }
+  sync3dLayers = () => {
+    if (!view3d) return
+    layers3d.safety = safetyImage ? { url: safetyImage, opacity: 0.85 } : null
+    view3d.setLayers(Object.keys(layers3d).filter((key) => layers3d[key] && map.hasLayer(layerMap[key])), map.hasLayer(terrain))
+  }
+  let switching3d = false
+  let view2d = null
   document.querySelector('#toggle3d').addEventListener('click', async (event) => {
+    if (switching3d) return
+    switching3d = true
     const button = event.currentTarget
     const on = button.getAttribute('aria-pressed') !== 'true'
-    const { createPlanning3D, webglAvailable } = await import('./planning3d.js')
-    if (on && !webglAvailable()) { button.textContent = '3D not supported here'; return }
-    button.setAttribute('aria-pressed', String(on))
-    if (view3d) view3d.setLayer(enabled && layers3d[key] ? key : 'terrain')
-    document.querySelector('#map').hidden = on
-    map3dEl.hidden = !on
-    if (on && !view3d) view3d = createPlanning3D(map3dEl, { grid, basemapUrl: '/terrain/basemap.webp', layers: layers3d, legs, stops, onSelectStop: (i) => selectStop(i, false) })
-    if (!on) map.invalidateSize()
+    try {
+      if (on) {
+        const { createPlanning3D, webglAvailable } = await import('./planning3d.js')
+        if (!webglAvailable()) { button.textContent = '3D not supported here'; return }
+        view2d = { center: map.getCenter(), zoom: map.getZoom() }
+        map3dEl.hidden = false
+        document.querySelector('#map').hidden = true
+        if (!view3d) view3d = createPlanning3D(map3dEl, { grid, basemapUrl: '/terrain/basemap.webp', layers: layers3d, legs, stops, onSelectStop: (i) => selectStop(i, false) })
+        sync3dLayers()
+      } else {
+        map3dEl.hidden = true
+        document.querySelector('#map').hidden = false
+        map.invalidateSize({ pan: false })
+        if (view2d) map.setView(view2d.center, view2d.zoom, { animate: false })
+      }
+      button.setAttribute('aria-pressed', String(on))
+      button.textContent = on ? '🧭 2D view' : '🧭 3D view'
+    } catch (error) {
+      map3dEl.hidden = true
+      document.querySelector('#map').hidden = false
+      map.invalidateSize({ pan: false })
+      button.setAttribute('aria-pressed', 'false')
+      button.textContent = '3D unavailable'
+      console.error('Planning 3D view failed:', error)
+    } finally { switching3d = false }
   })
 
   function selectStop(index, pan = true) {
