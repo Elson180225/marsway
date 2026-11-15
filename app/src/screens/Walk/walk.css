@@ -151,26 +151,6 @@ button { font: inherit; }
 .leaflet-tooltip-left.walk-pop::before { border-left-color: var(--pop); }
 .walk-me { display: block; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 4px solid #2f8cff; box-shadow: 0 0 0 6px #2f8cff44; }
 
-/* Stop photo and task (Kelly's stop data) */
-.walk-photo { background: var(--w-panel); border: 1px solid var(--w-line); border-radius: 14px; padding: 16px; }
-.walk-photo[hidden] { display: none; }
-.walk-photo-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.walk-photo-badge { flex: none; padding: 4px 8px; border: 1px dashed #f3bd83; border-radius: 6px; color: #f3bd83; font-size: 10px; font-weight: 700; letter-spacing: .12em; }
-.walk-photo h2 { margin: 6px 0 8px; font: 600 20px/1.2 'Space Grotesk', sans-serif; }
-.walk-photo-task { margin: 0 0 12px; font-size: 15px; line-height: 1.45; }
-.walk-photo-task b { margin-right: 8px; color: var(--w-route); font-size: 11px; letter-spacing: .14em; }
-.walk-photo-task span { white-space: nowrap; color: var(--w-muted); font-size: 13px; }
-.walk-photo figure { margin: 0; }
-.walk-photo img { display: block; width: 100%; aspect-ratio: 3 / 2; object-fit: contain; border-radius: 10px; background: #0b1116; } /* whole photo, never cropped */
-.walk-photo img[hidden] { display: none; }
-.walk-photo figcaption { margin-top: 8px; color: var(--w-muted); font-size: 12px; line-height: 1.5; }
-.walk-photo-nearby { display: block; color: var(--w-caution); }
-.walk-photo a { display: inline-block; padding: 6px 0; color: var(--w-home); }
-.walk-photo-missing { margin: 0; padding: 16px; border: 1px dashed #52656a; border-radius: 10px; color: var(--w-muted); font-size: 13px; }
-.walk-photo details { margin-top: 6px; color: #c3d1d3; font-size: 13px; line-height: 1.55; }
-.walk-photo summary { padding: 10px 0; color: var(--w-text); font-weight: 600; cursor: pointer; }
-.walk-photo details p { margin: 0 0 8px; }
-
 
 /* Bottom action bar */
 .walk-actions { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(#10182000, #101820 22%); display: flex; flex-direction: column; gap: 8px; align-items: center; }
@@ -267,3 +247,32 @@ button { font: inherit; }
 .walk-scenario-log[hidden] { display: none; }
 .walk-scenario-log b { color: var(--w-text); font-variant-numeric: tabular-nums; }
 .walk-btn-primary:disabled { background: var(--w-panel-2); color: var(--w-danger); border-color: var(--w-danger); cursor: default; }
+
+/* Walk controls (Resume, Head home, speed, Slow, Storm, Walk to…) show on the map only, not on the
+   Science stop or Data page; those pages then need no room kept for them at the bottom. */
+.walk:not([data-view="main"]) .walk-actions { display: none; }
+.walk:not([data-view="main"]) { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+
+/* Simulated camera (fakeCamera.js): the shutter blinks dark, flashes, and the new photo pops in */
+.walk-btn-camera:disabled { opacity: .75; cursor: default; }
+.walk-shutter { position: fixed; inset: 0; z-index: 2000; pointer-events: none; opacity: 0; background: #000; }
+.walk-shutter.is-on { animation: walk-shutter 460ms ease-out; }
+@keyframes walk-shutter {
+  0% { opacity: 0; background: #000; }
+  14% { opacity: .9; background: #000; }
+  26% { opacity: .85; background: #fff; }
+  100% { opacity: 0; background: #fff; }
+}
+.walk-shot-list li.is-new img { animation: walk-shot-in 420ms 220ms ease-out backwards; }
+@keyframes walk-shot-in {
+  from { opacity: 0; transform: scale(.7); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .walk-shutter.is-on { animation: walk-shutter-soft 300ms ease-out; }
+  .walk-shot-list li.is-new img { animation: none; }
+}
+@keyframes walk-shutter-soft {
+  0%, 100% { opacity: 0; background: #fff; }
+  30% { opacity: .25; background: #fff; }
+}
