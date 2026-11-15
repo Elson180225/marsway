@@ -4,5 +4,11 @@
   "webDir": "dist",
   "server": {
     "appStartPath": "/walk.html"
+  },
+  "backgroundColor": "#101820",
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK"
+    }
   }
 }
