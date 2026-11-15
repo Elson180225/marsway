@@ -140,6 +140,51 @@ function start(route, navigation, grid) {
   // so advance() moves the crew slower or not at all, and the ETAs include the wait.
   const applyEventEffects = () => eventEffects(state, scenario?.events, minutesOut())
 
+  // A random event that has just started (or a solar storm warning that has just come in) pauses the
+  // walk once and shows on the crew's pop-up, flashing, until the crew presses play. So it can't be missed,
+  // even when a more serious alert is already on. When an event ends, its endMessage ("Dust storm over…")
+  // shows on the crew for a few seconds, so it is clear why the crew is faster or safe again.
+  const END_NOTE_MS = 6000 // real time, so it can be read at any simulation speed
+  let eventsSeen = new Set()
+  let newEvent = null // { key, atMin, warning, event } while the walk is paused on it
+  let endNote = null // { event, untilMs } while an event's end message is showing
+  let seenFor = { scenario: undefined, minute: -Infinity } // the scenario and clock the seen list is for
+  const startKey = (event) => `${event.type}:${event.startMin}`
+  const eventMoments = () => (scenario?.events ?? []).flatMap((event) => [
+    { key: startKey(event), atMin: event.startMin, warning: false, event },
+    ...(event.type === 'solar_storm' && event.warningMin
+      ? [{ key: `warning:${event.startMin}`, atMin: event.startMin - event.warningMin, warning: true, event }] : []),
+    ...(event.endMessage && event.durationMin != null
+      ? [{ key: `end:${startKey(event)}`, atMin: event.startMin + event.durationMin, end: true, event }] : []),
+  ])
+  // Everything up to now counts as seen: for a new walk or a new scenario, nothing pauses at the start.
+  function markEventsSeen() {
+    eventsSeen = new Set(eventMoments().filter((moment) => moment.atMin <= minutesOut()).map((moment) => moment.key))
+    newEvent = null
+    endNote = null
+    seenFor = { scenario, minute: minutesOut() }
+  }
+  const momentOn = (moment, now) => (moment.warning ? now < moment.event.startMin : activeEvents([moment.event], now).length > 0)
+  function catchNewEvents() {
+    const now = minutesOut()
+    // A new scenario, or a new walk (the clock went back to the start): start the seen list again.
+    if (scenario !== seenFor.scenario || now < seenFor.minute) markEventsSeen()
+    seenFor.minute = now
+    if (newEvent && (state.mode === 'complete' || !momentOn(newEvent, now))) newEvent = null // it ended meanwhile
+    if (endNote && (state.mode === 'complete' || Date.now() > endNote.untilMs)) endNote = null
+    if (state.mode === 'complete') return
+    const fresh = eventMoments().filter((moment) => moment.atMin <= now && !eventsSeen.has(moment.key))
+    // An end message only for an event the crew saw start (not one the clock jumped right past).
+    const ended = fresh.filter((moment) => moment.end && eventsSeen.has(startKey(moment.event)))
+    if (ended.length) endNote = { event: ended.at(-1).event, untilMs: Date.now() + END_NOTE_MS }
+    fresh.forEach((moment) => eventsSeen.add(moment.key))
+    // Only pause for one that is still on (the clock can jump past a short one, e.g. "+30m here").
+    const stillOn = fresh.filter((moment) => !moment.end && momentOn(moment, now))
+    if (!stillOn.length) return
+    newEvent = stillOn.at(-1)
+    state.playing = false
+  }
+
   // Nigel's shelter route (pathfinding/shelter.js) while a solar storm is warned or on: the quickest way
   // into the habitat from where the crew is, how long, and the extra dose. It is a route search, so it
   // is worked out again only when the storm changes, the crew has moved 50 m or a minute has passed,
@@ -444,8 +489,20 @@ function start(route, navigation, grid) {
 
   // Simulation (advance() in walk-model.js moves the clock, the crew and the science time at stops)
   const atStop = () => state.mode === 'outbound' && state.progress === 0 && state.legIndex > 0
+  // Paused on a new solar storm (its warning or its start) while the crew can still head home: the safe
+  // choice is the big button ("Head to shelter"), and carrying on is the smaller one ("Continue anyway").
+  // The crew still decides; the app makes the safe choice the easy one. Dust storms and dust devils only
+  // slow the crew, so they keep the normal Resume.
+  const shelterChoice = () => newEvent?.event.type === 'solar_storm' && state.mode !== 'complete' && canHeadHome(route, state)
+  function headToShelter() {
+    homeArmedUntil = 0
+    try { headHome(route, state, navigation) } // starts walking home at once
+    catch (error) { stopOnRouteError(error); return }
+    update()
+  }
 
   $('w-primary').addEventListener('click', () => {
+    if (shelterChoice()) { headToShelter(); return } // one tap: it is the labelled safe choice, not a glove bump
     if (state.mode === 'complete') {
       state = initialState()
       if (!linkScenario) setScenario(randomSeed()) // new conditions, unless the link set the day
@@ -455,6 +512,7 @@ function start(route, navigation, grid) {
     update()
   })
   $('w-home-btn').addEventListener('click', () => {
+    if (shelterChoice()) { state.playing = true; update(); return } // "Continue anyway"
     if (!canHeadHome(route, state)) return
     // Two taps to confirm, so a glove bump doesn't abort the walk.
     if (Date.now() > homeArmedUntil) { homeArmedUntil = Date.now() + 3000; update(); return }
@@ -577,16 +635,24 @@ function start(route, navigation, grid) {
     const notes = []
     // On the crew: the most serious alert (storm first), else "turn back" when the suit time is short.
     const alerts = sortWarnings(currentAlerts())
-    const alert = state.mode === 'complete' ? null : alerts[0]
+    // While paused on a new random event, show that one, even if a more serious alert is on.
+    const newAlert = newEvent && alerts.find((a) => (newEvent.warning ? a.warning : a.event === newEvent.event))
+    const alert = state.mode === 'complete' ? null : newAlert || alerts[0]
     const shelter = alert ? shelterFor(route, alert) : null
     let crewLevel = ''
-    if (alert) {
+    // An event's end message, for a few seconds: over any alert but a danger one (a solar storm, say).
+    if (endNote && !newAlert && state.mode !== 'complete' && alert?.level !== 'danger') {
+      // "Dust storm over. Walking is back to normal pace." → title "✓ Dust storm over", then the rest.
+      const [first, ...rest] = endNote.event.endMessage.split('. ')
+      notes.push(showPop(crewPop, mapPoint(point), 'ok', `✓ ${first.replace(/\.$/, '')}`, rest.join('. ')))
+    } else if (alert) {
       crewLevel = alert.level
       notes.push(showPop(crewPop, mapPoint(point), alert.level, alertName(alert), alertLine(alert, point, shelter)))
     } else if (safety.level === 'danger' && state.mode !== 'complete') {
       crewLevel = 'danger'
       notes.push(showPop(crewPop, mapPoint(point), 'danger', safety.title, `Home ${duration(safety.homeMinutes)}`))
     } else showPop(crewPop)
+    crewPop.getElement()?.classList.toggle('is-new', Boolean(newAlert))
     if (shelter && alert.level !== 'info') shelterRing.setLatLng(mapPoint(shelter)).addTo(map)
     else shelterRing.remove()
     $('w-map-card').dataset.level = crewLevel
@@ -675,6 +741,8 @@ function start(route, navigation, grid) {
   }
 
   function update() {
+    catchNewEvents() // may pause the walk on an event that has just started
+    if (state.playing) newEvent = null // the crew pressed play: back to the normal pop-up
     applyEventEffects() // after every change of clock or scenario, so the times shown include a dust devil wait
     try { updateView() } catch (error) { stopOnRouteError(error) }
   }
@@ -720,6 +788,7 @@ function start(route, navigation, grid) {
     $('w-next-label').textContent = complete ? 'EVA COMPLETE' : state.mode === 'return' ? 'HEADING HOME' : trip.to.is_bonus ? 'NEXT STOP · BONUS' : 'NEXT STOP'
     $('w-next-name').textContent = trip.to.name
     $('w-phase').textContent = complete ? 'Done'
+      : newEvent ? `Paused · ${newEvent.warning ? 'solar storm warning' : newEvent.event.title.toLowerCase()}`
       : waitLeft ? `${state.playing ? 'Waiting' : 'Paused'} · dust devil ${duration(waitLeft)}`
       : scienceLeft ? `${state.playing ? 'Science' : 'Paused'} · ${duration(scienceLeft)} left`
         : state.playing ? 'Walking' : state.progress === 0 ? `At ${trip.from.name}` : 'Paused'
@@ -804,6 +873,9 @@ function start(route, navigation, grid) {
           : state.progress > 0 ? '▶\uFE0E Resume'
             : state.mode === 'return' ? '▶\uFE0E Start walking home' : `▶\uFE0E Walk to ${trip.to.name}`
     primary.classList.toggle('is-paused', state.playing)
+    const shelterNext = shelterChoice()
+    if (shelterNext) primary.textContent = '⌂ Head to shelter'
+    primary.classList.toggle('is-shelter', shelterNext)
     // A global dust storm (random events) means NO-GO: the walk can't start.
     const cancelled = Boolean(scenario?.cancelled) && state.mode === 'outbound' && state.legIndex === 0 && state.progress === 0
     primary.disabled = cancelled
@@ -811,8 +883,9 @@ function start(route, navigation, grid) {
     const homeBtn = $('w-home-btn')
     homeBtn.disabled = !canHeadHome(route, state)
     const armed = Date.now() <= homeArmedUntil
-    homeBtn.textContent = armed ? 'Tap again to head home' : '⌂ Head home'
-    homeBtn.classList.toggle('is-armed', armed)
+    homeBtn.textContent = shelterNext ? 'Continue anyway' : armed ? 'Tap again to head home' : '⌂ Head home'
+    homeBtn.classList.toggle('is-armed', armed && !shelterNext)
+    homeBtn.classList.toggle('is-continue', shelterNext)
     $('w-speed').textContent = `${SPEEDS[speedIndex]}×`
     $('w-slow').textContent = slowWalk ? '✕ Slow' : 'Slow'
     $('w-slow').setAttribute('aria-pressed', String(slowWalk))
@@ -962,7 +1035,8 @@ function start(route, navigation, grid) {
     // Redraw while walking, on the tick that arrives at a stop, and while "head home" is armed.
     const armExpired = homeArmedUntil && Date.now() > homeArmedUntil
     if (armExpired) homeArmedUntil = 0
-    if (wasPlaying || homeArmedUntil || armExpired) update()
+    const endNoteExpired = endNote && Date.now() > endNote.untilMs // take an end message down while paused too
+    if (wasPlaying || homeArmedUntil || armExpired || endNoteExpired) update()
   }, TICK_MS)
 
   update()

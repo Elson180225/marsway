@@ -41,6 +41,8 @@ for (let seed = 1; seed <= SEEDS; seed++) {
       assert.ok(e.startMin + e.durationMin <= walk.durationMinutes, `${e.type} ends inside the walk (seed ${seed})`)
     }
     assert.ok(e.title && e.message, 'has pop-up text')
+    if (e.durationMin === null) assert.equal(e.endMessage, null, `${e.type} lasts to the end: no end message`)
+    else assert.ok(e.endMessage, `${e.type} has an end message`)
   }
   for (let i = 1; i < rover.events.length; i++) assert.ok(rover.events[i - 1].startMin <= rover.events[i].startMin, 'sorted by start')
   for (const e of foot.events) if (e.type in count) count[e.type]++

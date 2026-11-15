@@ -24,12 +24,14 @@ export const EVENT_RULES = {
   rover_breakdown: { chance: 0.1 },
 }
 
+// [title, message, endMessage]. endMessage is shown when the event is over; null for events that
+// last until the end of the walk (they never end while the crew is out).
 const TEXT = {
-  global_dust_storm: ['Global dust storm', 'A planet-wide dust storm is under way. NO-GO: the walk is cancelled.'],
-  dust_storm: ['Dust storm', 'Walking slows to 0.6× while it lasts. Check the turn-back timer.'],
-  dust_devil: ['Dust devil', 'Stop and wait for it to pass. The wait counts against suit time.'],
-  solar_storm: ['Solar storm', 'Radiation is doubled while it lasts. Head for shelter if you can.'],
-  rover_breakdown: ['Rover breakdown', 'The rover can’t drive. Use the walk-back plan to the habitat.'],
+  global_dust_storm: ['Global dust storm', 'A planet-wide dust storm is under way. NO-GO: the walk is cancelled.', null],
+  dust_storm: ['Dust storm', 'Walking slows to 0.6× while it lasts. Check the turn-back timer.', 'Dust storm over. Walking is back to normal pace.'],
+  dust_devil: ['Dust devil', 'Stop and wait for it to pass. The wait counts against suit time.', 'Dust devil has passed. Walk on.'],
+  solar_storm: ['Solar storm', 'Radiation is doubled while it lasts. Head for shelter if you can.', 'Solar storm over. Radiation is back to normal.'],
+  rover_breakdown: ['Rover breakdown', 'The rover can’t drive. Use the walk-back plan to the habitat.', null],
 }
 
 /** Small seeded random number generator (mulberry32). Same seed → same numbers. */
@@ -50,8 +52,9 @@ export function randomSeed() {
 }
 
 function makeEvent(type, startMin, durationMin, extra = {}) {
-  const [title, message] = TEXT[type]
-  return { type, startMin, durationMin, title, message, ...extra }
+  const [title, message, endText] = TEXT[type]
+  const endMessage = durationMin === null ? null : endText
+  return { type, startMin, durationMin, title, message, endMessage, ...extra }
 }
 
 /**

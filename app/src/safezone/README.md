@@ -162,20 +162,20 @@ Tests: `node src/safezone/radiation.test.js` (from `app/`).
 
 ## Random events
 
-**One button, a realistic set of events.** Instead of setting the weather by hand, the 🎲 Random
-events button makes up what happens on the walk, and the safe zone, turn-back timer, GO / NO-GO and
-radiation react to it. Every set has a number, **"Scenario #4821"**: the same number always gives
-the same events, so a good scenario can be replayed in the demo or the video.
+**Events just happen, like real Mars weather.** There is no button: every walk gets a set of events
+by itself, and the safe zone, turn-back timer, GO / NO-GO and radiation react to it. Every set has a
+number, **"Scenario #4821"**: the same number always gives the same events, so a good scenario can be
+replayed in the demo or the video. The Walk screen's Data page shows it as "Conditions: Scenario #4821".
 
 ```js
 import { randomEvents, activeEvents, randomSeed } from './safezone/randomEvents.js'
 
-const seed = randomSeed() // 1 to 9999, for the 🎲 button; put it in the link: ?scenario=4821
+const seed = randomSeed() // 1 to 9999, when the link has no ?scenario=; it is then put in the link
 randomEvents({ seed: 4821, eva: '08', version: 'rover', durationMinutes: 261 })
 // → { seed: 4821, label: 'Scenario #4821', eva: '08', version: 'rover', calm: false, cancelled: false,
 //     events: [
-//       { type: 'dust_devil', startMin: 54,  durationMin: 7,  pauseMinutes: 7,   title: 'Dust devil', message: '...' },
-//       { type: 'dust_storm', startMin: 184, durationMin: 43, speedFactor: 0.6, title: 'Dust storm', message: '...' },
+//       { type: 'dust_devil', startMin: 54,  durationMin: 7,  pauseMinutes: 7,   title: 'Dust devil', message: '...', endMessage: '...' },
+//       { type: 'dust_storm', startMin: 184, durationMin: 43, speedFactor: 0.6, title: 'Dust storm', message: '...', endMessage: '...' },
 //     ] }
 
 activeEvents(result.events, minutesOut) // → the events happening now (for pop-ups)
@@ -183,7 +183,9 @@ activeEvents(result.events, minutesOut) // → the events happening now (for pop
 
 - `version` is `'foot'` or `'rover'`. `startMin` is minutes from the start of the walk.
   `durationMin: null` means "until the end of the walk".
-- Events are sorted by `startMin`. Each has a `title` and `message` ready for a pop-up.
+- Events are sorted by `startMin`. Each has a `title` and `message` ready for a pop-up, and an
+  `endMessage` to show when it is over (e.g. "Dust storm over. Walking is back to normal pace.").
+  `endMessage` is `null` for events that last until the end of the walk (global dust storm, rover breakdown).
 - **Planning and Walk must pass the same `seed`, `version` and `durationMinutes`** (the planned walk
   length), or they get different events. Pass the seed between screens as `?scenario=4821`.
   The simple way: both screens call `scenarioEvents(route, seed)` from `src/scenarioEvents.js`. It takes
@@ -211,17 +213,57 @@ devil, 15% solar storm, 2% cancelled, 9% rover breakdown (rover versions). Dust 
 than twice as common as solar storms, and most walks have nothing serious.
 
 Good scenarios for the demo: **#4** (dust storm, then a dust devil), **#7** (global storm, walk
-cancelled), **#8** (calm day), **#4821** (dust devil, then a dust storm).
+cancelled), **#8** (calm day), **#4821** (dust devil, then a dust storm), **#172** (every kind of
+walk event: solar storm, dust devil, dust storm).
+
+### Testing a scenario
+
+The Walk screen picks a random scenario when the link has no number, so to test a particular one, put
+its number in the link with `?scenario=` (and `&eva=` for another EVA; no `eva` means EVA-07).
+From `app/`, run `npm run dev`, then open for example:
+
+```
+http://localhost:5173/walk.html?scenario=172          # EVA-07
+http://localhost:5173/walk.html?eva=09&scenario=4821   # EVA-09
+```
+
+| Number | What happens (about how far into a 4 h 20 min walk) |
+| --- | --- |
+| `172` | Solar storm warning ~34 min, storm ~66 min, then a dust devil, then a dust storm: **tests everything** |
+| `4821` | Dust devil ~54 min, then a dust storm ~184 min |
+| `13` | Dust devil ~16 min (quick test) |
+| `2` | Dust storm ~87 min |
+| `27` | Dust storm ~34 min, then a solar storm (warning ~83, storm ~109) |
+| `73` | Solar storm near the end (~221 min) |
+| `8` | Calm day: nothing should happen |
+| `7` | Global dust storm: walk cancelled |
+
+The times move a little with each EVA's walk length. Play at **60×** so the events come in about a minute
+(300× is very fast: 5 walk minutes a second). To test again, press "↺ Restart simulation" at the end:
+with a number in the link it replays the same scenario; without one it picks a new one. To try another
+scenario, change the number in the link. Coming from Planning, the
+Walk screen link carries Planning's number, so both show the same events. Planning links to the Walk
+screen for the on-foot versions only, and not for EVA-08 yet, so the rover breakdown never happens there.
 
 ### How each screen uses them
 
 | Event | Planning (Aaron) | Walk (Russell) |
 | --- | --- | --- |
-| `dust_storm` | `weatherScenario(start + startMin, 0.6, start + startMin + durationMin)`: the storm now has an end time, so walking is back to normal after it | Pop-up |
-| `dust_devil` | Add `pauseMinutes` to the elapsed time | Pop-up: stop and wait |
-| `solar_storm` | `plannedDose(durationMinutes, events)` (in `radiation.js`) | Add it to `storms` in `doseSoFar()`: the radiation tile counts double |
+| `dust_storm` | `weatherScenario(start + startMin, 0.6, start + startMin + durationMin)`: the storm now has an end time, so walking is back to normal after it | Walking 0.6× while it lasts |
+| `dust_devil` | Add `pauseMinutes` to the elapsed time | The crew stands still while the clock runs |
+| `solar_storm` | `plannedDose(durationMinutes, events)` (in `radiation.js`) | Radiation tile counts double; Nigel's shelter route home; "Head to shelter" choice (below) |
 | `rover_breakdown` | Show the walk-back result | Pop-up; switch home to the habitat's home file (e.g. `home-h1-6km`) |
 | `global_dust_storm` | NO-GO, walk cancelled | "Walk cancelled" at the start |
+
+**On the Walk screen, every event is hard to miss:**
+
+- **When it starts** (or a solar storm warning comes in), the walk pauses once, the crew's pop-up shows
+  that event and flashes, and the status says "Paused · dust storm". ▶ Resume carries on.
+- **A solar storm** makes the safe choice the easy one: the big button becomes **"⌂ Head to shelter"**
+  (one tap, walks home) and the small one **"Continue anyway"**. The crew still decides; carrying on
+  keeps the radiation ×2 and the shelter route on screen.
+- **When it ends,** its `endMessage` shows on the crew in green for 6 seconds ("✓ Dust storm over ·
+  Walking is back to normal pace.").
 
 `weatherScenario(startUtc, speedFactor, endUtc)` in `src/planningWeather.js`: `endUtc` is optional.
 Leave it out and the storm lasts to the end of the walk, as before.
