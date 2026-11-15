@@ -2,7 +2,7 @@
 // Coordinates are local metres from the shared route contract: x = east, y = north.
 import { bonusStopCheck } from '../../safezone/bonusStop.js'
 import { walkDoseMSv, doseSoFar } from '../../safezone/radiation.js'
-import { xyToCell } from '../../pathfinding/walkingTime.js'
+import { heightAt, xyToCell } from '../../pathfinding/walkingTime.js'
 import { etaFor, paceFactor } from '../../pathfinding/navigation.js'
 import { nextDirection } from '../../pathfinding/directions.js'
 
@@ -95,6 +95,51 @@ export function hazardSpots(grid, trip) {
     if (best) spots.push(best)
   }
   return spots
+}
+
+/**
+ * The ground at a point, for the Data page: height, slope and roughness from the terrain grid, and how
+ * it compares with the suit's limits (warning above slopeWarnDeg or roughWarnDeg, no-go above slopeNoGoDeg).
+ * Returns { heightM, slopeDeg, roughDeg, level: 'ok' | 'caution' | 'danger' }, or null off the map.
+ */
+export function groundAt(grid, point) {
+  const cell = xyToCell(grid, point.x, point.y)
+  if (cell < 0) return null
+  const slopeDeg = grid.slope ? grid.slope[cell] : null
+  const roughDeg = grid.roughness ? grid.roughness[cell] : null
+  const { slopeWarnDeg, slopeNoGoDeg, roughWarnDeg } = grid.suit
+  const level = slopeDeg > slopeNoGoDeg ? 'danger' : slopeDeg > slopeWarnDeg || roughDeg > roughWarnDeg ? 'caution' : 'ok'
+  return { heightM: heightAt(grid, point.x, point.y), slopeDeg, roughDeg, level }
+}
+
+/**
+ * Up, down and the worst ground along a path (one leg), checked every grid cell, for the Data page.
+ * Returns { climbM, descentM, steepestDeg, roughestDeg }.
+ */
+export function pathGround(grid, path) {
+  const step = grid.cellSize
+  let climbM = 0
+  let descentM = 0
+  let steepestDeg = 0
+  let roughestDeg = 0
+  let last = null
+  const visit = (x, y) => {
+    const h = heightAt(grid, x, y)
+    if (last !== null) { if (h > last) climbM += h - last; else descentM += last - h }
+    last = h
+    const cell = xyToCell(grid, x, y)
+    if (cell < 0) return
+    if (grid.slope) steepestDeg = Math.max(steepestDeg, grid.slope[cell])
+    if (grid.roughness) roughestDeg = Math.max(roughestDeg, grid.roughness[cell])
+  }
+  if (path.length) visit(path[0].x, path[0].y)
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1]
+    const b = path[i]
+    const n = Math.max(1, Math.ceil(segmentLength(a, b) / step))
+    for (let k = 1; k <= n; k++) visit(a.x + ((b.x - a.x) * k) / n, a.y + ((b.y - a.y) * k) / n)
+  }
+  return { climbM, descentM, steepestDeg, roughestDeg }
 }
 
 export function sortWarnings(warnings) {
