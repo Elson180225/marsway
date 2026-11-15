@@ -154,9 +154,92 @@ Where it shows:
 - **Planning screen:** the planned dose (normal rate, whole EVA outside), plus the running total
   against 600 mSv. Type a previous career dose to include it; if left blank, the screen says so and
   `running_total_msv` in the summary CSV stays blank. "Elapsed dose estimate" in the safety panel is
-  the dose for the time already out. Solar storm dose and shielding are not used on this screen yet.
+  the dose for the time already out. Solar storm dose and shielding are not used on this screen yet;
+  `plannedDose(durationMinutes, events)` gives the planned dose with random-event solar storms
+  (see Random events below).
 
 Tests: `node src/safezone/radiation.test.js` (from `app/`).
+
+## Random events
+
+**One button, a realistic set of events.** Instead of setting the weather by hand, the 🎲 Random
+events button makes up what happens on the walk, and the safe zone, turn-back timer, GO / NO-GO and
+radiation react to it. Every set has a number, **"Scenario #4821"**: the same number always gives
+the same events, so a good scenario can be replayed in the demo or the video.
+
+```js
+import { randomEvents, activeEvents, randomSeed } from './safezone/randomEvents.js'
+
+const seed = randomSeed() // 1 to 9999, for the 🎲 button; put it in the link: ?scenario=4821
+randomEvents({ seed: 4821, eva: '08', version: 'rover', durationMinutes: 261 })
+// → { seed: 4821, label: 'Scenario #4821', eva: '08', version: 'rover', calm: false, cancelled: false,
+//     events: [
+//       { type: 'dust_devil', startMin: 54,  durationMin: 7,  pauseMinutes: 7,   title: 'Dust devil', message: '...' },
+//       { type: 'dust_storm', startMin: 184, durationMin: 43, speedFactor: 0.6, title: 'Dust storm', message: '...' },
+//     ] }
+
+activeEvents(result.events, minutesOut) // → the events happening now (for pop-ups)
+```
+
+- `version` is `'foot'` or `'rover'`. `startMin` is minutes from the start of the walk.
+  `durationMin: null` means "until the end of the walk".
+- Events are sorted by `startMin`. Each has a `title` and `message` ready for a pop-up.
+- **Planning and Walk must pass the same `seed`, `version` and `durationMinutes`** (the planned walk
+  length), or they get different events. Pass the seed between screens as `?scenario=4821`.
+- Foot and rover versions of one seed get the same weather; only the rover breakdown differs.
+
+### The events
+
+These odds and lengths are **our own simulation assumptions**, based on the team's research summary
+(Russell, 15 Nov 2026). They are not statistics worked out from the Mars Climate Database. All the
+numbers are in `EVENT_RULES` at the top of `randomEvents.js`: change them there and every screen follows.
+
+| `type` | How often | How long | Effect | Why it's in |
+| --- | --- | --- | --- | --- |
+| `dust_storm` | 35% of walks | 20–90 min, starts between 30 min in and 30 min before the end | Walking 0.6× (`speedFactor`) | Strong local storms can come out of season with little warning (MY37 "rocket" storm) |
+| `dust_devil` | 30% | 5–10 min | The crew stops and waits; the wait (`pauseMinutes`) counts against suit time | Very common (1,039 tracked in a 2025 study); grit inside hits hard |
+| `solar_storm` | 15% | 30 min – 3 h | Radiation ×2 (`radiationFactor`, same as `SOLAR_STORM_FACTOR`) | Curiosity RAD: Sept 2017 event doubled the dose (see Radiation above) |
+| `global_dust_storm` | 2% | Whole day | NO-GO: the walk is cancelled (`cancelled: true`, comes alone) | Lasts weeks to months, so the crew would know before going out. None since 2018 |
+| `rover_breakdown` | 10%, rover versions only | Until the end | The crew uses the walk-back plan; home becomes the habitat | Not weather, but a real risk we already check (`roverSafety.js`) |
+
+Over all 9,999 scenarios (261 min walk): about **38% calm** (no events), 34% dust storm, 30% dust
+devil, 15% solar storm, 2% cancelled, 9% rover breakdown (rover versions). Dust storms are more
+than twice as common as solar storms, and most walks have nothing serious.
+
+Good scenarios for the demo: **#4** (dust storm, then a dust devil), **#7** (global storm, walk
+cancelled), **#8** (calm day), **#4821** (dust devil, then a dust storm).
+
+### How each screen uses them
+
+| Event | Planning (Aaron) | Walk (Russell) |
+| --- | --- | --- |
+| `dust_storm` | `weatherScenario(start + startMin, 0.6, start + startMin + durationMin)`: the storm now has an end time, so walking is back to normal after it | Pop-up |
+| `dust_devil` | Add `pauseMinutes` to the elapsed time | Pop-up: stop and wait |
+| `solar_storm` | `plannedDose(durationMinutes, events)` (in `radiation.js`) | Add it to `storms` in `doseSoFar()`: the radiation tile counts double |
+| `rover_breakdown` | Show the walk-back result | Pop-up; switch home to the habitat's home file (e.g. `home-h1-6km`) |
+| `global_dust_storm` | NO-GO, walk cancelled | "Walk cancelled" at the start |
+
+`weatherScenario(startUtc, speedFactor, endUtc)` in `src/planningWeather.js`: `endUtc` is optional.
+Leave it out and the storm lasts to the end of the walk, as before.
+
+```js
+import { plannedDose } from './safezone/radiation.js'
+plannedDose(360, [{ type: 'solar_storm', startMin: 60, durationMin: 60 }])
+// → same fields as doseSoFar(); here the dose of 7 h normal (one storm hour counts double)
+```
+
+### Not included (yet)
+
+- **Cold snaps and pressure swings:** in the research, but we have no suit-battery or heater rule to
+  connect them to.
+- **Toxic dust:** a constant hazard, not a random event. Good for the presentation.
+- **Odds from the MCD files:** the files are 0.5–4.6 GB and were not downloaded. MCD real-year data
+  covers MY24–MY37; say so if MCD numbers are used later.
+- **Units:** the research gives normal radiation as 180–225 µGy/day (absorbed dose); our code uses
+  0.67 mSv/day (dose equivalent, adjusted for harm to the body). Both are right, but don't show them
+  side by side without saying which is which.
+
+Tests: `node src/safezone/randomEvents.test.js` (from `app/`).
 
 ## Files
 
@@ -167,7 +250,8 @@ Tests: `node src/safezone/radiation.test.js` (from `app/`).
 | `turnBack.js` | Turn-back timer |
 | `storm.js` | Storm route home (follows the arrows) |
 | `bonusStop.js` | Bonus-stop GO / NO-GO |
-| `radiation.js` | Radiation dose: normal rate, solar storm ×2, habitat ×0.5, `doseSoFar()` for a walk timeline, career total vs 600 mSv |
+| `radiation.js` | Radiation dose: normal rate, solar storm ×2, habitat ×0.5, `doseSoFar()` for a walk timeline, `plannedDose()` with random-event solar storms, career total vs 600 mSv |
+| `randomEvents.js` | Random events for a walk from a seed: dust storm, dust devil, solar storm, global storm, rover breakdown; `activeEvents()` for what is happening now |
 | `homeFile.js` | Save / load the pre-calculated home file for the phone |
 | `buildHomeFile.js` | Makes `public/safezone/home-h1.*` (EVA-07), `home-g2.*` (EVA-08, 5 km map) and `home-g2-6km.*` (EVA-08, 6 km map). **Re-run if the terrain or `SUIT` changes.** |
 | `buildRoverHomeFiles.js` | Makes the home file for every rover parking spot in `public/routes/rover-parking.json` (home = the rover) |
@@ -180,6 +264,7 @@ Tests: `node src/safezone/radiation.test.js` (from `app/`).
 ```bash
 # from app/
 node src/safezone/test.js             # run all checks
+node src/safezone/randomEvents.test.js  # random events
 node src/safezone/buildHomeFile.js    # rebuild the phone file for EVA-07 (home = H1, 3 km map)
 node src/safezone/buildHomeFile.js --terrain ../data/processed/area-5km/ --home 3192.5,3542.5 --id G2 --out home-g2
                                       # EVA-08 (home = rover at G2, 5 km map)

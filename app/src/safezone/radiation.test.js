@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import {
   RAD_SURFACE_MSV_PER_DAY, SOLAR_STORM_FACTOR, HABITAT_SHIELDING_FACTOR, CAREER_LIMIT_MSV,
-  walkDoseMSv, doseRateMSvPerDay, doseSoFar, careerTotal,
+  walkDoseMSv, doseRateMSvPerDay, doseSoFar, careerTotal, plannedDose,
 } from './radiation.js'
 
 const close = (a, b, message) => assert.ok(Math.abs(a - b) < 1e-9, `${message}: ${a} vs ${b}`)
@@ -54,4 +54,12 @@ close(career.remainingMSv, 499.65, 'remaining')
 close(careerTotal().totalMSv, 0, 'empty total')
 assert.throws(() => careerTotal({ previousMSv: -1 }), /0 or more/)
 
-console.log('Radiation passed: storm ×2, habitat ×0.5, doseSoFar timeline, career total vs 600 mSv.')
+// plannedDose (Planning screen, random events): only solar storms count; one storm hour counts double
+close(plannedDose(360).doseMSv, walkDoseMSv(6), 'no events = normal 6 h dose')
+const planned = plannedDose(360, [{ type: 'solar_storm', startMin: 60, durationMin: 60 }, { type: 'dust_storm', startMin: 0, durationMin: 90 }])
+close(planned.doseMSv, walkDoseMSv(7), '6 h with a 1 h solar storm = 7 h of normal dose')
+close(planned.stormMinutes, 60, 'storm minutes')
+close(plannedDose(360, [{ type: 'solar_storm', startMin: 300, durationMin: null }]).stormMinutes, 60, 'null length = to the end of the walk')
+assert.throws(() => plannedDose(-1), /0 or more/)
+
+console.log('Radiation passed: storm ×2, habitat ×0.5, doseSoFar timeline, career total vs 600 mSv, plannedDose.')

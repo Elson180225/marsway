@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { weatherScenario, adjustedTravelMinutes, latestTurnbackMinutes } from './planningWeather.js'
+import { weatherScenario, adjustedTravelMinutes, latestTurnbackMinutes, stormMinutes } from './planningWeather.js'
 import { calculateMissionSchedule } from './missionSchedule.js'
 import { plannedCsv, SUMMARY_COLUMNS, TIMELINE_COLUMNS } from './planningCsv.js'
 import { makeGrid, gridFileFromRows, cellToXY, xyToCell } from './pathfinding/walkingTime.js'
@@ -14,6 +14,21 @@ const latest = latestTurnbackMinutes(120, 0, 360, Date.parse(start), scenario)
 assert.ok(latest < 240, 'future storm moves turn-back earlier even when leaving now would avoid it')
 assert.ok(Math.abs(latest + adjustedTravelMinutes(120, latest, Date.parse(start), scenario) - 360) < 0.001)
 assert.throws(() => weatherScenario('bad'), /valid UTC/)
+
+// Storm with an end time (random events): slow only inside the window, normal again after it
+const t0 = Date.parse(start)
+const windowed = weatherScenario('2026-11-14T08:20:00Z', 0.6, '2026-11-14T08:40:00Z')
+assert.equal(windowed.endUtc, '2026-11-14T08:40:00.000Z')
+const crossing = adjustedTravelMinutes(60, 0, t0, windowed)
+assert.ok(Math.abs(crossing - (20 + 20 + 28)) < 1e-9, `20 min calm + 20 min in the storm (only 12 min of walking done) + 28 min calm: ${crossing}`)
+assert.equal(adjustedTravelMinutes(30, 60, t0, windowed), 30, 'leaving after the storm ends: no slowdown')
+assert.equal(adjustedTravelMinutes(10, 0, t0, windowed), 10, 'home before the storm starts: no slowdown')
+assert.ok(Math.abs(adjustedTravelMinutes(6, 25, t0, windowed) - 10) < 1e-9, 'all inside the storm: 6 / 0.6')
+assert.equal(stormMinutes(0, 120, t0, windowed), 20, 'storm minutes stop at the end time')
+assert.equal(stormMinutes(0, 120, t0, weatherScenario('2026-11-14T08:20:00Z')), 100, 'no end time: storm lasts to the end, as before')
+assert.throws(() => weatherScenario('2026-11-14T08:20:00Z', 0.6, '2026-11-14T08:10:00Z'), /after the start/)
+const lateWindow = latestTurnbackMinutes(60, 0, 200, t0, windowed)
+assert.ok(Math.abs(lateWindow + adjustedTravelMinutes(60, lateWindow, t0, windowed) - 200) < 0.001, 'turn-back still lands on the limit with an end time')
 
 const stops = [
   { id: 'hab', name: 'H1', type: 'habitat', x: 5, y: 5 },
