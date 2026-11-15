@@ -8,6 +8,7 @@ import { scenarioEvents } from './scenarioEvents.js'
 import { plannedDose } from './safezone/radiation.js'
 import { shelterRoute } from './pathfinding/shelter.js'
 import { planningEventEffects, crewAt } from './planningEvents.js'
+import { plannedCsv } from './planningCsv.js'
 
 const ok = (msg) => console.log('  ok  ' + msg)
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`)
@@ -103,6 +104,50 @@ ok(`#${sunRoverSeed} solar storm with rover: ${sunRover.shelter.route.message}`)
 const cancelSeed = find(foot, (r) => r.cancelled)
 assert.equal(planningEventEffects({ route: foot, grid, seed: cancelSeed }).verdict.level, 'no-go')
 ok(`#${cancelSeed} global dust storm: NO-GO`)
+
+console.log('\nOne schedule for the timeline and the CSV (fx.plan)')
+// Dust devil: times after it move later by the pause; totals match.
+const dp = devil.plan
+assert.equal(dp.total, devil.total)
+for (const [k, row] of calm.rows.entries()) {
+  const expect = (m) => (m > d.startMin ? m + d.pauseMinutes : m)
+  close(dp.rows[k].arrival, expect(row.arrival), 1e-9, `${row.id} arrival`)
+  close(dp.rows[k].departure, expect(row.departure), 1e-9, `${row.id} departure`)
+}
+close(dp.margin, devil.spare, 1e-9, 'margin = spare')
+const devilCsv = plannedCsv(foot, devil.weather, { plan: dp })
+assert.match(devilCsv.timeline, new RegExp(`simulated_dust_devil,Crew position,.*SIMULATED dust devil: crew waits ${d.pauseMinutes} min`))
+const endUtc = new Date(calm.start + dp.total * 60000).toISOString()
+assert.ok(devilCsv.timeline.trim().split('\r\n').at(-1).startsWith(endUtc), 'CSV ends at the paused total')
+ok(`dust devil #${devilSeed}: every later time +${d.pauseMinutes} min in the plan and the CSV`)
+
+// Solar storm sends the crew home early: later stops dropped, emergency arrival last.
+const sp = sunny.plan
+assert.equal(sp.cutShort.reason, 'simulated_shelter')
+close(sp.total, sunny.endMin, 1e-9, 'plan ends when they are inside')
+const homeRow = sp.rows.at(-1)
+assert.equal(homeRow.isHome, true)
+assert.match(homeRow.note, /Solar storm/)
+assert.ok(sp.rows.slice(0, -1).every((r) => r.arrival <= sunny.shelter.atMin), 'no stop after the warning')
+assert.equal(sp.baselineDoseMSv, sunny.dose.doseMSv, 'dose with the storm x2')
+const sunCsv = plannedCsv(foot, sunny.weather, { plan: sp })
+assert.match(sunCsv.timeline, /simulated_solar_warning/)
+assert.match(sunCsv.timeline, /simulated_emergency_home,Habitat \(H1\) \(solar storm shelter\)/)
+assert.ok(sunCsv.summary.includes(`,${sp.total.toFixed(1)},`), 'summary duration = cut-short plan')
+ok(`solar storm #${sunSeed}: ${sp.rows.length - 1} stops kept, home at ${Math.round(sp.total)} min, in the plan and the CSV`)
+
+// Rover breakdown: emergency walk home is the last row.
+assert.equal(broke.plan.cutShort.reason, 'simulated_walk_back')
+assert.equal(broke.plan.driveHome, 0, 'no drive home after a breakdown')
+close(broke.plan.total, broke.endMin, 1e-9, 'plan ends when they walk in')
+const brokeCsv = plannedCsv(rover, broke.weather, { plan: broke.plan }).timeline
+assert.ok(brokeCsv.indexOf('simulated_rover_breakdown') > 0 && brokeCsv.indexOf('simulated_emergency_home') > brokeCsv.indexOf('simulated_rover_breakdown'))
+ok(`breakdown #${brokeSeed}: walk-back is the end of the plan, no drive home`)
+
+// Calm day: unchanged. Cancelled: no schedule.
+assert.equal(plannedCsv(foot, null, { plan: calmDay.plan }).timeline, plannedCsv(foot).timeline, 'calm plan = normal CSV')
+assert.equal(planningEventEffects({ route: foot, grid, seed: cancelSeed }).plan, null)
+ok('calm day: same CSV as without events; cancelled walk: no schedule')
 
 console.log('\nEvery EVA, both versions, 100 scenarios each')
 let runs = 0

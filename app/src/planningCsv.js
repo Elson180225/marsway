@@ -16,8 +16,9 @@ const csv = (items) => items.map((item) => {
 // These files describe a proposed schedule. Fields implying actual crew
 // activity remain blank until a real log supplies them. running_total_msv is filled only when the
 // planner enters a previous career dose (previousCareerMSv); otherwise it stays blank.
-export function plannedCsv(route, scenario = null, { previousCareerMSv = null } = {}) {
-  const plan = calculateMissionSchedule(route, scenario)
+// plan: optional, e.g. planningEventEffects().plan, so the CSV matches the event-adjusted timeline.
+export function plannedCsv(route, scenario = null, { previousCareerMSv = null, plan: given = null } = {}) {
+  const plan = given ?? calculateMissionSchedule(route, scenario)
   const date = new Date(plan.start).toISOString().slice(0, 10)
   const summary = [SUMMARY_COLUMNS, csv([
     route.mission.id, 'SIMULATED CREW', date, utc(plan.start, 0), utc(plan.start, plan.total),
@@ -31,10 +32,12 @@ export function plannedCsv(route, scenario = null, { previousCareerMSv = null } 
   const events = [{ elapsed: 0, phase: 'planned_start', stop: plan.driveOut ? base : route.stops[0], event: 'SIMULATED plan begins' }]
   if (plan.driveOut) events.push({ elapsed: plan.driveOut, phase: 'planned_drive_arrival', stop: route.stops[0], event: `SIMULATED suited drive ${habitat} to ${rover}; assumed time` })
   for (const row of plan.rows) {
-    const stop = route.stops.find((s) => s.id === row.id)
-    events.push({ elapsed: row.arrival, phase: row.isHome ? (plan.driveHome ? 'planned_rover_return' : 'planned_home') : 'planned_arrival', stop, event: row.isHome ? (plan.driveHome ? `SIMULATED return to ${rover} rover; drive to ${habitat} follows` : 'SIMULATED EVA complete') : `SIMULATED arrival${row.isBonus ? ' at optional bonus stop' : ''}` })
-    if (!row.isHome) events.push({ elapsed: row.departure, phase: 'planned_departure', stop, event: `SIMULATED science activity: ${row.visit} min` })
+    const stop = route.stops.find((s) => s.id === row.id) ?? row // an emergency arrival home carries its own name and position
+    events.push({ elapsed: row.arrival, phase: row.isHome ? (row.note ? 'simulated_emergency_home' : plan.driveHome ? 'planned_rover_return' : 'planned_home') : 'planned_arrival', stop, event: row.isHome ? row.note ? `SIMULATED ${row.note}` : (plan.driveHome ? `SIMULATED return to ${rover} rover; drive to ${habitat} follows` : 'SIMULATED EVA complete') : `SIMULATED arrival${row.isBonus ? ' at optional bonus stop' : ''}` })
+    if (!row.isHome) events.push({ elapsed: row.departure, phase: 'planned_departure', stop, event: `SIMULATED science activity: ${Math.round(row.visit)} min${row.cutShort ? ' (cut short)' : ''}` })
   }
+  // Random events (planningEventEffects().plan.extraEvents), in time order with the planned rows.
+  if (plan.extraEvents?.length) { events.push(...plan.extraEvents); events.sort((a, b) => a.elapsed - b.elapsed) }
   if (plan.driveHome) events.push({ elapsed: plan.total, phase: 'planned_home', stop: base, event: `SIMULATED suited drive ${rover} to ${habitat} complete; assumed time` })
   const timeline = [TIMELINE_COLUMNS, ...events.map(({ elapsed, phase, stop, event }) => csv([
     utc(plan.start, elapsed), phase, stop.name, stop.x, stop.y,

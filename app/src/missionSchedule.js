@@ -44,8 +44,9 @@ export function calculateMissionSchedule(route, scenario = null) {
 // previousCareerMSv: career dose before this EVA, typed in by the planner; null = not entered.
 const percentLabel = (value) => `${value < 1 ? value.toFixed(3) : value.toFixed(1)}%`
 
-export function renderMissionSchedule(container, route, scenario = null, { previousCareerMSv = null } = {}) {
-  const plan = calculateMissionSchedule(route, scenario)
+// plan: optional, e.g. planningEventEffects().plan, so the panel shows the event-adjusted times.
+export function renderMissionSchedule(container, route, scenario = null, { previousCareerMSv = null, plan: given = null } = {}) {
+  const plan = given ?? calculateMissionSchedule(route, scenario)
   const el = (tag, className, value) => {
     const node = document.createElement(tag)
     if (className) node.className = className
@@ -87,7 +88,7 @@ export function renderMissionSchedule(container, route, scenario = null, { previ
     const item = el('li', 'ms-row')
     const name = el('strong', '', row.name)
     if (row.isBonus) name.append(el('span', 'ms-bonus', 'OPTIONAL BONUS'))
-    item.append(name, el('span', '', `Arrive ${utc(plan.start, row.arrival)}${row.isHome ? (plan.driveHome ? ` · Board rover for ${habitat}` : ' · EVA complete') : ` · Science ${row.visit} min · Depart ${utc(plan.start, row.departure)}`}`))
+    item.append(name, el('span', '', `Arrive ${utc(plan.start, row.arrival)}${row.isHome ? (row.note ? ` · ${row.note}` : plan.driveHome ? ` · Board rover for ${habitat}` : ' · EVA complete') : ` · Science ${Math.round(row.visit)} min${row.cutShort ? ' (cut short)' : ''} · Depart ${utc(plan.start, row.departure)}`}`))
     list.append(item)
   }
   if (plan.driveHome) {

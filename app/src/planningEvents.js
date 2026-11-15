@@ -96,7 +96,7 @@ export function planningEventEffects({ route, grid, seed }) {
   const reasons = []
 
   if (result.cancelled) {
-    return { ...result, weather: null, schedule: calculateMissionSchedule(route), pauseMinutes: 0, total: 0, spare: usable, dose: plannedDose(0, []),
+    return { ...result, weather: null, schedule: calculateMissionSchedule(route), plan: null, departureMin: {}, pauseMinutes: 0, total: 0, spare: usable, dose: plannedDose(0, []),
       shelter: null, breakdown: null, endMin: 0, lines: [], verdict: { level: 'no-go', title: 'NO-GO: walk cancelled', reasons: ['Global dust storm: the EVA does not go ahead.'] } }
   }
 
@@ -157,5 +157,54 @@ export function planningEventEffects({ route, grid, seed }) {
   if (spare < 0) { worse('no-go'); reasons.unshift(`The plan with these events takes ${Math.round(total)} min: ${Math.round(-spare)} min into the reserve.`) }
   else if (dust || devil) worse('caution')
   const title = level === 'go' ? (result.calm ? 'GO: calm day' : 'GO') : level === 'caution' ? 'GO with caution' : 'NO-GO'
-  return { ...result, weather, schedule, pauseMinutes, total, spare, dose, shelter, breakdown, endMin, lines, verdict: { level, title, reasons } }
+
+  // The one schedule every Planning panel should show (timeline, totals, CSV): see eventPlan().
+  const emergencies = [
+    shelter?.route && { atMin: shelter.atMin, endMin: shelter.route.arriveMin, name: `${habitat.name} (solar storm shelter)`, note: 'Solar storm: crew back in the habitat', why: 'simulated_shelter' },
+    breakdown?.route && { atMin: breakdown.atMin, endMin: breakdown.route.arriveMin, name: `${habitat.name} (walked back)`, note: 'Rover breakdown: crew walked home', why: 'simulated_walk_back' },
+  ].filter(Boolean).sort((a, b) => a.endMin - b.endMin)
+  const at = (minute) => { const p = crewAt(route, schedule, minute, pause, habitat); return { name: 'Crew position', x: p.x, y: p.y } }
+  const extraEvents = []
+  if (devil) extraEvents.push({ elapsed: devil.startMin, phase: 'simulated_dust_devil', stop: at(devil.startMin), event: `SIMULATED dust devil: crew waits ${pauseMinutes} min` })
+  if (dust) {
+    extraEvents.push({ elapsed: dust.startMin, phase: 'simulated_dust_storm_start', stop: at(dust.startMin), event: `SIMULATED dust storm: walking at ${dust.speedFactor}x` })
+    if (dust.durationMin != null) extraEvents.push({ elapsed: dust.startMin + dust.durationMin, phase: 'simulated_dust_storm_end', stop: at(dust.startMin + dust.durationMin), event: 'SIMULATED dust storm over: normal walking speed' })
+  }
+  if (shelter) extraEvents.push({ elapsed: shelter.atMin, phase: 'simulated_solar_warning', stop: at(shelter.atMin), event: `SIMULATED solar storm ${shelter.atMin < sun.startMin ? `warning (starts at +${Math.round(sun.startMin)} min)` : 'started'}: head for shelter` })
+  if (breakdown) extraEvents.push({ elapsed: breakdown.atMin, phase: 'simulated_rover_breakdown', stop: at(breakdown.atMin), event: 'SIMULATED rover breakdown: walk home' })
+  const plan = eventPlan({ schedule, pause, pauseMinutes, emergency: emergencies[0] && emergencies[0].endMin < total - 1e-9 ? emergencies[0] : null, habitat, dose, extraEvents })
+  const departureMin = Object.fromEntries(plan.rows.filter((r) => !r.isHome).map((r) => [r.id, r.departure]))
+  return { ...result, weather, schedule, plan, departureMin, pauseMinutes, total, spare, dose, shelter, breakdown, endMin, lines, verdict: { level, title, reasons } }
+}
+
+/**
+ * The schedule with the events in it, the same shape as calculateMissionSchedule(), so
+ * renderMissionSchedule(…, { plan }) and plannedCsv(…, { plan }) show the same times:
+ *   - times after a dust devil move later by its pause
+ *   - if a solar storm or a rover breakdown sends the crew home early, stops after that moment are
+ *     dropped, the science under way is cut short, and the last row is the emergency arrival home
+ *   - baselineDoseMSv is Mia's plannedDose (solar storms count double); extraEvents are CSV rows
+ */
+function eventPlan({ schedule, pause, pauseMinutes, emergency, habitat, dose, extraEvents }) {
+  const shift = (minute) => (pause && minute > pause.atMin ? minute + pause.minutes : minute)
+  let rows = schedule.rows.map((r) => ({ ...r, arrival: shift(r.arrival), departure: shift(r.departure) }))
+  let driveHome = schedule.driveHome
+  let total = schedule.total + pauseMinutes
+  if (emergency) {
+    const cutAt = emergency.atMin
+    rows = rows.filter((r) => !r.isHome && r.arrival <= cutAt)
+      .map((r) => (r.departure > cutAt ? { ...r, departure: cutAt, visit: Math.max(0, cutAt - r.arrival), cutShort: true } : r))
+    rows.push({ id: 'emergency-home', name: emergency.name, x: habitat.x, y: habitat.y, arrival: emergency.endMin, visit: 0, departure: emergency.endMin,
+      travel: emergency.endMin - cutAt, isBonus: false, isHome: true, note: emergency.note })
+    driveHome = 0 // the emergency arrival already includes any drive
+    total = emergency.endMin
+  }
+  const science = rows.reduce((sum, r) => sum + (r.isHome ? 0 : r.visit), 0)
+  const paused = pause && pause.atMin < total ? pauseMinutes : 0
+  return {
+    ...schedule, rows, driveHome, total, margin: schedule.budget - total, science,
+    walking: total - schedule.driveOut - driveHome - science - paused, pauseMinutes: paused,
+    hasBonus: rows.some((r) => r.isBonus), cutShort: emergency ? { atMin: emergency.atMin, reason: emergency.why, note: emergency.note } : null,
+    baselineDoseMSv: dose.doseMSv, stormExtraMSv: dose.stormExtraMSv, extraEvents: extraEvents.filter((e) => e.elapsed <= total),
+  }
 }
