@@ -1,4 +1,26 @@
 {
+  "area_size_m": 6000.0,
+  "bounds_projected": {
+    "west": 8141000.0,
+    "east": 8147000.0,
+    "south": -287000.0,
+    "north": -281000.0,
+    "crs": "Mars 2000 sphere, Equidistant Cylindrical, centre lon 0 (metres)"
+  },
+  "output_px": 1200,
+  "output_m_per_px": 5.0,
+  "row_order": "north_to_south",
+  "pixel_reference": "pixel centres; first centre west + half a pixel, north - half a pixel",
+  "leaflet_image_bounds": [
+    [
+      0,
+      0
+    ],
+    [
+      6000,
+      6000
+    ]
+  ],
   "name": "THEMIS night-time infrared (relative brightness) for the MarsWay EVA area",
   "dataset": "THEMIS IR night mosaic v14, 60N-60S, 100 m/px source (Mars Odyssey)",
   "instrument": "Thermal Emission Imaging System (THEMIS), 2001 Mars Odyssey",
@@ -8,27 +30,22 @@
   "project_crs": "Mars 2000 sphere, Equidistant Cylindrical, centre lon 0 (metres)",
   "zoom": 8,
   "tile_m_per_px": 162.8,
-  "source_pixels_across_area": 18,
-  "output_px": 600,
+  "source_pixels_across_area": 37,
   "bounds_lonlat": {
-    "west": 137.35371651283086,
-    "east": 137.4043283274052,
-    "south": -4.835115352335822,
-    "north": -4.784503537761475
+    "west": 137.343594149916,
+    "east": 137.44481777906466,
+    "south": -4.841863594279068,
+    "north": -4.740639965130376
   },
-  "leaflet_image_bounds": [
-    [
-      0,
-      0
-    ],
-    [
-      3000,
-      3000
-    ]
-  ],
   "how_to_read": "Brighter and darker pixels show relative night infrared brightness only. In comparable observations, brighter night surfaces may retain more heat (for example rockier material), while darker surfaces may be finer sand or dust. This multi-observation 8-bit mosaic does not provide calibrated temperature, thermal inertia, or a reliable material classification.",
+  "coverage": {
+    "fraction_visible": 1.0,
+    "fraction_transparent": 0.0,
+    "mask": "Source alpha and zero-valued empty mosaic pixels.",
+    "note": "Transparent pixels expose the terrain basemap; black source gaps are not cold temperatures."
+  },
   "limitations": [
-    "Only about 18 x 18 real pixels cover the 3 km area (~163 m each). Do not read single ridges or stops from it.",
+    "Only about 37 x 37 source pixels span this area (~163 m each). Do not read single ridges or stops from it.",
     "Relative 8-bit brightness from a mosaic of many orbits and seasons. It is not a temperature map and not thermal inertia.",
     "Do not label it as ground temperature in the app."
   ]

@@ -23,8 +23,8 @@ import io
 import json
 import os
 import shutil
-import time
-import urllib.request
+
+from science_raster import download, geometry, nearest_browse
 
 import numpy as np
 from PIL import Image
@@ -38,28 +38,19 @@ PRODUCTS = {
 }
 
 
-def get(url, tries=5):
-    for attempt in range(tries):
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "marsway-hackathon"})
-            return urllib.request.urlopen(req, timeout=180).read()
-        except Exception as error:
-            if attempt == tries - 1:
-                raise RuntimeError(f"{url} failed: {error}") from error
-            time.sleep(3 * (attempt + 1))
-
-
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--area", default="data/processed/area.json")
+    ap.add_argument("--area", default="app/public/terrain/area.json")
     ap.add_argument("--out", default="data/processed")
     ap.add_argument("--copy-to", default="app/public/terrain")
-    ap.add_argument("--px", type=int, default=600)
+    ap.add_argument("--px", type=int, default=None)
+    ap.add_argument("--cache-dir", default="data/raw/science-cache")
     args = ap.parse_args()
-    area = json.load(open(args.area))
-    b = area["boundsProjected"]
+    area, b, n, spatial = geometry(args.area, args.px)
+    os.makedirs(args.out, exist_ok=True)
 
     meta = {
+        **spatial,
         "name": "CRISM mineral browse layers for the MarsWay EVA area",
         "dataset": "CRISM Specialized Browse Product Mosaics, MSL Gale Crater, 23 July 2012 (MTRDR prototypes)",
         "instrument": "Compact Reconnaissance Imaging Spectrometer for Mars (CRISM), Mars Reconnaissance Orbiter",
@@ -67,38 +58,26 @@ def main():
         "source_page": PAGE,
         "source_crs": "Simple cylindrical, Mars 2000 sphere, centre (0, 0), 3072 px/deg = 19.295 m/px",
         "project_crs": area["boundsProjected"]["crs"],
-        "registration": "CRISM team warped each observation onto a CTX basemap (ENVI RST); small offsets may remain.",
+        "registration": "CRISM team warped each observation onto a CTX basemap (ENVI RST); registration to this terrain DEM is unverified; offsets may remain.",
         "leaflet_image_bounds": area["leaflet"]["imageBounds"],
         "products": {},
         "limitations": [
             "Qualitative browse colours with a Gale-specific stretch. Brighter colour is a stronger spectral signal than elsewhere at Gale, not a percentage of mineral.",
-            "About 19 m per pixel, so roughly 155 pixels across the 3 km area. Individual boxwork ridges (metres wide) are not resolved.",
+            f"About 19.3 m source pixels, roughly {area['sizeMetres'] / 19.295149:.0f} across the area. A 5 m output grid adds no detail; individual boxwork ridges are not resolved.",
             "Dust hides minerals: a black or bland pixel does not mean the mineral is absent.",
             "2012 prototype products, before the final PDS MTRDR release. Ice haze can add false blue.",
         ],
     }
     for product, legend in PRODUCTS.items():
-        tfw = [float(v) for v in get(BASE.format(p=product, ext="tfw")).decode().split()]
-        px, _, _, py, x0, y0 = tfw  # x0, y0 = centre of the upper-left pixel
-        img = Image.open(io.BytesIO(get(BASE.format(p=product, ext="png")))).convert("RGB")
+        tfw = [float(v) for v in download(BASE.format(p=product, ext="tfw"), args.cache_dir).decode().split()]
+        px = tfw[0]  # World-file translation is the centre of the upper-left pixel.
+        img = Image.open(io.BytesIO(download(BASE.format(p=product, ext="png"), args.cache_dir))).convert("RGB")
         arr = np.asarray(img)
         h, w = arr.shape[:2]
-        # Sample at output pixel centres (row 0 = north), nearest neighbour: no invented detail.
-        n = args.px
-        frac = (np.arange(n) + 0.5) / n
-        xs = b["west"] + frac * (b["east"] - b["west"])
-        ys = b["north"] - frac * (b["north"] - b["south"])
-        cols = np.round((xs - x0) / px).astype(int)
-        rows = np.round((ys - y0) / py).astype(int)
-        inside = (cols.min() >= 0) and (rows.min() >= 0) and (cols.max() < w) and (rows.max() < h)
-        if not inside:
-            raise RuntimeError(f"{product} mosaic ({w}x{h}) does not contain the EVA area: cols {cols.min()}-{cols.max()}, rows {rows.min()}-{rows.max()}")
-        crop = arr[np.ix_(rows, cols)]
-        covered = float((crop.max(axis=2) > 0).mean())
+        rgba, inside, rows, cols = nearest_browse(arr, tfw, b, n)
+        covered = float((rgba[:, :, 3] > 0).mean())
         name = f"crism_{product.lower()}.png"
-        # Black pixels become transparent so the terrain shows through where CRISM has no signal.
-        alpha = np.where(crop.max(axis=2) > 0, 255, 0).astype(np.uint8)
-        Image.fromarray(np.dstack([crop, alpha]), "RGBA").save(os.path.join(args.out, name), optimize=True)
+        Image.fromarray(rgba).save(os.path.join(args.out, name), optimize=True)
         meta["products"][product] = {
             "file": name,
             "legend": legend,
@@ -109,7 +88,11 @@ def main():
             "window_cols": [int(cols.min()), int(cols.max())],
             "window_rows": [int(rows.min()), int(rows.max())],
             "source_pixels_across_area": int(cols.max() - cols.min() + 1),
-            "fraction_of_area_with_signal": round(covered, 3),
+            "source_m_per_px": abs(px),
+            "fraction_inside_source_extent": round(float(inside.mean()), 6),
+            "fraction_with_visible_browse_colour": round(covered, 6),
+            "fraction_transparent": round(1 - covered, 6),
+            "coverage_note": "Outside-mosaic and black browse pixels are transparent. Black pixels may reflect no coverage, dust, weak signal or the browse stretch floor, not mineral absence.",
         }
         print(f"{product}: mosaic {w}x{h}, window cols {cols.min()}-{cols.max()} rows {rows.min()}-{rows.max()}, signal over {covered:.1%} of area")
 
