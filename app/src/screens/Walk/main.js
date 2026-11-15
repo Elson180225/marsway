@@ -13,7 +13,7 @@ import { randomSeed } from '../../safezone/randomEvents.js'
 import { scenarioEvents, scenarioFromSearch, withScenario } from '../../scenarioEvents.js'
 import {
   ALERT_LEVELS, advance, arrivalTimes, bearing, bonusStatus, buildReturnTrip, canHeadHome, cardinal, currentTrip, directionLine,
-  eventAlerts, eventSolarStorms, groundAt, hazardSpots, headHome, minutesBehindPlan, pathGround, pathLength, photoStop, pointAlong, radiationDose,
+  eventAlerts, eventEffects, eventSolarStorms, groundAt, hazardSpots, headHome, minutesBehindPlan, pathGround, pathLength, photoStop, pointAlong, radiationDose,
   safetyStatus, segmentLength, shelterFor, sortWarnings, walkPace,
 } from './walk-model.js'
 // Solar storm shelter route (Nigel's pathfinding/shelter.js)
@@ -132,6 +132,9 @@ function start(route, navigation, grid) {
   ]
   // Solar storms for the radiation counter: the demo button and the random ones.
   const solarStorms = () => [...state.solarStorms, ...(scenario ? eventSolarStorms(route, scenario.events) : [])]
+  // Dust storm and dust devil: set state.weatherPace and state.waitLeft from the clock (walk-model.js),
+  // so advance() moves the crew slower or not at all, and the ETAs include the wait.
+  const applyEventEffects = () => eventEffects(state, scenario?.events, minutesOut())
 
   // Nigel's shelter route (pathfinding/shelter.js) while a solar storm is warned or on: the quickest way
   // into the habitat from where the crew is, how long, and the extra dose. It is a route search, so it
@@ -667,6 +670,7 @@ function start(route, navigation, grid) {
   }
 
   function update() {
+    applyEventEffects() // after every change of clock or scenario, so the times shown include a dust devil wait
     try { updateView() } catch (error) { stopOnRouteError(error) }
   }
 
@@ -707,9 +711,11 @@ function start(route, navigation, grid) {
     status.title = safety.message
 
     const scienceLeft = state.scienceLeft || 0
+    const waitLeft = complete ? 0 : state.waitLeft || 0 // a dust devil: standing still while the clock runs
     $('w-next-label').textContent = complete ? 'EVA COMPLETE' : state.mode === 'return' ? 'HEADING HOME' : trip.to.is_bonus ? 'NEXT STOP · BONUS' : 'NEXT STOP'
     $('w-next-name').textContent = trip.to.name
     $('w-phase').textContent = complete ? 'Done'
+      : waitLeft ? `${state.playing ? 'Waiting' : 'Paused'} · dust devil ${duration(waitLeft)}`
       : scienceLeft ? `${state.playing ? 'Science' : 'Paused'} · ${duration(scienceLeft)} left`
         : state.playing ? 'Walking' : state.progress === 0 ? `At ${trip.from.name}` : 'Paused'
     $('w-distance').textContent = complete ? 'Arrived' : distance(trip.distance_m * (1 - state.progress))
@@ -725,7 +731,7 @@ function start(route, navigation, grid) {
     const arrive = arrivals.stops[0]?.arrive_ms ?? state.clockMs
     const slower = Math.round((pace - 1) * 100)
     $('w-eta').innerHTML = complete ? 'Back at the habitat'
-      : `${scienceLeft ? `${duration(scienceLeft)} science + ` : ''}${duration(leftMinutes)} walk · arrive ${utcTime(arrive)}${slower >= 5
+      : `${waitLeft ? `${duration(waitLeft)} wait + ` : ''}${scienceLeft ? `${duration(scienceLeft)} science + ` : ''}${duration(leftMinutes)} walk · arrive ${utcTime(arrive)}${slower >= 5
         ? ` <span class="walk-pace" title="Walking about ${slower}% slower than planned over the last few minutes. All times here use this pace.">${slower}% slower</span>` : ''}`
     renderTurn(trip, complete)
     renderTimes(arrivals)
@@ -947,7 +953,10 @@ function start(route, navigation, grid) {
   setInterval(() => {
     const now = performance.now()
     const wasPlaying = state.playing
-    if (wasPlaying) advance(route, state, ((now - last) / 60000) * SPEEDS[speedIndex])
+    if (wasPlaying) {
+      applyEventEffects() // a dust storm slows the crew, a dust devil stops them (the clock runs on)
+      advance(route, state, ((now - last) / 60000) * SPEEDS[speedIndex])
+    }
     last = now
     // Redraw while walking, on the tick that arrives at a stop, and while "head home" is armed.
     const armExpired = homeArmedUntil && Date.now() > homeArmedUntil

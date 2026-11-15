@@ -9,7 +9,7 @@ import { xyToCell } from '../../pathfinding/walkingTime.js'
 import { stopMetadata } from '../../stopDetails.js'
 import { directionsFor } from '../../pathfinding/directions.js'
 import {
-  advance, arrivalTimes, bonusStatus, canHeadHome, currentTrip, directionLine, eventAlerts, eventSolarStorms, groundAt, hazardSpots, headHome, minutesBehindPlan, minutesHome, pathGround,
+  advance, arrivalTimes, bonusStatus, canHeadHome, currentTrip, directionLine, eventAlerts, eventEffects, eventSolarStorms, groundAt, hazardSpots, headHome, minutesBehindPlan, minutesHome, pathGround,
   pathLength, photoDistance, photoStop, pointAlong, radiationDose, safetyStatus, walkPace,
 } from './walk-model.js'
 import { demoStormEvents, stormShelter } from './walk-model.js'
@@ -253,6 +253,40 @@ assert.equal(eventAlerts(route, [{ type: 'global_dust_storm', startMin: 0, durat
 const stormHour = radiationDose(route, start + 6 * 3600000, eventSolarStorms(route, events))
 close(stormHour.soFarMSv, dose.fullWalkMSv * 7 / 6, 1e-12, 'a 1 h random solar storm counts double')
 close(stormHour.stormMinutes, 60, 1e-9, 'storm minutes')
+
+// 14. Random events change the walking too: a dust storm slows the crew to 0.6×, a dust devil stops
+//     them while the clock runs. Like the Walk screen's tick: eventEffects() before and after advance().
+const out = (state) => (state.clockMs - start) / 60000
+const tick = (state, evts, minutes) => { eventEffects(state, evts, out(state)); advance(route, state, minutes); eventEffects(state, evts, out(state)); return state }
+//   Dust storm: 1 / 0.6 slower while it is on, stacking with the demo "Slow", then back to normal.
+const dustNow = [{ type: 'dust_storm', startMin: 0, durationMin: 3, speedFactor: 0.6, title: 'Dust storm', message: '' }]
+const windy = tick(at(0, 0, { playing: true }), dustNow, 2)
+close(windy.progress, 2 / (walk[0] / 0.6), 1e-9, 'the leg takes 1 / 0.6 longer in the storm')
+close(tick(at(0, 0, { playing: true, simPace: 1.3 }), dustNow, 2).progress, 2 / (walk[0] * 1.3 / 0.6), 1e-9, 'storm and Slow together')
+tick(windy, dustNow, 1.5)
+assert.equal(windy.weatherPace, 1, 'storm over: normal speed')
+//   Dust devil: stand still, the clock runs, then walk on by itself. The wait is in every time shown.
+const devilAt1 = [{ type: 'dust_devil', startMin: 1, durationMin: 7, pauseMinutes: 7, title: 'Dust devil', message: '' }]
+const gusty = tick(at(0, 0, { playing: true }), devilAt1, 1)
+close(gusty.waitLeft, 7, 1e-9, 'dust devil starts: 7 min wait')
+const before = gusty.progress
+const calm = { ...gusty, waitLeft: 0 }
+close(minutesHome(route, gusty, navigation) - minutesHome(route, calm, navigation), 7, 1e-9, 'time home includes the wait')
+close((arrivalTimes(route, gusty).home_ms - arrivalTimes(route, calm).home_ms) / 60000, 7, 1e-9, 'arrival times include the wait')
+close(safetyStatus(route, calm, calm.clockMs, navigation).turnbackIn - safetyStatus(route, gusty, gusty.clockMs, navigation).turnbackIn, 7, 1e-9, 'turn back comes 7 min sooner')
+tick(gusty, devilAt1, 3)
+assert.equal(gusty.progress, before, 'standing still')
+close(out(gusty), 4, 1e-9, 'the clock still runs')
+close(gusty.waitLeft, 4, 1e-9, '4 min left')
+tick(gusty, devilAt1, 5)
+assert.equal(gusty.waitLeft, 0)
+close(gusty.progress, before + 1 / walk[0], 1e-9, 'walked on for the minute left over')
+assert.equal(gusty.playing, true, 'no tap needed to walk on')
+//   The clock jumped into it (e.g. "+30m here"): only the rest of it is a wait. Science waits too.
+close(eventEffects(at(0, 5), devilAt1, 5).waitLeft, 3, 1e-9, 'only the rest of the dust devil')
+const busy = tick(at(1, 1, { scienceLeft: 10, playing: true }), devilAt1, 4)
+assert.deepEqual([busy.scienceLeft, busy.waitLeft], [10, 3], 'no science during the dust devil')
+assert.deepEqual(eventEffects(at(0, 5, { mode: 'complete' }), devilAt1, 5), { weatherPace: 1, waitLeft: 0 }, 'nothing once home')
 
 console.log(`Walk screen passed: science time at stops, bonus GO / tight / NO-GO matching the status line, skipped / here / done / incomplete, photo panel stop, hazard pins, radiation ${dose.fullWalkMSv.toFixed(2)} mSv for ${dose.walkHours} h, measured pace 1.3x in times home / turn back / bonus / arrivals, turn-by-turn line.`)
 
