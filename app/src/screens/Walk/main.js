@@ -112,8 +112,9 @@ function start(route, navigation, grid) {
   // Mia's random events (safezone/randomEvents.js): ?scenario=4821 gives a repeatable set of dust storms,
   // dust devils and solar storms. scenarioEvents() uses the same walk length as Planning, so one number
   // gives the same events on both screens; the number stays in this page's link and the link back.
-  // No button: the events just happen, like real weather. A walk uses ?scenario= from the link (so it
-  // matches Planning) or picks a random scenario, and each new walk picks a new one.
+  // No button: the events just happen, like real weather. A random scenario is picked only when the link
+  // has no ?scenario=. Planning picks one and passes it in the Walk link, so coming from Planning both
+  // screens show the same day, every walk. Opened without a number, each new walk picks a new one.
   let scenario = null
   function setScenario(seed) {
     scenario = null
@@ -124,7 +125,8 @@ function start(route, navigation, grid) {
     history.replaceState(history.state, '', withScenario(location.pathname + location.search + location.hash, scenario?.seed))
     root.querySelector('.walk-brand')?.setAttribute('href', withScenario(planningHref, scenario?.seed))
   }
-  setScenario(scenarioFromSearch(location.search) ?? randomSeed())
+  const linkScenario = scenarioFromSearch(location.search) // from Planning (or a shared demo link)
+  setScenario(linkScenario ?? randomSeed())
   const minutesOut = () => (state.clockMs - Date.parse(mission.start_time)) / 60000
   // Every alert now: from the route file, the ☀︎ Storm demo button, the random events under way, and a
   // solar storm the crew has been warned about (it has not started yet, so it is not "under way").
@@ -446,7 +448,7 @@ function start(route, navigation, grid) {
   $('w-primary').addEventListener('click', () => {
     if (state.mode === 'complete') {
       state = initialState()
-      setScenario(randomSeed()) // a new walk, new conditions (the walk starts from the beginning)
+      if (!linkScenario) setScenario(randomSeed()) // new conditions, unless the link set the day
       if (simAlert) state.solarStorms.push({ startMs: state.clockMs, endMs: null }) // storm still on for the new walk
     }
     else state.playing = !state.playing
