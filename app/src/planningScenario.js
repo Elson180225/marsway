@@ -1,5 +1,6 @@
 import { weatherScenario } from './planningWeather.js'
 import { calculateMissionSchedule, renderMissionSchedule } from './missionSchedule.js'
+import { randomEvents, randomSeed } from './safezone/randomEvents.js'
 import { plannedCsv, downloadCsv } from './planningCsv.js'
 import './planningScenario.css'
 
@@ -13,13 +14,80 @@ export function mountPlanningScenario(container, route, onChange) {
     <label>Storm starts (UTC)<input name="start" type="time" value="10:30" disabled required></label>
     <label>Previous career dose (mSv, optional)<input name="career" type="number" min="0" max="10000" step="0.001" inputmode="decimal" placeholder="Not entered"></label>
     <button type="submit">Update plan</button>
+    <button type="button" id="random-events-btn">🎲 Random Events</button>
   </form>
+  <div id="random-events-panel" class="random-events-panel" hidden>
+    <h3 id="random-scenario-title">🎲 Random Events</h3>
+    <p id="random-scenario-status"></p>
+    <div id="random-events-list"></div>
+  </div>
   <p class="psc-note">Demo assumption: walking speed becomes 0.6× after the selected time. Dust-storm simulation changes walking time only; radiation effects and shielding are not modelled. The Walk screen is unaffected.</p>
   <div class="psc-export"><button type="button" data-export="summary">Download planned summary CSV</button><button type="button" data-export="timeline">Download planned timeline CSV</button></div>
   <small class="psc-note">RAD baseline estimate (0.67 mSv/day), not a measured personal dose. These are planned events; visited stops and bonus completion are unknown. The running total uses the previous career dose only if you enter one.</small>`
   const output = document.createElement('div')
   container.replaceChildren(controls, output)
   const form = controls.querySelector('form')
+
+  const randomButton = controls.querySelector('#random-events-btn')
+  const randomPanel = controls.querySelector('#random-events-panel')
+  const randomTitle = controls.querySelector('#random-scenario-title')
+  const randomStatus = controls.querySelector('#random-scenario-status')
+  const randomList = controls.querySelector('#random-events-list')
+
+  function showRandomScenario(seed) {
+    const params = new URLSearchParams(window.location.search)
+    const version = params.get('travel') === 'rover' ? 'rover' : 'foot'
+
+    // Temporary duration for UI testing.
+    // Replace with the shared planned walk duration before final integration.
+    const durationMinutes = Math.max(60, route.mission.max_walk_minutes)
+
+    const generated = randomEvents({
+      seed,
+      eva: route.mission.id.replace('EVA-', ''),
+      version,
+      durationMinutes
+    })
+
+    params.set('scenario', String(seed))
+    window.history.replaceState({}, '', window.location.pathname + '?' + params)
+
+    randomPanel.hidden = false
+    randomTitle.textContent = '🎲 ' + generated.label
+
+    randomStatus.textContent = generated.cancelled
+      ? '⛔ NO-GO — Mission cancelled'
+      : generated.calm
+        ? '✅ Calm day — No random events'
+        : generated.events.length + ' event(s) generated'
+
+    randomList.replaceChildren()
+
+    for (const event of generated.events) {
+      const item = document.createElement('div')
+      item.className = 'random-event-item'
+
+      const title = document.createElement('strong')
+      title.textContent = event.title + ' — +' + event.startMin + ' min'
+
+      const message = document.createElement('p')
+      message.textContent = event.message
+
+      item.append(title, message)
+      randomList.append(item)
+    }
+  }
+
+  randomButton.addEventListener('click', () => {
+    showRandomScenario(randomSeed())
+  })
+
+  const urlSeed = Number(new URLSearchParams(window.location.search).get('scenario'))
+
+  if (Number.isInteger(urlSeed) && urlSeed >= 1 && urlSeed <= 9999) {
+    showRandomScenario(urlSeed)
+  }
+
   let scenario = null
   let previousCareerMSv = null
   renderMissionSchedule(output, route)
