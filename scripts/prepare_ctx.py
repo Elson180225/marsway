@@ -19,8 +19,8 @@ import json
 import math
 import os
 import shutil
-import time
-import urllib.request
+
+from science_raster import download, geometry
 
 import numpy as np
 from PIL import Image
@@ -32,17 +32,14 @@ TILE_PX = 512
 MARS_R = 3396190.0
 
 
-def fetch_tile(z, row, col, tries=5):
+def fetch_tile(z, row, col, cache_dir):
     url = TILE_URL.format(z=z, row=row, col=col)
-    for attempt in range(tries):
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "marsway-hackathon"})
-            data = urllib.request.urlopen(req, timeout=60).read()
-            return np.asarray(Image.open(io.BytesIO(data)).convert("L"), dtype=np.float32)
-        except Exception as error:  # flaky network: retry, then fail loudly
-            if attempt == tries - 1:
-                raise RuntimeError(f"CTX tile {z}/{row}/{col} failed: {error}") from error
-            time.sleep(2 * (attempt + 1))
+    image = np.asarray(Image.open(io.BytesIO(download(url, cache_dir))).convert("RGBA"))
+    # The service's empty JPEG pixels are black; retain any explicit source alpha.
+    alpha = image[:, :, 3].astype(np.float32) / 255
+    alpha *= image[:, :, :3].max(axis=2) > 0
+    grey = np.asarray(Image.fromarray(image).convert("L"), dtype=np.float32)
+    return grey, alpha
 
 
 def bilinear(img, rows, cols):
@@ -102,15 +99,15 @@ def alignment_check(ctx, area_dir):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--area", default="data/processed/area.json")
+    ap.add_argument("--area", default="app/public/terrain/area.json")
     ap.add_argument("--out", default="data/processed")
     ap.add_argument("--copy-to", default="app/public/terrain")
     ap.add_argument("--zoom", type=int, default=12)
-    ap.add_argument("--px", type=int, default=600, help="output width/height; 600 = one pixel per 5 m grid cell")
+    ap.add_argument("--px", type=int, default=None, help="square output size; default matches the terrain cell size")
+    ap.add_argument("--cache-dir", default="data/raw/science-cache")
     args = ap.parse_args()
 
-    area = json.load(open(args.area))
-    b = area["boundsProjected"]
+    area, b, n, spatial = geometry(args.area, args.px)
     size_m = area["sizeMetres"]
     west, east = math.degrees(b["west"] / MARS_R), math.degrees(b["east"] / MARS_R)
     south, north = math.degrees(b["south"] / MARS_R), math.degrees(b["north"] / MARS_R)
@@ -122,30 +119,34 @@ def main():
     print(f"zoom {args.zoom}: {deg_px * math.pi / 180 * MARS_R:.2f} m/px, tiles rows {r0}-{r1}, cols {c0}-{c1}")
 
     mosaic = np.zeros(((r1 - r0 + 1) * TILE_PX, (c1 - c0 + 1) * TILE_PX), dtype=np.float32)
+    coverage = np.zeros_like(mosaic)
     for r in range(r0, r1 + 1):
         for c in range(c0, c1 + 1):
-            tile = fetch_tile(args.zoom, r, c)
-            mosaic[(r - r0) * TILE_PX:(r - r0 + 1) * TILE_PX, (c - c0) * TILE_PX:(c - c0 + 1) * TILE_PX] = tile
+            tile, alpha = fetch_tile(args.zoom, r, c, args.cache_dir)
+            section = np.s_[(r-r0)*TILE_PX:(r-r0+1)*TILE_PX, (c-c0)*TILE_PX:(c-c0+1)*TILE_PX]
+            mosaic[section] = tile * alpha
+            coverage[section] = alpha
     lon0 = c0 * deg_tile - 180  # west edge of mosaic
     lat0 = 90 - r0 * deg_tile   # north edge of mosaic
 
     # Sample at output pixel centres: row 0 = north, like every MarsWay grid.
-    n = args.px
     frac = (np.arange(n) + 0.5) / n
     lons = west + frac * (east - west)
     lats = north - frac * (north - south)
     cols = (lons - lon0) / deg_px - 0.5
     rows = (lat0 - lats) / deg_px - 0.5
     rr, cc = np.meshgrid(rows, cols, indexing="ij")
-    ctx = bilinear(mosaic, rr, cc)
-    if (ctx < 1).mean() > 0.02:
-        raise RuntimeError("More than 2% of the area has no CTX data; check coverage before using this layer.")
+    alpha = bilinear(coverage, rr, cc)
+    ctx = np.divide(bilinear(mosaic, rr, cc), alpha, out=np.zeros_like(alpha), where=alpha > 0)
+    alpha8 = np.round(np.clip(alpha, 0, 1) * 255).astype(np.uint8)
 
     os.makedirs(args.out, exist_ok=True)
     png = os.path.join(args.out, "ctx.png")
-    Image.fromarray(np.clip(ctx, 0, 255).astype(np.uint8)).save(png, optimize=True)
+    grey = np.clip(ctx, 0, 255).astype(np.uint8)
+    Image.fromarray(np.dstack([grey, grey, grey, alpha8])).save(png, optimize=True)
 
     meta = {
+        **spatial,
         "name": "CTX photo layer for the MarsWay EVA area",
         "dataset": "Murray Lab Global CTX Mosaic of Mars, beta01 (uncontrolled), ~5 m/px",
         "instrument": "Context Camera (CTX), Mars Reconnaissance Orbiter",
@@ -163,6 +164,12 @@ def main():
         "bounds_lonlat": {"west": west, "east": east, "south": south, "north": north},
         "leaflet_image_bounds": area["leaflet"]["imageBounds"],
         "tiles": {"rows": [r0, r1], "cols": [c0, c1]},
+        "coverage": {
+            "fraction_visible": round(float((alpha8 > 0).mean()), 6),
+            "fraction_transparent": round(float((alpha8 == 0).mean()), 6),
+            "mask": "Source alpha and black empty-service pixels; bilinear sampling uses premultiplied alpha to avoid dark gap borders.",
+            "note": "Transparent pixels expose the terrain basemap; coverage is not a registration accuracy claim.",
+        },
         "limitations": [
             "beta01 is an uncontrolled mosaic. Registration to the USGS DEM has not been established; offsets of tens of metres or more are possible. Matching crop bounds do not establish pixel-level alignment.",
             "Esri serves lossy 8-bit JPEG tiles; brightness is not calibrated reflectance.",
@@ -170,7 +177,13 @@ def main():
         ],
     }
     try:
-        meta["alignment_check"] = alignment_check(ctx, os.path.dirname(args.area))
+        if not np.all(alpha8 == 255):
+            raise ValueError("Correlation check skipped because gaps require masked registration; no shift applied.")
+        check = alignment_check(ctx, os.path.dirname(args.area))
+        check['status'] = 'unverified'
+        check['reason'] = 'Exploratory brightness/shading correlation is not independent image registration. No shift applied; best-search offsets are diagnostic only.'
+        check["note"] = "Exploratory best-search offsets are not measured image offsets or an accuracy bound. No correction was applied to ctx.png."
+        meta["alignment_check"] = check
     except Exception as error:
         meta["alignment_check"] = {"status": "not run", "reason": str(error)}
     json.dump(meta, open(os.path.join(args.out, "ctx.json"), "w"), indent=2)

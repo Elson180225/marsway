@@ -1,4 +1,26 @@
 {
+  "area_size_m": 6000.0,
+  "bounds_projected": {
+    "west": 8141000.0,
+    "east": 8147000.0,
+    "south": -287000.0,
+    "north": -281000.0,
+    "crs": "Mars 2000 sphere, Equidistant Cylindrical, centre lon 0 (metres)"
+  },
+  "output_px": 1200,
+  "output_m_per_px": 5.0,
+  "row_order": "north_to_south",
+  "pixel_reference": "pixel centres; first centre west + half a pixel, north - half a pixel",
+  "leaflet_image_bounds": [
+    [
+      0,
+      0
+    ],
+    [
+      6000,
+      6000
+    ]
+  ],
   "name": "CTX photo layer for the MarsWay EVA area",
   "dataset": "Murray Lab Global CTX Mosaic of Mars, beta01 (uncontrolled), ~5 m/px",
   "instrument": "Context Camera (CTX), Mars Reconnaissance Orbiter",
@@ -11,33 +33,27 @@
   "project_crs": "Mars 2000 sphere, Equidistant Cylindrical, centre lon 0 (metres)",
   "zoom": 12,
   "source_m_per_px": 5.09,
-  "output_px": 600,
-  "output_m_per_px": 5.0,
   "bounds_lonlat": {
-    "west": 137.35371651283086,
-    "east": 137.4043283274052,
-    "south": -4.835115352335822,
-    "north": -4.784503537761475
+    "west": 137.343594149916,
+    "east": 137.44481777906466,
+    "south": -4.841863594279068,
+    "north": -4.740639965130376
   },
-  "leaflet_image_bounds": [
-    [
-      0,
-      0
-    ],
-    [
-      3000,
-      3000
-    ]
-  ],
   "tiles": {
     "rows": [
-      2156,
+      2155,
       2158
     ],
     "cols": [
       7221,
-      7222
+      7223
     ]
+  },
+  "coverage": {
+    "fraction_visible": 1.0,
+    "fraction_transparent": 0.0,
+    "mask": "Source alpha and black empty-service pixels; bilinear sampling uses premultiplied alpha to avoid dark gap borders.",
+    "note": "Transparent pixels expose the terrain basemap; coverage is not a registration accuracy claim."
   },
   "limitations": [
     "beta01 is an uncontrolled mosaic. Registration to the USGS DEM has not been established; offsets of tens of metres or more are possible. Matching crop bounds do not establish pixel-level alignment.",
@@ -45,14 +61,14 @@
     "CTX is 5 m/px: it shows ridges, hollows and dunes, not individual rocks. HiRISE is needed for boulders."
   ],
   "alignment_check": {
-    "status": "inconclusive",
-    "reason": "No reliable correlation peak was found in the searched window. Albedo differences may contribute. The reported best-search offsets are not a validated registration or an error bound; no shift was applied.",
+    "status": "unverified",
+    "reason": "Exploratory brightness/shading correlation is not independent image registration. No shift applied; best-search offsets are diagnostic only.",
     "method": "FFT cross-correlation of band-passed CTX brightness vs DEM shading (Sun azimuth searched in 30 degree steps), 5 m grid, search +-100 m",
-    "sun_azimuth_deg": 0,
-    "ctx_offset_east_m": 100.0,
-    "ctx_offset_north_m": -80.0,
-    "correlation_at_best": 0.025,
-    "correlation_at_zero_shift": 0.005,
-    "note": "Positive east/north describes the best-search shift direction only. When status is inconclusive, these values must not be used as measured offsets. No correction was applied to ctx.png."
+    "sun_azimuth_deg": 120,
+    "ctx_offset_east_m": 60.0,
+    "ctx_offset_north_m": -100.0,
+    "correlation_at_best": 0.022,
+    "correlation_at_zero_shift": -0.0,
+    "note": "Exploratory best-search offsets are not measured image offsets or an accuracy bound. No correction was applied to ctx.png."
   }
 }

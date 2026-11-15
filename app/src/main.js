@@ -140,7 +140,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
   const slope = L.imageOverlay('/terrain/slope.png', bounds, { opacity: 0.55, interactive: false })
   const roughness = L.imageOverlay(roughnessImage(grid), bounds, { opacity: 0.7, interactive: false })
   // Kelly's orbital crops cover the original 3 km square inside the 6 km grid.
-  const scienceBounds = L.latLngBounds([[400, 600], [3400, 3600]])
+  const scienceBounds = L.latLngBounds([[0, 0], [6000, 6000]])
   const science = {
     ctx: L.imageOverlay('/terrain/ctx.png', scienceBounds, { opacity: 0.85, interactive: false }),
     crismHyd: L.imageOverlay('/terrain/crism_hyd.png', scienceBounds, { opacity: 0.7, interactive: false }),
@@ -200,7 +200,7 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
 
     // ---- 3D view ----
   const map3dEl = document.querySelector('#map3d')
-  const scienceBox = { x0: 600, y0: 400, x1: 3600, y1: 3400 }
+  const scienceBox = { x0: 0, y0: 0, x1: 6000, y1: 6000 }
   const layers3d = {
     slope: { url: '/terrain/slope.png' },
     roughness: { url: roughnessImage(grid) },
