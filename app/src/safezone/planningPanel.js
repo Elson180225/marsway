@@ -72,7 +72,6 @@ export function mountPlanningSafety({ root, map, grid, route, onOverlayChange = 
   $('ps-elapsed').max = String(route.mission.max_walk_minutes / 60)
   $('ps-budget').textContent = `Suit budget: ${duration(route.mission.max_walk_minutes)}; protected reserve: ${duration(route.mission.reserve_minutes)}.${route.mission.drive_home_minutes ? ` ${route.mission.id} includes an assumed ${duration(route.mission.drive_home_minutes)} suited drive each way; ${homeLabel} is not storm shelter. Elapsed time starts after the outbound drive.` : ''} No live suit or position feed.`
   const metric = document.querySelector('#planning-turnback')
-  const metricLabel = document.querySelector('#planning-turnback-note')
 
   function clearResult(label) {
     result = null
@@ -208,7 +207,6 @@ export function mountPlanningSafety({ root, map, grid, route, onOverlayChange = 
       $('ps-status').textContent = result.timer.level === 'ok' ? '✓ On plan: home with reserve intact' : `${result.timer.title}: ${result.timer.message}`
       $('ps-status').title = `${result.timer.title}: ${result.timer.message}`
       if (metric) metric.textContent = $('ps-turnback').textContent
-      if (metricLabel) metricLabel.textContent = `From ${selected.name} at simulated elapsed time`
       $('ps-probe').dataset.level = ''
       $('ps-probe').textContent = 'Tap map for GO / NO-GO.'
       showBonus(result.bonusCheck)

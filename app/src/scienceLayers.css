@@ -5,3 +5,4 @@
 .science-swatch{display:inline-block;width:13px;height:13px;border:1px solid #d9d7ce;border-radius:3px;flex:none}
 .science-credit{color:#d3d5c9}.science-source{color:#94dfd4;text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}
 .science-source:focus-visible{outline:2px solid #fff0ce;outline-offset:3px}.science-layer-error{color:#ffbb9e;font-weight:700}
+.science-layer-note:empty{display:none}
