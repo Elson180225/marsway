@@ -269,7 +269,7 @@ function start(route, navigation, grid) {
       </section>
       <p id="w-turnback-line" class="walk-turnback-line" hidden></p>
       <nav class="walk-pages" aria-label="More about this walk">
-        <button type="button" id="w-open-science" class="walk-page-btn"><span><i aria-hidden="true">📷</i>Science</span><small id="w-science-hint">–</small></button>
+        <button type="button" id="w-open-science" class="walk-page-btn"><span><i aria-hidden="true">📷</i>Camera</span></button>
         <button type="button" id="w-open-data" class="walk-page-btn"><span><i aria-hidden="true">📊</i>Data</span><small id="w-data-hint">Radiation, storms, terrain</small></button>
       </nav>
       </div>
@@ -858,10 +858,10 @@ function start(route, navigation, grid) {
     renderBonus(bonus)
     renderRadiation()
 
-    // Science stop page: the crew opens it with the 📷 Science button (it no longer opens by itself on
-    // arrival). The button names the stop it opens and stands out while the crew is at a stop.
+    // Science stop page: the crew opens it with the 📷 Camera button (it doesn't open by itself on
+    // arrival). The button stands out while the crew is at a stop.
     const nextStop = photoStop(route, state)
-    $('w-science-hint').textContent = nextStop ? `${nextStop.here ? 'Here' : 'Next'}: ${nextStop.stop.name}` : 'Tap a stop on the map'
+    $('w-open-science').title = nextStop ? `Camera: ${nextStop.stop.name}` : 'Camera: tap a stop on the map' // no text under the button
     $('w-open-science').dataset.here = nextStop?.here ? 'yes' : ''
     const alertsOn = complete ? [] : sortWarnings(currentAlerts())
     $('w-data-hint').textContent = alertsOn.length ? `${alertName(alertsOn[0])}${alertsOn[0].warning ? '' : ' on'}` : scenario ? scenario.label : 'Radiation, storms, terrain'
