@@ -215,7 +215,7 @@ function start(route, navigation, grid) {
       </section>
       <p id="w-turnback-line" class="walk-turnback-line" hidden></p>
       <nav class="walk-pages" aria-label="More about this walk">
-        <button type="button" id="w-open-science" class="walk-page-btn"><span><i aria-hidden="true">🔬</i>Science</span><small id="w-science-hint">–</small></button>
+        <button type="button" id="w-open-science" class="walk-page-btn"><span><i aria-hidden="true">📷</i>Science</span><small id="w-science-hint">–</small></button>
         <button type="button" id="w-open-data" class="walk-page-btn"><span><i aria-hidden="true">📊</i>Data</span><small id="w-data-hint">Radiation, storms, terrain</small></button>
       </nav>
       </div>
@@ -312,9 +312,7 @@ function start(route, navigation, grid) {
   let view = 'main'
   let scienceId = null // the stop shown on the Science stop page
   let pushed = false // we added a history entry, so "Back to map" can go back
-  let autoOpened = false // the Science stop page opened by itself when the crew arrived
   let openedFrom = null // focus returns here on the way back to the map
-  let arrivalSeen = '' // the stop the crew last arrived at, so arriving opens its page only once
   let crewPoint = null // simulated position, for labelling photos
 
   function showView(hash) {
@@ -322,7 +320,6 @@ function start(route, navigation, grid) {
     const id = decodeURIComponent(rawId || '')
     view = name === 'data' ? 'data' : name === 'science' ? 'science' : 'main'
     if (view === 'science') scienceId = scienceStops.some((stop) => stop.id === id) ? id : photoStop(route, state)?.stop.id ?? null
-    if (view !== 'science') autoOpened = false
     root.querySelector('.walk').dataset.view = view // the walk controls show on the map only (walk.css)
     $('w-main').hidden = view !== 'main'
     $('w-science-page').hidden = view !== 'science'
@@ -331,9 +328,8 @@ function start(route, navigation, grid) {
     update()
     ;(view === 'main' ? openedFrom : $(`w-${view}-title`))?.focus({ preventScroll: true })
   }
-  function openPage(name, stopId = null, { auto = false } = {}) {
-    openedFrom = auto ? null : document.activeElement
-    autoOpened = auto
+  function openPage(name, stopId = null) {
+    openedFrom = document.activeElement
     pushed = true
     location.hash = name === 'science' && stopId ? `science/${encodeURIComponent(stopId)}` : name
   }
@@ -773,14 +769,11 @@ function start(route, navigation, grid) {
     renderBonus(bonus)
     renderRadiation()
 
-    // Science stop page: opens by itself when the crew arrives at a stop, and goes back to the map
-    // when they walk on (only if it opened by itself). The Science button names the stop it opens.
-    const arrivedAt = atStop() && scienceStops.includes(trip.from) ? trip.from.id : ''
-    if (arrivedAt && arrivedAt !== arrivalSeen && view === 'main') openPage('science', arrivedAt, { auto: true })
-    if (!arrivedAt && autoOpened && view === 'science') { autoOpened = false; backToMap() }
-    arrivalSeen = arrivedAt
+    // Science stop page: the crew opens it with the 📷 Science button (it no longer opens by itself on
+    // arrival). The button names the stop it opens and stands out while the crew is at a stop.
     const nextStop = photoStop(route, state)
     $('w-science-hint').textContent = nextStop ? `${nextStop.here ? 'Here' : 'Next'}: ${nextStop.stop.name}` : 'Tap a stop on the map'
+    $('w-open-science').dataset.here = nextStop?.here ? 'yes' : ''
     const alertsOn = complete ? [] : sortWarnings(currentAlerts())
     $('w-data-hint').textContent = alertsOn.length ? `${alertName(alertsOn[0])}${alertsOn[0].warning ? '' : ' on'}` : scenario ? scenario.label : 'Radiation, storms, terrain'
     $('w-open-data').dataset.level = alertsOn[0]?.level ?? ''
