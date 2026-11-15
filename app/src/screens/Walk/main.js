@@ -15,6 +15,10 @@ import {
   eventAlerts, eventSolarStorms, groundAt, hazardSpots, headHome, minutesBehindPlan, pathGround, pathLength, photoDistance, photoStop, pointAlong, radiationDose,
   safetyStatus, segmentLength, shelterFor, sortWarnings, walkPace,
 } from './walk-model.js'
+// Solar storm shelter route (Nigel's pathfinding/shelter.js)
+import { demoStormEvents, stormShelter } from './walk-model.js'
+import { currentSolarStorm } from '../../pathfinding/shelter.js'
+import { activeEvents } from '../../safezone/randomEvents.js'
 
 const root = document.querySelector('#walk')
 // ?eva=09 etc. picks the scenario, as on the Planning screen. No ?eva is EVA-07.
@@ -74,6 +78,9 @@ function assertRoute(route) {
   }
 }
 
+const HOME_COLOR = '#8ce0d6' // dashed path home (--w-home in walk.css)
+const SHELTER_COLOR = '#ff7b6e' // the path home in a solar storm: Nigel's shelter route (--w-danger)
+
 // Demo only. Clearly labelled as simulated wherever it appears.
 function simulatedStorm(route) {
   return {
@@ -113,12 +120,44 @@ function start(route, navigation, grid) {
   }
   setScenario(scenarioFromSearch(location.search))
   const minutesOut = () => (state.clockMs - Date.parse(mission.start_time)) / 60000
-  // Every alert now: from the route file, the ☀︎ Storm demo button, and the random events under way.
+  // Every alert now: from the route file, the ☀︎ Storm demo button, the random events under way, and a
+  // solar storm the crew has been warned about (it has not started yet, so it is not "under way").
   const currentAlerts = () => [
     ...(route.alerts || []), ...(simAlert ? [simAlert] : []), ...(scenario ? eventAlerts(route, scenario.events, minutesOut()) : []),
+    ...(shelterNow?.storm.phase === 'warning' ? [stormWarning(shelterNow.storm)] : []),
   ]
   // Solar storms for the radiation counter: the demo button and the random ones.
   const solarStorms = () => [...state.solarStorms, ...(scenario ? eventSolarStorms(route, scenario.events) : [])]
+
+  // Nigel's shelter route (pathfinding/shelter.js) while a solar storm is warned or on: the quickest way
+  // into the habitat from where the crew is, how long, and the extra dose. It is a route search, so it
+  // is worked out again only when the storm changes, the crew has moved 50 m or a minute has passed,
+  // and at most once a second.
+  let shelterNow = null
+  let shelterKey = ''
+  let shelterAt = null
+  const stormEvents = () => [...(scenario?.events ?? []), ...demoStormEvents(route, state.solarStorms)]
+  function updateShelter(point) {
+    const now = minutesOut()
+    const storm = state.mode === 'complete' ? null : currentSolarStorm(stormEvents(), Math.max(0, now))
+    if (!storm) { shelterNow = null; shelterKey = ''; return }
+    const key = `${storm.startMin}:${storm.phase}:${activeEvents(stormEvents(), now).some((e) => e.type === 'dust_storm')}`
+    const recent = shelterAt && Date.now() - shelterAt.realMs < 1000
+    const near = shelterAt && now - shelterAt.min < 1 && segmentLength(shelterAt.point, point) < 50
+    if (key === shelterKey && (recent || near)) return
+    try { shelterNow = stormShelter(route, grid, stormEvents(), now, point) }
+    catch (error) { shelterNow = null; console.warn(`Shelter route unavailable (${error.message}).`) }
+    shelterKey = key
+    shelterAt = { point, min: now, realMs: Date.now() }
+  }
+  const stormWarning = (storm) => {
+    const startMs = Date.parse(mission.start_time) + storm.startMin * 60000
+    return {
+      type: 'solar_storm', level: 'danger', simulated: true, warning: true, shelter_stop_id: stops[0].id, startMs,
+      endMs: storm.durationMin == null ? null : startMs + storm.durationMin * 60000,
+      message: 'Solar storm warning: radiation will double outside. Head for shelter now.',
+    }
+  }
 
   root.innerHTML = `
     <div class="walk">
@@ -157,7 +196,7 @@ function start(route, navigation, grid) {
           <div id="w-map" role="img" aria-label="Map of the current leg, your simulated position, the path home and pop-ups for stops, hazards and alerts"></div>
           <button type="button" id="w-recenter" class="walk-recenter" aria-label="Recenter the map on me" title="Recenter the map on me" hidden>⌖</button>
         </div>
-        <div class="walk-legend"><span class="walk-legend-line"></span>This leg<span class="walk-legend-dash"></span>Path home<span class="walk-hazard is-caution walk-legend-sign"><i>!</i></span>Hazard</div>
+        <div class="walk-legend"><span class="walk-legend-line"></span>This leg<span class="walk-legend-dash"></span><span class="walk-legend-home">Path home</span><span class="walk-legend-shelter">Shelter route</span><span class="walk-hazard is-caution walk-legend-sign"><i>!</i></span>Hazard</div>
       </section>
       <p id="w-turnback-line" class="walk-turnback-line" hidden></p>
       <nav class="walk-pages" aria-label="More about this walk">
@@ -236,7 +275,7 @@ function start(route, navigation, grid) {
   map.fitBounds(L.latLngBounds(allPoints).pad(0.15))
   legs.forEach((leg) => L.polyline(leg.path.map(mapPoint), { color: '#f6b77c', weight: 3, opacity: 0.25 }).addTo(map))
   const legLine = L.polyline([], { color: '#fff0ce', weight: 6, opacity: 0.95, lineCap: 'round' }).addTo(map)
-  const homeLine = L.polyline([], { color: '#8ce0d6', weight: 4, opacity: 0.95, dashArray: '8 9' }).addTo(map)
+  const homeLine = L.polyline([], { color: HOME_COLOR, weight: 4, opacity: 0.95, dashArray: '8 9' }).addTo(map)
   stops.forEach((stop, index) => {
     if (index > 0 && stop.type === 'home') return
     const kind = index === 0 ? 'is-home' : stop.is_bonus ? 'is-bonus' : ''
@@ -419,8 +458,15 @@ function start(route, navigation, grid) {
   }
 
   const alertName = (alert) => {
-    const name = String(alert.type || 'alert').replaceAll('_', ' ')
+    const name = alert.warning ? `Solar storm in ${duration(Math.max(0, alert.startMs - state.clockMs) / 60000)}`
+      : String(alert.type || 'alert').replaceAll('_', ' ')
     return `${alert.type === 'solar_storm' ? '☀︎ ' : '⚠︎ '}${name[0].toUpperCase()}${name.slice(1)}${alert.simulated ? ' (sim)' : ''}`
+  }
+  // Nigel's shelter route in a few words: "Head to Habitat (H1): walk 53m, +0.015 mSv extra".
+  function shelterRouteLine(route) {
+    if (route.atShelter) return `Stay inside ${route.shelter.name}`
+    const outcome = route.beforeStorm ? 'inside before it starts' : `+${route.extraDoseMSv.toFixed(3)} mSv extra`
+    return `Head to ${route.shelter.name}: walk ${duration(route.minutes)}, ${outcome}`
   }
 
   // The line under an alert's name in its map pop-up: what to do, and until when.
@@ -430,6 +476,7 @@ function start(route, navigation, grid) {
     if (alert.type === 'dust_devil') return `Stop and wait${left ? `, about ${left}` : ''}`
     if (alert.type === 'global_dust_storm') return 'NO-GO: walk cancelled'
     if (alert.type === 'rover_breakdown') return 'Use the walk-back plan'
+    if (alert.type === 'solar_storm' && shelterNow) return shelterRouteLine(shelterNow)
     return shelterLine(point, shelter) // solar storm and route alerts: where to shelter
   }
 
@@ -590,6 +637,7 @@ function start(route, navigation, grid) {
     const trip = currentTrip(route, state)
     const { point, nextIndex } = pointAlong(trip.path, state.progress)
     crewPoint = point
+    updateShelter(point) // before the alerts: a storm warning is one of them
     const remainingPath = [point, ...trip.path.slice(nextIndex)]
     const ahead = trip.path.slice(nextIndex).find((p) => p.x !== point.x || p.y !== point.y)
     const pace = walkPace(state)
@@ -603,6 +651,10 @@ function start(route, navigation, grid) {
       safety = urgent.type === 'global_dust_storm'
         ? { ...safety, level: 'danger', title: 'Walk cancelled', message: 'Global dust storm: NO-GO. Stay in the habitat.' }
         : { ...safety, level: 'danger', title: shelter ? `Go to shelter: ${shelter.name}` : 'Danger alert', message: shelter?.id === stops[0].id ? 'Shelter is the habitat. Use Head home to follow the planned return path.' : 'See the alert on the map.' }
+      // A solar storm: Nigel's message, e.g. "Solar storm in 20 min. Head to Habitat (H1) now: walk 53 min. …"
+      if (urgent.type === 'solar_storm' && shelterNow) {
+        safety = { ...safety, title: urgent.warning ? `${alertName(urgent).replace(' (sim)', '')}: go to shelter` : safety.title, message: shelterNow.message }
+      }
     }
     // A dust storm or dust devil under way also shows in the status line (seen from every page), unless
     // something more serious is already there.
@@ -679,14 +731,19 @@ function start(route, navigation, grid) {
     const nextStop = photoStop(route, state)
     $('w-science-hint').textContent = nextStop ? `${nextStop.here ? 'Here' : 'Next'}: ${nextStop.stop.name}` : 'Tap a stop on the map'
     const alertsOn = complete ? [] : sortWarnings(currentAlerts())
-    $('w-data-hint').textContent = alertsOn.length ? `${alertName(alertsOn[0])} on` : scenario ? scenario.label : 'Radiation, storms, terrain'
+    $('w-data-hint').textContent = alertsOn.length ? `${alertName(alertsOn[0])}${alertsOn[0].warning ? '' : ' on'}` : scenario ? scenario.label : 'Radiation, storms, terrain'
     $('w-open-data').dataset.level = alertsOn[0]?.level ?? ''
     if (view === 'science') renderScience()
 
     // Map
     legLine.setLatLngs(complete ? [] : remainingPath.map(mapPoint))
-    const homePath = complete ? [] : state.mode === 'return' ? remainingPath : buildReturnTrip(route, state, navigation).path
+    // In a solar storm the dashed line home is Nigel's shelter route, in the danger colour.
+    const shelterPath = shelterNow ? shelterNow.legs.flatMap((leg) => leg.path) : null
+    const homePath = complete ? [] : shelterPath ?? (state.mode === 'return' ? remainingPath : buildReturnTrip(route, state, navigation).path)
     homeLine.setLatLngs(homePath.map(mapPoint))
+    const homeColor = shelterPath ? SHELTER_COLOR : HOME_COLOR
+    if (homeLine.options.color !== homeColor) homeLine.setStyle({ color: homeColor })
+    $('w-map-card').dataset.shelter = shelterPath ? 'on' : ''
     me.setLatLng(mapPoint(point))
     if (follow) map.panTo(mapPoint(point), { animate: false })
     placeHazards(trip)
@@ -810,6 +867,7 @@ function start(route, navigation, grid) {
   let groundLeg = null
   // Under an alert's full text on the Data page: where to shelter (solar storm, route alerts), or until when.
   function dataAlertLine(alert, point) {
+    if (alert.type === 'solar_storm' && shelterNow) return shelterNow.message // Nigel's whole message
     if (!alert.event || alert.type === 'solar_storm') return shelterLine(point, shelterFor(route, alert))
     return alert.endMs ? `Until ${utcTime(alert.endMs)} UTC` : ''
   }
