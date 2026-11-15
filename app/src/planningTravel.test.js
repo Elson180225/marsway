@@ -16,6 +16,7 @@ for (const eva of ['07', '08', '09', '10', '11', '12']) {
   const initial = await loadRouteForEva(eva, fetcher)
   const versions = planningTravelVersions(initial, area, catalog, parking)
   assert.equal(versions.defaultMode, eva === '08' ? 'rover' : 'foot')
+  if (eva !== '08') assert.equal(versions.rover.stops[0].rover_parking, true)
   for (const mode of ['foot', 'rover']) {
     const route = versions[mode]
     assert.equal(route.stops.length, initial.route.stops.length)

@@ -25,7 +25,7 @@ export function planningTravelVersions({ route, grid }, area, catalog, parking) 
 
   const version = (mode, origin, name) => {
     const points = [
-      { id: mode === 'foot' ? 'hab' : spot.id.toLowerCase(), name, type: 'habitat', ...origin,
+      { id: mode === 'foot' ? 'hab' : spot.id.toLowerCase(), name, type: 'habitat', rover_parking: mode === 'rover', ...origin,
         description: mode === 'foot' ? `Crew base at ${habitatId}.` : `Open-rover parking at ${spot.id}; not storm shelter.` },
       ...science,
       { id: 'home', name: mode === 'foot' ? `Return to Habitat (${habitatId})` : `Return to rover (${spot.id})`, type: 'home', ...origin },
