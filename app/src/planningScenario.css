@@ -16,3 +16,4 @@
 .psc-conditions ul{margin:0;padding:0;list-style:none;display:grid;gap:5px;line-height:1.4}
 .psc-scenario-actions{display:flex;align-items:center;gap:12px}
 .psc-scenario-actions a{color:#8ce0d6;font-size:12px}
+.psc-replay{color:#9fb4b6;font-size:11px}.psc-replay code{color:#cfe3e0}

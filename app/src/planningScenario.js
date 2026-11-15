@@ -1,8 +1,7 @@
 import { calculateMissionSchedule, renderMissionSchedule } from './missionSchedule.js'
 import { plannedCsv, downloadCsv } from './planningCsv.js'
 import { planningEventEffects, conditionLines } from './planningEvents.js'
-import { scenarioFromSearch, withScenario } from './scenarioEvents.js'
-import { randomSeed } from './safezone/randomEvents.js'
+import { scenarioFromSearch } from './scenarioEvents.js'
 import './planningScenario.css'
 
 // Conditions come from Mia's random events (?scenario=4821), the same as the Walk screen.
@@ -19,7 +18,7 @@ export function mountPlanningScenario(container, route, onChange, { grid = null 
     <div class="psc-conditions" role="status">
       <strong>Conditions: ${seed ? `Scenario #${seed}` : 'clear weather'}</strong>
       <ul></ul>
-      <div class="psc-scenario-actions"><button type="button" data-new-scenario>🎲 New scenario</button>${seed ? '<a data-clear-scenario href="#">Clear</a>' : ''}</div>
+      ${seed ? '<small class="psc-replay">Events happen by themselves. Replay this day with <code>?scenario=' + seed + '</code></small>' : ''}
     </div>
     <label>Previous career dose (mSv, optional)<input name="career" type="number" min="0" max="10000" step="0.001" inputmode="decimal" placeholder="Not entered"></label>
   </form>
@@ -55,9 +54,6 @@ export function mountPlanningScenario(container, route, onChange, { grid = null 
     previousCareerMSv = form.elements.career.value === '' ? null : Number(form.elements.career.value)
     render()
   })
-  const go = (nextSeed) => { location.href = withScenario(location.pathname + location.search, nextSeed) + location.hash }
-  controls.querySelector('[data-new-scenario]').addEventListener('click', () => go(randomSeed()))
-  controls.querySelector('[data-clear-scenario]')?.addEventListener('click', (event) => { event.preventDefault(); go(null) })
   controls.querySelectorAll('[data-export]').forEach((button) => button.addEventListener('click', () => {
     const files = plannedCsv(route, weather, { previousCareerMSv, plan })
     downloadCsv(button.dataset.export === 'summary' ? 'eva-summary.csv' : 'eva-timeline.csv', files[button.dataset.export])

@@ -17,6 +17,7 @@ import { renderStopDetails } from './stopDetails.js'
 import { loadRouteForEva, loadScenarioCatalog, roughnessImage } from './terrainRoute.js'
 import { planningTravelVersions, travelComparison } from './planningTravel.js'
 import { scenarioFromSearch, withScenario } from './scenarioEvents.js'
+import { randomSeed } from './safezone/randomEvents.js'
 
 const root = document.querySelector('#app')
 
@@ -275,6 +276,9 @@ function render(route, grid, scenarios = BUILTIN_SCENARIOS, versions = null, mod
 }
 
 root.innerHTML = '<div class="loading-screen">Loading terrain and calculating the demo route…</div>'
+// Random events happen by themselves: every walk gets a scenario. If the link has none, pick one now and
+// put it in the address before anything is drawn, so every link (EVA, travel, Walk) carries the same number.
+if (!scenarioFromSearch(location.search)) history.replaceState(history.state, '', withScenario(location.pathname + location.search, randomSeed()) + location.hash)
 const params = new URLSearchParams(location.search)
 const eva = params.get('eva') || '07'
 Promise.all([loadRouteForEva(eva), loadScenarioCatalog(), fetch('/terrain/area.json').then((r) => r.json()), fetch('/routes/rover-parking.json').then((r) => r.json())])

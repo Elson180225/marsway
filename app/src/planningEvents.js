@@ -213,7 +213,7 @@ const clock = (minutes) => { const m = Math.round(minutes); return `${Math.floor
 
 /** One line per expected event, for the Conditions box. Pure, so Node can test it. */
 export function conditionLines(fx) {
-  if (!fx) return ['No scenario: clear-weather plan. Press 🎲 for random conditions.']
+  if (!fx) return ['No scenario: clear-weather plan.']
   if (fx.cancelled) return ['Global dust storm: the walk is cancelled (NO-GO).']
   if (fx.calm) return ['Calm day: no events expected.']
   return fx.events.map((e) => {
