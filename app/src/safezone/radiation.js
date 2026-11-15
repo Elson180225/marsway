@@ -101,3 +101,17 @@ export function careerTotal({ previousMSv = 0, evaDosesMSv = [] } = {}) {
   const totalMSv = evaDosesMSv.reduce((sum, dose) => sum + dose, previousMSv)
   return { totalMSv, limitMSv: CAREER_LIMIT_MSV, percentOfLimit: (totalMSv / CAREER_LIMIT_MSV) * 100, remainingMSv: CAREER_LIMIT_MSV - totalMSv }
 }
+
+/**
+ * Planned dose for a whole walk outside, with the solar storms from randomEvents() (Planning screen).
+ * events: the list from randomEvents(); only 'solar_storm' events count. durationMin null = to the end.
+ * Returns the same fields as doseSoFar().
+ */
+export function plannedDose(durationMinutes, events = []) {
+  if (!Number.isFinite(durationMinutes) || durationMinutes < 0) throw new Error('Walk length must be 0 or more minutes.')
+  const M = 60000
+  const storms = events
+    .filter((e) => e.type === 'solar_storm')
+    .map((e) => ({ startMs: e.startMin * M, endMs: (e.startMin + (e.durationMin ?? durationMinutes)) * M }))
+  return doseSoFar({ periods: [{ startMs: 0, endMs: durationMinutes * M, inside: false }], storms })
+}

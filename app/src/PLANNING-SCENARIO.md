@@ -7,6 +7,11 @@ safety worker use the same function. The latest safe turn-back departure is
 solved against the fixed storm start, so a storm that begins during the future
 return does not overstate the margin. Clear weather is unchanged.
 
+`weatherScenario()` can also take an optional end time (used by 🎲 random events,
+see `safezone/README.md`). Walking is slowed only between the start and the end,
+and is back to normal speed after the storm. Without an end time, the storm
+lasts to the end of the walk, as before.
+
 The factor is a team demo assumption, not a REMS measurement. The 3 km
 `app/public/terrain` grid and Mia's 3 km home file stay in service. The new
 6 km processed dataset in `data/processed/area-6km` is **not** connected to
