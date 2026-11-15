@@ -117,10 +117,46 @@ The phone's home file has no no-go layer, so there a no-go square comes out as `
 
 ## Radiation
 
+All radiation numbers live in `radiation.js`. Change a number there and every screen follows.
+
+| Setting | Value | Where it comes from |
+| --- | --- | --- |
+| Normal surface dose | 0.67 mSv/day | Curiosity RAD (Hassler et al. 2014, Science 343) |
+| Solar storm | ×2 | Sept 2017 event: RAD readings "more than doubled" for over 2 days ([NASA JPL](https://www.jpl.nasa.gov/news/large-solar-storm-sparks-global-aurora-and-doubles-radiation-levels-on-the-martian-surface/)); rates up 2-3x for hours ([Hassler et al. 2018](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2018SW001959)). Cautious: dose equivalent peak was about 1.5x ([Zeitlin et al. 2018](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2018GL077760)) |
+| Inside the habitat | ×0.5 | **Team assumption.** No Mars habitat has been measured; studies give about 41% less behind 1 m of regolith ([PSS 2022](https://ui.adsabs.harvard.edu/abs/2022P&SS..21805517L/abstract)) and over 90% less behind 2.5 m ([TU Delft](https://repository.tudelft.nl/record/uuid:96c7c4bb-aab2-4146-809b-a540f8187d11)) |
+| Career limit | 600 mSv | NASA-STD-3001 Vol. 1 ([NASA radiation technical brief](https://www.nasa.gov/wp-content/uploads/2023/03/radiation-protection-technical-brief-ochmo.pdf)) |
+
+A solar storm is radiation, not dust: it does not change walking speed. The dust storm (Planning
+screen, `planningWeather.js`) changes walking time only and does not change the dose.
+
 ```js
-import { walkDoseMSv } from './safezone/radiation.js'
-walkDoseMSv(6) // → 0.168 mSv (0.67 mSv/day, Curiosity RAD)
+import { walkDoseMSv, doseRateMSvPerDay, doseSoFar, careerTotal } from './safezone/radiation.js'
+
+walkDoseMSv(6) // → 0.168 mSv (6 h outside, normal rate)
+doseRateMSvPerDay({ inside: true, solarStorm: true }) // → 0.67 mSv/day (0.67 × 0.5 × 2)
+
+// For the Walk screen: dose so far from the walk timeline, plus solar storm minutes
+doseSoFar({
+  periods: [{ startMs, endMs, inside: false }, { startMs: back, endMs: null, inside: true }],
+  storms: [{ startMs: stormStart, endMs: null }], // endMs null = storm still on
+  nowMs: Date.now(),
+})
+// → { doseMSv, stormMinutes, stormExtraMSv, outsideMinutes, insideMinutes }
+
+// Running total across walks vs NASA's 600 mSv career limit
+careerTotal({ previousMSv: 12.5, evaDosesMSv: [0.15, 0.2] })
+// → { totalMSv: 12.85, limitMSv: 600, percentOfLimit: 2.14, remainingMSv: 587.15 }
 ```
+
+Where it shows:
+- **Walk screen:** the "Radiation so far" tile counts double while the ☀︎ Storm button is on, and
+  shows the storm minutes and the extra dose (`radiationDose()` in `screens/Walk/walk-model.js`).
+- **Planning screen:** the planned dose (normal rate, whole EVA outside), plus the running total
+  against 600 mSv. Type a previous career dose to include it; if left blank, the screen says so and
+  `running_total_msv` in the summary CSV stays blank. "Elapsed dose estimate" in the safety panel is
+  the dose for the time already out. Solar storm dose and shielding are not used on this screen yet.
+
+Tests: `node src/safezone/radiation.test.js` (from `app/`).
 
 ## Files
 
@@ -131,7 +167,7 @@ walkDoseMSv(6) // → 0.168 mSv (0.67 mSv/day, Curiosity RAD)
 | `turnBack.js` | Turn-back timer |
 | `storm.js` | Storm route home (follows the arrows) |
 | `bonusStop.js` | Bonus-stop GO / NO-GO |
-| `radiation.js` | Radiation dose for a walk |
+| `radiation.js` | Radiation dose: normal rate, solar storm ×2, habitat ×0.5, `doseSoFar()` for a walk timeline, career total vs 600 mSv |
 | `homeFile.js` | Save / load the pre-calculated home file for the phone |
 | `buildHomeFile.js` | Makes `public/safezone/home-h1.*` (EVA-07), `home-g2.*` (EVA-08, 5 km map) and `home-g2-6km.*` (EVA-08, 6 km map). **Re-run if the terrain or `SUIT` changes.** |
 | `test.js` | All checks, on a toy grid and on the real terrain against Nigel's planner |

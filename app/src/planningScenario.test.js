@@ -35,6 +35,8 @@ assert.ok(files.timeline.includes('planned_arrival'))
 assert.ok(files.timeline.includes('planned_home'))
 assert.ok(files.summary.includes('SIMULATED CREW'))
 assert.ok(files.summary.split('\r\n')[1].endsWith(','), 'unknown career total is blank')
+const withCareer = plannedCsv(route, scenario, { previousCareerMSv: 12.5 }).summary.split('\r\n')[1].split(',')
+assert.equal(withCareer.at(-1), (12.5 + storm.baselineDoseMSv).toFixed(3), 'running total = entered career dose + this EVA')
 
 const flat = Array.from({ length: 10 }, () => Array(10).fill(0))
 const grid = makeGrid({ elevation: gridFileFromRows(flat, 10), slope: gridFileFromRows(flat, 10) })

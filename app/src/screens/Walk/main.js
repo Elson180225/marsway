@@ -85,6 +85,7 @@ function start(route, navigation, grid) {
   const initialState = () => ({
     mode: 'outbound', legIndex: 0, progress: 0, playing: false, returnTrip: null, scienceLeft: 0, cutShortAt: null,
     clockMs: Date.parse(mission.start_time), simPace: slowWalk ? SLOW_PACE : 1, paceLog: null,
+    solarStorms: [], // [{ startMs, endMs }] on the walk clock, for the radiation counter (endMs null = still on)
   })
   let state = initialState()
   let speedIndex = 1
@@ -137,7 +138,7 @@ function start(route, navigation, grid) {
         <div class="walk-tile" id="w-turnback-tile"><span>TURN BACK IN</span><strong id="w-turnback">–</strong><small id="w-turnback-by">–</small></div>
         <div class="walk-tile"><span>HOME FROM HERE</span><strong id="w-home">–</strong><small id="w-reserve">–</small></div>
         <div class="walk-tile" id="w-bonus-tile" hidden><span>BONUS STOP</span><strong id="w-bonus">–</strong><small id="w-bonus-note">–</small></div>
-        <div class="walk-tile" id="w-rad-tile" title="Estimate: about 0.67 mSv a day on the surface at Gale Crater, measured by Curiosity's RAD instrument (Hassler et al. 2014)."><span>RADIATION SO FAR</span><strong id="w-rad">–</strong><small id="w-rad-note">–</small></div>
+        <div class="walk-tile" id="w-rad-tile" title="Estimate: about 0.67 mSv a day on the surface at Gale Crater, measured by Curiosity's RAD instrument (Hassler et al. 2014). Doubled during a solar storm (team assumption from the September 2017 event). Not a measured personal dose."><span>RADIATION SO FAR</span><strong id="w-rad">–</strong><small id="w-rad-note">–</small></div>
       </section>
 
       <section id="w-photo" class="walk-photo" aria-label="Photo and task for this stop" hidden></section>
@@ -183,7 +184,10 @@ function start(route, navigation, grid) {
   const atStop = () => state.mode === 'outbound' && state.progress === 0 && state.legIndex > 0
 
   $('w-primary').addEventListener('click', () => {
-    if (state.mode === 'complete') state = initialState()
+    if (state.mode === 'complete') {
+      state = initialState()
+      if (simAlert) state.solarStorms.push({ startMs: state.clockMs, endMs: null }) // storm still on for the new walk
+    }
     else state.playing = !state.playing
     update()
   })
@@ -204,7 +208,13 @@ function start(route, navigation, grid) {
   $('w-speed').addEventListener('click', () => { speedIndex = (speedIndex + 1) % SPEEDS.length; update() })
   // The crew really walks slower; the screen notices from the walking (walkPace), not from this switch.
   $('w-slow').addEventListener('click', () => { slowWalk = !slowWalk; state.simPace = slowWalk ? SLOW_PACE : 1; update() })
-  $('w-storm').addEventListener('click', () => { simAlert = simAlert ? null : simulatedStorm(route); update() })
+  $('w-storm').addEventListener('click', () => {
+    simAlert = simAlert ? null : simulatedStorm(route)
+    // Note when the storm starts and ends on the walk clock: the dose rate doubles in between.
+    if (simAlert) state.solarStorms.push({ startMs: state.clockMs, endMs: null })
+    else { const open = state.solarStorms.at(-1); if (open && open.endMs == null) open.endMs = state.clockMs }
+    update()
+  })
 
   // Map pop-ups: every notice (storm or other alert, turn back, arriving at a stop, hazards ahead,
   // the bonus GO / NO-GO) is a small pop-up pinned where it applies, instead of a text card.
@@ -551,12 +561,18 @@ function start(route, navigation, grid) {
     image.src = meta.photo // set after the listener, so a failed load is always shown
   }
 
-  // Radiation counter: dose so far, next to the dose for the whole walking budget (0.17 mSv for 6 h).
+  // Radiation counter: dose so far (×2 while a solar storm is on), next to the dose for the whole
+  // walking budget at the normal rate (0.17 mSv for 6 h).
   function renderRadiation() {
-    const dose = radiationDose(route, state.clockMs)
+    const dose = radiationDose(route, state.clockMs, state.solarStorms)
     const hours = Number.isInteger(dose.walkHours) ? `${dose.walkHours}h` : duration(dose.walkHours * 60)
-    $('w-rad').textContent = `${dose.soFarMSv.toFixed(2)} mSv`
-    $('w-rad-note').textContent = `full ${hours} walk: ${dose.fullWalkMSv.toFixed(2)} mSv`
+    // 3 decimals so the faster climb during a short storm shows (0.006 → 0.009, not 0.00 → 0.01).
+    $('w-rad').textContent = `${dose.soFarMSv.toFixed(3)} mSv`
+    // Once a solar storm has been on, say how long and how much it added (dose rate ×2 meanwhile).
+    // Kept short so it fits on one line on a phone.
+    $('w-rad-note').textContent = dose.stormMinutes > 0
+      ? `☀︎ ${duration(dose.stormMinutes)} storm, +${dose.stormExtraMSv.toFixed(3)} mSv`
+      : `full ${hours} walk: ${dose.fullWalkMSv.toFixed(2)} mSv`
   }
 
   let last = performance.now()

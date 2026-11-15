@@ -59,7 +59,7 @@ export function mountPlanningSafety({ root, map, grid, route }) {
       <div title="Time home from the selected route stop, calculated on the terrain grid."><small>TIME HOME</small><strong id="ps-home">Calculating</strong></div>
       <div><small>TURN BACK IN</small><strong id="ps-turnback">Calculating</strong><small>Before protected reserve</small></div>
       <div title="Suit time remaining on arrival home, including the protected reserve."><small>SUIT LEFT AT HOME</small><strong id="ps-reserve">Calculating</strong></div>
-      <div title="Estimate from Curiosity RAD baseline (0.67 mSv/day), not a measured personal dose. Storm radiation and shielding are excluded."><small>DOSE ESTIMATE</small><strong id="ps-dose">Calculating</strong></div>
+      <div title="Estimate from Curiosity RAD baseline (0.67 mSv/day) for the time already out, not a measured personal dose. Dust-storm simulation changes walking time only; radiation effects and shielding are not modelled."><small>Elapsed dose estimate</small><strong id="ps-dose">Calculating</strong></div>
     </div>
     <div class="ps-legend" aria-label="Safe zone legend"><span title="30 or more minutes before reserve"><i style="background:#46c878"></i>30+ min spare</span><span title="Under 30 minutes before reserve"><i style="background:#f0af3c"></i>&lt;30 min spare</span><span title="Return uses protected reserve"><i style="background:#ff7068"></i>Uses reserve</span></div>
     <p id="ps-probe" class="ps-probe" role="status">Click a map point to check it.</p>

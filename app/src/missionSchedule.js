@@ -1,5 +1,5 @@
 import { adjustedTravelMinutes, stormMinutes } from './planningWeather.js'
-import { walkDoseMSv } from './safezone/radiation.js'
+import { walkDoseMSv, careerTotal } from './safezone/radiation.js'
 
 const minutesLabel = (minutes) => {
   const rounded = Math.round(minutes)
@@ -41,7 +41,10 @@ export function calculateMissionSchedule(route, scenario = null) {
   return { rows, walking, science, driveOut, driveHome, total, budget, margin: budget - total, start, hasBonus: rows.some((row) => row.isBonus), stormExposure, baselineDoseMSv: walkDoseMSv(total / 60) }
 }
 
-export function renderMissionSchedule(container, route, scenario = null) {
+// previousCareerMSv: career dose before this EVA, typed in by the planner; null = not entered.
+const percentLabel = (value) => `${value < 1 ? value.toFixed(3) : value.toFixed(1)}%`
+
+export function renderMissionSchedule(container, route, scenario = null, { previousCareerMSv = null } = {}) {
   const plan = calculateMissionSchedule(route, scenario)
   const el = (tag, className, value) => {
     const node = document.createElement(tag)
@@ -54,7 +57,11 @@ export function renderMissionSchedule(container, route, scenario = null) {
   panel.append(el('p', `ms-summary${plan.margin < 0 ? ' ms-over-budget' : ''}`, `${minutesLabel(plan.total)} total · ${plan.margin >= 0 ? `${minutesLabel(plan.margin)} before reserve` : `${minutesLabel(-plan.margin)} into reserve`}`))
   panel.append(el('p', 'ms-breakdown', `${plan.driveOut ? `${minutesLabel(plan.driveOut)} drive out + ` : ''}${minutesLabel(plan.walking)} walking + ${minutesLabel(plan.science)} science${plan.driveHome ? ` + ${minutesLabel(plan.driveHome)} drive home` : ''}${plan.hasBonus ? ' · Includes bonus stop' : ''}`))
   if (plan.driveOut) panel.append(el('p', 'ms-note', `H1 → G2: ${minutesLabel(plan.driveOut)} suited drive (about ${(route.mission.drive_distance_m / 1000).toFixed(1)} km at an assumed 5 km/h, including boarding). Open rover; no storm shelter.`))
-  panel.append(el('p', 'ms-dose', `Planned surface dose: ${plan.baselineDoseMSv.toFixed(3)} mSv (RAD baseline${scenario ? '; storm radiation excluded' : ''}).${scenario ? ` Simulated storm exposure: ${minutesLabel(plan.stormExposure)}.` : ''}`))
+  panel.append(el('p', 'ms-dose', `Planned surface dose: ${plan.baselineDoseMSv.toFixed(3)} mSv (RAD baseline).${scenario ? ` Simulated storm exposure: ${minutesLabel(plan.stormExposure)}. Dust-storm simulation changes walking time only; radiation effects and shielding are not modelled.` : ''}`))
+  const career = careerTotal({ previousMSv: previousCareerMSv ?? 0, evaDosesMSv: [plan.baselineDoseMSv] })
+  panel.append(el('p', 'ms-career', previousCareerMSv == null
+    ? `This EVA alone: ${percentLabel(career.percentOfLimit)} of NASA's ${career.limitMSv} mSv career limit. Previous career dose not entered.`
+    : `Career running total after this EVA: ${career.totalMSv.toFixed(3)} mSv of ${career.limitMSv} mSv (${percentLabel(career.percentOfLimit)}); ${career.remainingMSv.toFixed(1)} mSv left.`))
   const list = el('ol', 'ms-list')
   for (const row of plan.rows) {
     const item = el('li', 'ms-row')

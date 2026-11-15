@@ -11,15 +11,17 @@ export function mountPlanningScenario(container, route, onChange) {
       <select name="weather"><option value="none">Clear-weather estimate</option><option value="storm">Simulated dust storm</option></select>
     </label>
     <label>Storm starts (UTC)<input name="start" type="time" value="10:30" disabled required></label>
+    <label>Previous career dose (mSv, optional)<input name="career" type="number" min="0" max="10000" step="0.001" inputmode="decimal" placeholder="Not entered"></label>
     <button type="submit">Update plan</button>
   </form>
-  <p class="psc-note">Demo assumption: walking speed becomes 0.6× after the selected time. Storm radiation is excluded from the dose estimate. The Walk screen is unaffected.</p>
+  <p class="psc-note">Demo assumption: walking speed becomes 0.6× after the selected time. Dust-storm simulation changes walking time only; radiation effects and shielding are not modelled. The Walk screen is unaffected.</p>
   <div class="psc-export"><button type="button" data-export="summary">Download planned summary CSV</button><button type="button" data-export="timeline">Download planned timeline CSV</button></div>
-  <small class="psc-note">RAD baseline estimate (0.67 mSv/day), not a measured personal dose. These are planned events; visited stops, bonus completion and prior career dose are unknown.</small>`
+  <small class="psc-note">RAD baseline estimate (0.67 mSv/day), not a measured personal dose. These are planned events; visited stops and bonus completion are unknown. The running total uses the previous career dose only if you enter one.</small>`
   const output = document.createElement('div')
   container.replaceChildren(controls, output)
   const form = controls.querySelector('form')
   let scenario = null
+  let previousCareerMSv = null
   renderMissionSchedule(output, route)
   const walkingMetric = document.querySelector('#planning-walking')
   form.elements.weather.addEventListener('change', () => {
@@ -32,13 +34,14 @@ export function mountPlanningScenario(container, route, onChange) {
     scenario = form.elements.weather.value === 'storm'
       ? weatherScenario(`${route.mission.start_time.slice(0, 10)}T${form.elements.start.value}:00Z`)
       : null
-    renderMissionSchedule(output, route, scenario)
+    previousCareerMSv = form.elements.career.value === '' ? null : Number(form.elements.career.value)
+    renderMissionSchedule(output, route, scenario, { previousCareerMSv })
     const walking = Math.round(calculateMissionSchedule(route, scenario).walking)
     if (walkingMetric) walkingMetric.textContent = walking >= 60 ? `${Math.floor(walking / 60)}h ${walking % 60}m` : `${walking}m`
     onChange(scenario)
   })
   controls.querySelectorAll('[data-export]').forEach((button) => button.addEventListener('click', () => {
-    const files = plannedCsv(route, scenario)
+    const files = plannedCsv(route, scenario, { previousCareerMSv })
     downloadCsv(button.dataset.export === 'summary' ? 'eva-summary.csv' : 'eva-timeline.csv', files[button.dataset.export])
   }))
 }
