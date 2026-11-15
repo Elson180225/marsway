@@ -220,16 +220,18 @@ function logPace(state, plannedMinutes, actualMinutes) {
   }
 }
 
-// Estimated minutes to walk home from the current position, at the crew's measured pace.
+// Estimated minutes to get home from the current position, at the crew's measured pace. Includes
+// any dust devil wait still to go (state.waitLeft): the crew can't set off until it has passed.
 export function minutesHome(route, state, navigation = null) {
   if (state.mode === 'complete') return 0
   const pace = walkPace(state)
+  const wait = state.waitLeft || 0
   const trip = currentTrip(route, state)
-  if (navigation) return navigation.homeFrom(pointAlong(trip.path, state.progress).point).walk_minutes * pace
-  if (state.mode === 'return' || trip.to?.type === 'home') return trip.walk_minutes * (1 - state.progress) * pace
+  if (navigation) return wait + navigation.homeFrom(pointAlong(trip.path, state.progress).point).walk_minutes * pace
+  if (state.mode === 'return' || trip.to?.type === 'home') return wait + trip.walk_minutes * (1 - state.progress) * pace
   const fromHome = returnFor(route, trip.from.id).walk_minutes
   const toHome = returnFor(route, trip.to.id).walk_minutes
-  return (fromHome + (toHome - fromHome) * state.progress) * pace
+  return wait + (fromHome + (toHome - fromHome) * state.progress) * pace
 }
 
 /**
@@ -254,7 +256,7 @@ export function safetyStatus(route, state, clockMs, navigation = null) {
   if (state.mode === 'outbound' && trip.to.type !== 'home') {
     // Finish the science here, walk there, do the science planned there, then walk home.
     const pace = walkPace(state)
-    const arriveMs = clockMs + ((state.scienceLeft || 0) + trip.walk_minutes * (1 - state.progress) * pace) * 60000
+    const arriveMs = clockMs + ((state.waitLeft || 0) + (state.scienceLeft || 0) + trip.walk_minutes * (1 - state.progress) * pace) * 60000
     const homeFromNext = (navigation ? navigation.homeFrom(trip.to).walk_minutes : returnFor(route, trip.to.id).walk_minutes) * pace
     nextStopOk = (suitEnd - arriveMs) / 60000 - nextScience - homeFromNext >= mission.reserve_minutes
   }
@@ -279,10 +281,21 @@ export function safetyStatus(route, state, clockMs, navigation = null) {
  * like walking does. The walk pauses when that science is done (or on arrival if none is planned),
  * so the crew can choose to walk on or head home.
  * state.simPace (demo, default 1) is how much slower than planned the simulated crew really walks.
- * The screen doesn't use it for its estimates: it measures the pace from the walking (walkPace).
+ * state.weatherPace (default 1) is the same for the weather: 1 / 0.6 in a dust storm (eventEffects).
+ * The screen doesn't use either for its estimates: it measures the pace from the walking (walkPace).
+ * state.waitLeft: minutes the crew must stand still (a dust devil, eventEffects). The clock runs, the
+ * crew doesn't move, science stops too. When the wait is over the crew carries on by itself.
  */
 export function advance(route, state, minutes) {
   if (state.mode === 'complete' || !(minutes > 0)) return state
+  if (state.waitLeft > 0) {
+    const used = Math.min(minutes, state.waitLeft)
+    state.clockMs += used * 60000
+    state.waitLeft -= used
+    if (state.waitLeft < 1e-9) state.waitLeft = 0
+    minutes -= used
+    if (!(minutes > 1e-9)) return state
+  }
   if (state.scienceLeft > 0) {
     const used = Math.min(minutes, state.scienceLeft)
     state.clockMs += used * 60000
@@ -294,7 +307,7 @@ export function advance(route, state, minutes) {
     return state
   }
   const trip = currentTrip(route, state)
-  const slower = state.simPace > 0 ? state.simPace : 1
+  const slower = (state.simPace > 0 ? state.simPace : 1) * (state.weatherPace > 0 ? state.weatherPace : 1)
   const legMinutesNow = trip.walk_minutes * slower // how long this leg really takes the crew
   const used = Math.min(minutes, Math.max(0, (1 - state.progress) * legMinutesNow))
   state.clockMs += used * 60000
@@ -343,7 +356,7 @@ export function headHome(route, state, navigation = null) {
 // crew's measured pace.
 export function minutesToReach(route, state, target) {
   const pace = walkPace(state)
-  let minutes = (state.scienceLeft || 0) + legMinutes(route.legs[state.legIndex]) * (1 - state.progress) * pace
+  let minutes = (state.waitLeft || 0) + (state.scienceLeft || 0) + legMinutes(route.legs[state.legIndex]) * (1 - state.progress) * pace
   for (let k = state.legIndex + 1; k < target; k++) minutes += scienceMinutes(route.stops[k]) + legMinutes(route.legs[k]) * pace
   return minutes
 }
@@ -356,12 +369,14 @@ export function minutesToReach(route, state, target) {
 export function arrivalTimes(route, state) {
   const nowMs = state.clockMs
   if (state.mode === 'complete') return { stops: [], home_ms: nowMs, walking_minutes: 0, science_minutes: 0, minutes_left: 0 }
+  // A dust devil wait still to go delays everything ahead, like science still to do at a stop.
+  const wait = state.waitLeft || 0
   const options = { nowMs, progress: state.progress, paceFactor: walkPace(state) }
   if (state.mode === 'return') {
     const trip = currentTrip(route, state)
-    return etaFor({ stops: [trip.from, trip.to], legs: [trip] }, options)
+    return etaFor({ stops: [trip.from, trip.to], legs: [trip] }, { ...options, scienceLeft: wait })
   }
-  return etaFor(route, { ...options, legIndex: state.legIndex, scienceLeft: state.scienceLeft || 0 })
+  return etaFor(route, { ...options, legIndex: state.legIndex, scienceLeft: wait + (state.scienceLeft || 0) })
 }
 
 /**
@@ -475,6 +490,23 @@ export function eventAlerts(route, events, minutesOut) {
     type: event.type, level: EVENT_LEVELS[event.type] ?? 'caution', message: event.message, simulated: true,
     shelter_stop_id: event.type === 'solar_storm' ? route.stops[0].id : null, ...eventTimes(route, event), event,
   }))
+}
+
+/**
+ * What the random events do to the walking `minutesOut` minutes into the walk. Sets and returns
+ * state.weatherPace and state.waitLeft, which advance() uses:
+ *   weatherPace  1 / speedFactor while a dust storm is on (1 / 0.6 = 1.67× slower), else 1
+ *   waitLeft     the minutes left of a dust devil under way: the crew stands still, the clock runs
+ * Worked out from the clock each time (like eventAlerts), so a new scenario or "+30m here" just works.
+ * Call it before and after each advance().
+ */
+export function eventEffects(state, events, minutesOut) {
+  const now = state.mode === 'complete' ? [] : activeEvents(events || [], minutesOut)
+  const storm = now.find((event) => event.type === 'dust_storm' && event.speedFactor > 0)
+  const devil = now.find((event) => event.type === 'dust_devil')
+  state.weatherPace = storm ? 1 / storm.speedFactor : 1
+  state.waitLeft = devil ? Math.max(0, devil.startMin + devil.durationMin - minutesOut) : 0
+  return { weatherPace: state.weatherPace, waitLeft: state.waitLeft }
 }
 
 /** The random solar storms as { startMs, endMs } windows on the walk clock, for doseSoFar() (radiation ×2). */
