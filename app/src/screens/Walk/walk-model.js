@@ -6,7 +6,7 @@ import { heightAt, xyToCell } from '../../pathfinding/walkingTime.js'
 import { etaFor, paceFactor } from '../../pathfinding/navigation.js'
 import { nextDirection } from '../../pathfinding/directions.js'
 import { activeEvents } from '../../safezone/randomEvents.js'
-import { currentSolarStorm, shelterRoute } from '../../pathfinding/shelter.js'
+import { currentSolarStorm, roverBreakdown, shelterRoute } from '../../pathfinding/shelter.js'
 
 const LEVEL_RANK = { danger: 0, caution: 1, info: 2 }
 export const PACE_WINDOW_MINUTES = 10 // the pace is measured over about the last 10 planned minutes of walking
@@ -148,20 +148,54 @@ export function sortWarnings(warnings) {
   return [...warnings].sort((a, b) => (LEVEL_RANK[a.level] ?? 3) - (LEVEL_RANK[b.level] ?? 3))
 }
 
+// Rover version (Planning's "With rover", planningTravel.js): the crew drives from the habitat to the
+// parked rover (stops[0]), walks the stops from there and back to it, then drives home. Suits stay on,
+// so the drive counts against suit time, and radiation keeps counting (open rover).
+// route.drivePath: habitat to rover, local metres (rover-parking.json drive_path). EVA-08 (G2) has none,
+// so its drive is drawn as a straight line from the habitat (mission.habitat_position) to the rover.
+export const isRoverRoute = (route) => Boolean(route.mission.drive_out_minutes)
+export const isDriving = (state) => state.mode === 'drive-out' || state.mode === 'drive-home'
+export const driveHomeMinutes = (route) => (isRoverRoute(route) ? route.mission.drive_home_minutes ?? route.mission.drive_out_minutes : 0)
+export function habitatOf(route) {
+  const { mission } = route
+  const label = mission.habitat_label ?? 'H1'
+  const at = mission.habitat_position ?? route.drivePath?.[0] ?? route.stops[0]
+  return { id: 'habitat', name: `Habitat (${label})`, label, type: 'habitat', x: at.x, y: at.y }
+}
+export function drivePathOf(route) {
+  if (route.drivePath?.length > 1) return route.drivePath
+  const habitat = habitatOf(route)
+  return [{ x: habitat.x, y: habitat.y }, { x: route.stops[0].x, y: route.stops[0].y }]
+}
+function driveTrip(route, out) {
+  const path = out ? drivePathOf(route) : [...drivePathOf(route)].reverse()
+  const rover = out ? route.stops[0] : route.stops.at(-1)
+  const habitat = habitatOf(route)
+  return {
+    path, distance_m: route.mission.drive_distance_m ?? pathLength(path), warnings: [], drive: true,
+    walk_minutes: out ? route.mission.drive_out_minutes : driveHomeMinutes(route),
+    from: out ? habitat : rover, to: out ? rover : habitat,
+  }
+}
+
 export function returnFor(route, stopId) {
   return route.returns.find((item) => item.from_stop_id === stopId)
 }
 
 /**
  * The leg the crew is walking right now.
- * state: { mode: 'outbound' | 'return' | 'complete', legIndex, progress, returnTrip, scienceLeft, cutShortAt }
+ * state: { mode: 'drive-out' | 'outbound' | 'return' | 'drive-home' | 'complete', legIndex, progress, returnTrip, scienceLeft, cutShortAt }
+ *   drive-out / drive-home: the rover version only (isRoverRoute). The "trip" is the drive, and
+ *   progress is how far along it the rover is.
  *   scienceLeft: minutes of science still to do at the stop the crew is at (progress 0), else 0.
  *   cutShortAt:  id of the stop the crew headed home from before its science was done, else null.
  * Returns { path, distance_m, walk_minutes, warnings, from, to }.
  */
 export function currentTrip(route, state) {
+  if (state.mode === 'drive-out') return driveTrip(route, true)
+  if (state.mode === 'drive-home') return driveTrip(route, false)
   if (state.mode === 'complete') {
-    const home = route.stops.at(-1)
+    const home = isRoverRoute(route) ? habitatOf(route) : route.stops.at(-1)
     return { path: [{ x: home.x, y: home.y }], distance_m: 0, walk_minutes: 0, warnings: [], from: home, to: home }
   }
   if (state.mode === 'return') return state.returnTrip
@@ -225,6 +259,11 @@ function logPace(state, plannedMinutes, actualMinutes) {
 // any dust devil wait still to go (state.waitLeft): the crew can't set off until it has passed.
 export function minutesHome(route, state, navigation = null) {
   if (state.mode === 'complete') return 0
+  if (state.mode === 'drive-home') return (state.waitLeft || 0) + (1 - state.progress) * driveHomeMinutes(route)
+  if (state.mode === 'drive-out') return (state.waitLeft || 0) + state.progress * route.mission.drive_out_minutes // drive back
+  return driveHomeMinutes(route) + walkToHomeStop(route, state, navigation) // rover: walk back to it, then drive home
+}
+function walkToHomeStop(route, state, navigation) {
   const pace = walkPace(state)
   const wait = state.waitLeft || 0
   const trip = currentTrip(route, state)
@@ -258,12 +297,19 @@ export function safetyStatus(route, state, clockMs, navigation = null) {
     // Finish the science here, walk there, do the science planned there, then walk home.
     const pace = walkPace(state)
     const arriveMs = clockMs + ((state.waitLeft || 0) + (state.scienceLeft || 0) + trip.walk_minutes * (1 - state.progress) * pace) * 60000
-    const homeFromNext = (navigation ? navigation.homeFrom(trip.to).walk_minutes : returnFor(route, trip.to.id).walk_minutes) * pace
+    const homeFromNext = (navigation ? navigation.homeFrom(trip.to).walk_minutes : returnFor(route, trip.to.id).walk_minutes) * pace + driveHomeMinutes(route)
     nextStopOk = (suitEnd - arriveMs) / 60000 - nextScience - homeFromNext >= mission.reserve_minutes
   }
 
   const result = (level, title, message) => ({ level, title, message, homeMinutes, reserveAtHome, turnbackIn, nextStopOk })
   if (state.mode === 'complete') return result('info', 'EVA complete', 'Crew is back at the habitat.')
+  if (isDriving(state)) {
+    const left = Math.max(1, Math.ceil((1 - state.progress) * trip.walk_minutes))
+    const where = state.mode === 'drive-out' ? route.mission.home_label ?? trip.to.name : habitatOf(route).label ?? habitatOf(route).name
+    const title = `🚙 Driving ${state.mode === 'drive-out' ? 'to' : 'home to'} ${where}… ${left} min`
+    if (reserveAtHome <= 0) return result('danger', title, 'Projected to run out of suit time before reaching the habitat.')
+    return result('info', title, 'Suits stay on in the open rover: the drive counts against suit time, and radiation keeps counting.')
+  }
   if (reserveAtHome <= 0) return result('danger', 'Suit time short', 'Projected to run out before reaching the habitat. Head home now.')
   if (state.mode === 'return') {
     return turnbackIn < 0
@@ -297,6 +343,16 @@ export function advance(route, state, minutes) {
     minutes -= used
     if (!(minutes > 1e-9)) return state
   }
+  if (isDriving(state)) { // the rover drives along the drive path; walking pace doesn't apply
+    const drive = currentTrip(route, state)
+    const used = Math.min(minutes, Math.max(0, (1 - state.progress) * drive.walk_minutes))
+    state.clockMs += used * 60000
+    state.progress = drive.walk_minutes > 0 ? state.progress + used / drive.walk_minutes : 1
+    if (state.progress < 1 - 1e-9) return state
+    if (state.mode === 'drive-out') Object.assign(state, { mode: 'outbound', legIndex: 0, progress: 0 }) // at the rover: walk on
+    else Object.assign(state, { mode: 'complete', progress: 1, playing: false })
+    return state
+  }
   if (state.scienceLeft > 0) {
     const used = Math.min(minutes, state.scienceLeft)
     state.clockMs += used * 60000
@@ -315,7 +371,9 @@ export function advance(route, state, minutes) {
   state.progress += used / legMinutesNow
   logPace(state, used / slower, used)
   if (state.progress < 1 - 1e-9) return state
-  if (state.mode === 'return' || trip.to.type === 'home') {
+  if ((state.mode === 'return' || trip.to.type === 'home') && isRoverRoute(route)) {
+    Object.assign(state, { mode: 'drive-home', progress: 0 }) // back at the rover: drive home
+  } else if (state.mode === 'return' || trip.to.type === 'home') {
     state.mode = 'complete'
     state.progress = 1
     state.playing = false
@@ -372,12 +430,22 @@ export function arrivalTimes(route, state) {
   if (state.mode === 'complete') return { stops: [], home_ms: nowMs, walking_minutes: 0, science_minutes: 0, minutes_left: 0 }
   // A dust devil wait still to go delays everything ahead, like science still to do at a stop.
   const wait = state.waitLeft || 0
+  // Rover version: the drive home comes after the walk back to the rover.
+  const plusDrive = (eta, minutes = driveHomeMinutes(route)) => minutes ? { ...eta, home_ms: eta.home_ms + minutes * 60000, minutes_left: eta.minutes_left + minutes } : eta
+  if (state.mode === 'drive-home') {
+    const left = wait + (1 - state.progress) * driveHomeMinutes(route)
+    return { stops: [], home_ms: nowMs + left * 60000, walking_minutes: 0, science_minutes: 0, minutes_left: left }
+  }
+  if (state.mode === 'drive-out') { // the stops come after the rest of the drive out
+    const driveLeft = (1 - state.progress) * route.mission.drive_out_minutes
+    return plusDrive(etaFor(route, { nowMs, progress: 0, paceFactor: walkPace(state), legIndex: 0, scienceLeft: wait + driveLeft }))
+  }
   const options = { nowMs, progress: state.progress, paceFactor: walkPace(state) }
   if (state.mode === 'return') {
     const trip = currentTrip(route, state)
-    return etaFor({ stops: [trip.from, trip.to], legs: [trip] }, { ...options, scienceLeft: wait })
+    return plusDrive(etaFor({ stops: [trip.from, trip.to], legs: [trip] }, { ...options, scienceLeft: wait }))
   }
-  return etaFor(route, { ...options, legIndex: state.legIndex, scienceLeft: wait + (state.scienceLeft || 0) })
+  return plusDrive(etaFor(route, { ...options, legIndex: state.legIndex, scienceLeft: wait + (state.scienceLeft || 0) }))
 }
 
 /**
@@ -423,6 +491,10 @@ export function bonusStatus(route, state, clockMs, { grid, timeHome }) {
   if (index < 0) return null
   const stop = route.stops[index]
   const reached = state.legIndex >= index
+  if (state.mode === 'drive-out') { // as if at the rover once the rest of the drive is done
+    const driveLeft = (1 - state.progress) * route.mission.drive_out_minutes
+    return bonusStatus(route, { ...state, mode: 'outbound', legIndex: 0, progress: 0 }, clockMs + driveLeft * 60000, { grid, timeHome })
+  }
   if (state.mode !== 'outbound') {
     const phase = state.cutShortAt === stop.id ? 'incomplete' : reached ? 'done' : 'skipped'
     return { stop, phase, decideNow: false }
@@ -435,7 +507,7 @@ export function bonusStatus(route, state, clockMs, { grid, timeHome }) {
     elapsedMinutes: (clockMs - Date.parse(mission.start_time)) / 60000,
     stopMinutes: scienceMinutes(stop),
     walkThereMinutes: minutesToReach(route, state, index),
-    settings: { suitHours: mission.max_walk_minutes / 60, reserveHours: mission.reserve_minutes / 60 },
+    settings: { suitHours: (mission.max_walk_minutes - driveHomeMinutes(route)) / 60, reserveHours: mission.reserve_minutes / 60 }, // rover: leave time to drive home
     paceFactor: walkPace(state), // walking home from it at the crew's measured pace too
   })
   return { ...check, stop, phase: 'ahead', decideNow: state.legIndex === index - 1 }
@@ -536,9 +608,16 @@ export function stormShelter(route, grid, events, minutesOut, crew) {
   const storm = currentSolarStorm(events, nowMin)
   if (!storm) return null
   const dust = activeEvents(events, nowMin).find((event) => event.type === 'dust_storm')
-  const home = route.stops[0]
+  const home = isRoverRoute(route) ? habitatOf(route) : route.stops[0]
+  const parked = route.stops[0]
+  // Rover version: back to the rover and drive home, or walk straight home if that is quicker or the
+  // rover has broken down (Mia's rover_breakdown event).
+  const rover = !isRoverRoute(route) ? null : {
+    id: route.mission.home_label ?? parked.id, name: parked.name, x: parked.x, y: parked.y,
+    driveMinutes: driveHomeMinutes(route), drivePath: drivePathOf(route), available: !roverBreakdown(events, nowMin),
+  }
   const result = shelterRoute({
-    grid, crew, nowMin, storm, rover: null, walkSpeed: dust?.speedFactor ?? 1,
+    grid, crew, nowMin, storm, rover, walkSpeed: dust?.speedFactor ?? 1,
     habitat: { id: home.id, name: home.name, x: home.x, y: home.y },
   })
   if (!result) return null

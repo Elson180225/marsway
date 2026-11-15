@@ -16,6 +16,9 @@ import {
   eventAlerts, eventEffects, eventSolarStorms, groundAt, hazardSpots, headHome, minutesBehindPlan, pathGround, pathLength, photoStop, pointAlong, radiationDose,
   safetyStatus, segmentLength, shelterFor, sortWarnings, walkPace,
 } from './walk-model.js'
+// Rover version ("With rover"): drive out, walk from the parked rover, drive home
+import { drivePathOf, habitatOf, isDriving, isRoverRoute } from './walk-model.js'
+import { planningTravelVersions } from '../../planningTravel.js'
 // Solar storm shelter route (Nigel's pathfinding/shelter.js)
 import { demoStormEvents, stormShelter } from './walk-model.js'
 import { currentSolarStorm } from '../../pathfinding/shelter.js'
@@ -24,7 +27,9 @@ import { activeEvents } from '../../safezone/randomEvents.js'
 const root = document.querySelector('#walk')
 // ?eva=09 etc. picks the scenario, as on the Planning screen. No ?eva is EVA-07.
 const eva = new URLSearchParams(location.search).get('eva')
-const planningHref = eva ? `/?eva=${encodeURIComponent(eva)}` : '/'
+// ?travel=rover (or foot) picks Planning's "With rover" / "On foot" version, as in the Planning → Walk link.
+const travel = ['rover', 'foot'].includes(new URLSearchParams(location.search).get('travel')) ? new URLSearchParams(location.search).get('travel') : null
+const planningHref = eva ? `/?eva=${encodeURIComponent(eva)}${travel ? `&travel=${travel}` : ''}` : '/'
 const SPEEDS = [1, 60, 300] // simulated minutes per real minute
 const TICK_MS = 250
 const STAY_MINUTES = 30 // demo button: the crew stays this much longer at a stop
@@ -98,7 +103,7 @@ function start(route, navigation, grid) {
   const isSample = mission.data_status !== 'VALIDATED'
   let slowWalk = false // demo: the simulated crew walks slower than planned
   const initialState = () => ({
-    mode: 'outbound', legIndex: 0, progress: 0, playing: false, returnTrip: null, scienceLeft: 0, cutShortAt: null,
+    mode: isRoverRoute(route) ? 'drive-out' : 'outbound', legIndex: 0, progress: 0, playing: false, returnTrip: null, scienceLeft: 0, cutShortAt: null,
     clockMs: Date.parse(mission.start_time), simPace: slowWalk ? SLOW_PACE : 1, paceLog: null,
     solarStorms: [], // [{ startMs, endMs }] on the walk clock, for the radiation counter (endMs null = still on)
   })
@@ -195,7 +200,7 @@ function start(route, navigation, grid) {
   const stormEvents = () => [...(scenario?.events ?? []), ...demoStormEvents(route, state.solarStorms)]
   function updateShelter(point) {
     const now = minutesOut()
-    const storm = state.mode === 'complete' ? null : currentSolarStorm(stormEvents(), Math.max(0, now))
+    const storm = state.mode === 'complete' || isDriving(state) ? null : currentSolarStorm(stormEvents(), Math.max(0, now))
     if (!storm) { shelterNow = null; shelterKey = ''; return }
     const key = `${storm.startMin}:${storm.phase}:${activeEvents(stormEvents(), now).some((e) => e.type === 'dust_storm')}`
     const recent = shelterAt && Date.now() - shelterAt.realMs < 1000
@@ -333,15 +338,20 @@ function start(route, navigation, grid) {
     $('w-map-card').insertAdjacentHTML('beforeend', '<p class="walk-map-note">No basemap. Routing still uses the terrain.</p>')
   })
   const scienceStops = stops.filter((stop, index) => index > 0 && stop.type !== 'home' && stop.type !== 'habitat')
-  const allPoints = legs.flatMap((leg) => leg.path.map(mapPoint))
+  const allPoints = [...legs.flatMap((leg) => leg.path.map(mapPoint)), ...(isRoverRoute(route) ? drivePathOf(route).map(mapPoint) : [])]
   map.fitBounds(L.latLngBounds(allPoints).pad(0.15))
   legs.forEach((leg) => L.polyline(leg.path.map(mapPoint), { color: '#f6b77c', weight: 3, opacity: 0.25 }).addTo(map))
+  if (isRoverRoute(route)) { // the drive between the habitat and the parked rover, and the habitat itself
+    L.polyline(drivePathOf(route).map(mapPoint), { color: '#d9e2e4', weight: 3, opacity: 0.6, dashArray: '2 7', interactive: false }).addTo(map)
+    const hab = habitatOf(route)
+    L.marker(mapPoint(hab), { icon: L.divIcon({ className: 'walk-stop-icon', html: '<span class="walk-stop is-home">⌂</span>', iconSize: [28, 28], iconAnchor: [14, 14] }), interactive: false, keyboard: false, title: hab.name }).addTo(map)
+  }
   const legLine = L.polyline([], { color: '#fff0ce', weight: 6, opacity: 0.95, lineCap: 'round' }).addTo(map)
   const homeLine = L.polyline([], { color: HOME_COLOR, weight: 4, opacity: 0.95, dashArray: '8 9' }).addTo(map)
   stops.forEach((stop, index) => {
     if (index > 0 && stop.type === 'home') return
     const kind = index === 0 ? 'is-home' : stop.is_bonus ? 'is-bonus' : ''
-    const icon = L.divIcon({ className: 'walk-stop-icon', html: `<span class="walk-stop ${kind}">${index === 0 ? '⌂' : index}</span>`, iconSize: [28, 28], iconAnchor: [14, 14] })
+    const icon = L.divIcon({ className: 'walk-stop-icon', html: `<span class="walk-stop ${kind}">${index > 0 ? index : isRoverRoute(route) ? '🚙' : '⌂'}</span>`, iconSize: [28, 28], iconAnchor: [14, 14] })
     const science = scienceStops.includes(stop) // tap a science stop to open its page
     const marker = L.marker(mapPoint(stop), { icon, interactive: science, keyboard: science, title: science ? `${stop.name}: open the science stop page` : '' }).addTo(map)
     if (science) marker.on('click', () => openPage('science', stop.id))
@@ -569,8 +579,13 @@ function start(route, navigation, grid) {
   function shelterRouteLine(route) {
     if (route.atShelter) return `Stay inside ${route.shelter.name}`
     const outcome = route.beforeStorm ? 'inside before it starts' : `+${route.extraDoseMSv.toFixed(3)} mSv extra`
-    return `Head to ${route.shelter.name}: walk ${duration(route.minutes)}, ${outcome}`
+    const how = route.via === 'rover' // rover version: walk back to it, then drive home
+      ? `walk ${duration(route.legs[0].minutes)} + drive ${duration(route.legs[1].minutes)}`
+      : `walk ${duration(route.minutes)}`
+    return `Head to ${route.shelter.name}: ${how}, ${outcome}`
   }
+  // The shelter for an alert. Rover version: the habitat, not the parked rover (an open rover is no shelter).
+  const shelterOf = (alert) => (isRoverRoute(route) && alert.shelter_stop_id === stops[0].id ? habitatOf(route) : shelterFor(route, alert))
 
   // The line under an alert's name in its map pop-up: what to do, and until when.
   function alertLine(alert, point, shelter) {
@@ -638,7 +653,7 @@ function start(route, navigation, grid) {
     // While paused on a new random event, show that one, even if a more serious alert is on.
     const newAlert = newEvent && alerts.find((a) => (newEvent.warning ? a.warning : a.event === newEvent.event))
     const alert = state.mode === 'complete' ? null : newAlert || alerts[0]
-    const shelter = alert ? shelterFor(route, alert) : null
+    const shelter = alert ? shelterOf(alert) : null
     let crewLevel = ''
     // An event's end message, for a few seconds: over any alert but a danger one (a solar storm, say).
     if (endNote && !newAlert && state.mode !== 'complete' && alert?.level !== 'danger') {
@@ -651,6 +666,9 @@ function start(route, navigation, grid) {
     } else if (safety.level === 'danger' && state.mode !== 'complete') {
       crewLevel = 'danger'
       notes.push(showPop(crewPop, mapPoint(point), 'danger', safety.title, `Home ${duration(safety.homeMinutes)}`))
+    } else if (isDriving(state)) { // "🚙 Driving to G2" with the minutes left
+      const [title, left] = safety.title.split('… ')
+      notes.push(showPop(crewPop, mapPoint(point), 'info', title, left ? `${left} left` : ''))
     } else showPop(crewPop)
     crewPop.getElement()?.classList.toggle('is-new', Boolean(newAlert))
     if (shelter && alert.level !== 'info') shelterRing.setLatLng(mapPoint(shelter)).addTo(map)
@@ -696,7 +714,7 @@ function start(route, navigation, grid) {
   }
 
   function renderTurn(trip, complete) {
-    const line = complete ? null : directionLine(tripSteps(trip), state.progress * pathLength(trip.path))
+    const line = complete || trip.drive ? null : directionLine(tripSteps(trip), state.progress * pathLength(trip.path))
     const turn = $('w-turn')
     turn.hidden = !line
     if (!line) return
@@ -730,6 +748,7 @@ function start(route, navigation, grid) {
 
   // Rendering
   function stopOnRouteError(error) {
+    console.error(error)
     state.playing = false
     const status = $('w-status')
     status.className = 'walk-status is-danger'
@@ -754,14 +773,14 @@ function start(route, navigation, grid) {
     updateShelter(point) // before the alerts: a storm warning is one of them
     const remainingPath = [point, ...trip.path.slice(nextIndex)]
     const ahead = trip.path.slice(nextIndex).find((p) => p.x !== point.x || p.y !== point.y)
-    const pace = walkPace(state)
+    const pace = isDriving(state) ? 1 : walkPace(state)
     const leftMinutes = trip.walk_minutes * (1 - state.progress) * pace
     const arrivals = arrivalTimes(route, state)
     let safety = safetyStatus(route, state, state.clockMs, navigation)
     // A danger alert (e.g. a solar storm) outranks the suit-time status.
     const urgent = sortWarnings(currentAlerts()).find((a) => a.level === 'danger')
     if (urgent && state.mode !== 'complete') {
-      const shelter = shelterFor(route, urgent)
+      const shelter = shelterOf(urgent)
       safety = urgent.type === 'global_dust_storm'
         ? { ...safety, level: 'danger', title: 'Walk cancelled', message: 'Global dust storm: NO-GO. Stay in the habitat.' }
         : { ...safety, level: 'danger', title: shelter ? `Go to shelter: ${shelter.name}` : 'Danger alert', message: shelter?.id === stops[0].id ? 'Shelter is the habitat. Use Head home to follow the planned return path.' : 'See the alert on the map.' }
@@ -785,13 +804,13 @@ function start(route, navigation, grid) {
 
     const scienceLeft = state.scienceLeft || 0
     const waitLeft = complete ? 0 : state.waitLeft || 0 // a dust devil: standing still while the clock runs
-    $('w-next-label').textContent = complete ? 'EVA COMPLETE' : state.mode === 'return' ? 'HEADING HOME' : trip.to.is_bonus ? 'NEXT STOP · BONUS' : 'NEXT STOP'
+    $('w-next-label').textContent = complete ? 'EVA COMPLETE' : state.mode === 'drive-out' ? 'DRIVING TO THE ROVER' : state.mode === 'drive-home' ? 'DRIVING HOME' : state.mode === 'return' ? 'HEADING HOME' : trip.to.is_bonus ? 'NEXT STOP · BONUS' : 'NEXT STOP'
     $('w-next-name').textContent = trip.to.name
     $('w-phase').textContent = complete ? 'Done'
       : newEvent ? `Paused · ${newEvent.warning ? 'solar storm warning' : newEvent.event.title.toLowerCase()}`
       : waitLeft ? `${state.playing ? 'Waiting' : 'Paused'} · dust devil ${duration(waitLeft)}`
       : scienceLeft ? `${state.playing ? 'Science' : 'Paused'} · ${duration(scienceLeft)} left`
-        : state.playing ? 'Walking' : state.progress === 0 ? `At ${trip.from.name}` : 'Paused'
+        : state.playing ? (isDriving(state) ? 'Driving' : 'Walking') : state.progress === 0 ? `At ${trip.from.name}` : 'Paused'
     $('w-distance').textContent = complete ? 'Arrived' : distance(trip.distance_m * (1 - state.progress))
     if (ahead && !complete) {
       const deg = bearing(point, ahead)
@@ -802,16 +821,16 @@ function start(route, navigation, grid) {
       $('w-arrow').toggleAttribute('hidden', true)
       $('w-arrow').parentElement.title = ''
     }
-    const arrive = arrivals.stops[0]?.arrive_ms ?? state.clockMs
+    const arrive = isDriving(state) ? state.clockMs + leftMinutes * 60000 : arrivals.stops[0]?.arrive_ms ?? state.clockMs
     const slower = Math.round((pace - 1) * 100)
     $('w-eta').innerHTML = complete ? 'Back at the habitat'
-      : `${waitLeft ? `${duration(waitLeft)} wait + ` : ''}${scienceLeft ? `${duration(scienceLeft)} science + ` : ''}${duration(leftMinutes)} walk · arrive ${utcTime(arrive)}${slower >= 5
+      : `${waitLeft ? `${duration(waitLeft)} wait + ` : ''}${scienceLeft ? `${duration(scienceLeft)} science + ` : ''}${duration(leftMinutes)} ${isDriving(state) ? 'drive' : 'walk'} · arrive ${utcTime(arrive)}${slower >= 5
         ? ` <span class="walk-pace" title="Walking about ${slower}% slower than planned over the last few minutes. All times here use this pace.">${slower}% slower</span>` : ''}`
     renderTurn(trip, complete)
     renderTimes(arrivals)
 
     // Turn-back = suit deadline − reserve − time home from here, so it shrinks faster while walking away.
-    const outbound = state.mode === 'outbound'
+    const outbound = state.mode === 'outbound' || state.mode === 'drive-out' // rover: it counts from the habitat
     const turnbackIn = safety.turnbackIn
     $('w-turnback').textContent = outbound ? (turnbackIn > 0 ? duration(turnbackIn) : 'NOW') : '—'
     $('w-turnback-by').textContent = outbound
@@ -853,7 +872,7 @@ function start(route, navigation, grid) {
     legLine.setLatLngs(complete ? [] : remainingPath.map(mapPoint))
     // In a solar storm the dashed line home is Nigel's shelter route, in the danger colour.
     const shelterPath = shelterNow ? shelterNow.legs.flatMap((leg) => leg.path) : null
-    const homePath = complete ? [] : shelterPath ?? (state.mode === 'return' ? remainingPath : buildReturnTrip(route, state, navigation).path)
+    const homePath = complete || isDriving(state) ? [] : shelterPath ?? (state.mode === 'return' ? remainingPath : buildReturnTrip(route, state, navigation).path)
     homeLine.setLatLngs(homePath.map(mapPoint))
     const homeColor = shelterPath ? SHELTER_COLOR : HOME_COLOR
     if (homeLine.options.color !== homeColor) homeLine.setStyle({ color: homeColor })
@@ -871,13 +890,14 @@ function start(route, navigation, grid) {
       : state.playing ? '❚❚ Pause'
         : scienceLeft ? `▶\uFE0E Resume science · ${duration(scienceLeft)} left`
           : state.progress > 0 ? '▶\uFE0E Resume'
-            : state.mode === 'return' ? '▶\uFE0E Start walking home' : `▶\uFE0E Walk to ${trip.to.name}`
+            : state.mode === 'drive-out' ? `▶\uFE0E Drive to ${mission.home_label ?? trip.to.name}` : state.mode === 'drive-home' ? '▶\uFE0E Drive home'
+              : state.mode === 'return' ? '▶\uFE0E Start walking home' : `▶\uFE0E Walk to ${trip.to.name}`
     primary.classList.toggle('is-paused', state.playing)
     const shelterNext = shelterChoice()
     if (shelterNext) primary.textContent = '⌂ Head to shelter'
     primary.classList.toggle('is-shelter', shelterNext)
     // A global dust storm (random events) means NO-GO: the walk can't start.
-    const cancelled = Boolean(scenario?.cancelled) && state.mode === 'outbound' && state.legIndex === 0 && state.progress === 0
+    const cancelled = Boolean(scenario?.cancelled) && (state.mode === 'outbound' || state.mode === 'drive-out') && state.legIndex === 0 && state.progress === 0
     primary.disabled = cancelled
     if (cancelled) { primary.textContent = '✕ Walk cancelled: global dust storm'; state.playing = false }
     const homeBtn = $('w-home-btn')
@@ -959,7 +979,7 @@ function start(route, navigation, grid) {
   // Under an alert's full text on the Data page: where to shelter (solar storm, route alerts), or until when.
   function dataAlertLine(alert, point) {
     if (alert.type === 'solar_storm' && shelterNow) return shelterNow.message // Nigel's whole message
-    if (!alert.event || alert.type === 'solar_storm') return shelterLine(point, shelterFor(route, alert))
+    if (!alert.event || alert.type === 'solar_storm') return shelterLine(point, shelterOf(alert))
     return alert.endMs ? `Until ${utcTime(alert.endMs)} UTC` : ''
   }
 
@@ -1046,23 +1066,30 @@ function start(route, navigation, grid) {
 }
 
 root.innerHTML = '<div class="walk-loading">Loading the walk route…</div>'
-// Mia's pre-calculated way home saves the phone a search. Without it, the terrain is enough.
-// Each habitat has its own file (public/safezone/home-<habitat>-6km.*); scenarios.json says which habitat this EVA uses.
-const habitat = loadScenarioCatalog()
-  .then((catalog) => catalog.scenarios.find((item) => item.eva === (eva || '07'))?.habitat ?? 'H1')
-  .catch(() => 'H1')
-const homeFile = habitat
-  .then((id) => loadHomeFile(`/safezone/home-${id.toLowerCase()}-6km`))
-  .catch((error) => {
-    console.warn(`Home file unavailable (${error.message}). Working out the way home on the phone.`)
-    return null
-  })
-Promise.all([loadRouteForEva(eva), homeFile, habitat])
-  .then(([{ route, grid }, file, id]) => {
-    if (route.mission.drive_out_minutes) throw new Error(`${route.mission.id} includes a rover drive, which the Walk screen does not model yet. Open it on the Planning screen.`)
+// The route: the habitat walk, or with ?travel=rover Planning's "With rover" version (planningTravel.js),
+// so both screens show the same walk. EVA-08 is by rover unless the link says on foot.
+// Mia's pre-calculated way home saves the phone a search; without it, the terrain is enough. Only the
+// file for this walk is loaded: the habitat's (home-h1-6km …) or the parked rover's (home-r07-6km …
+// home-r12-6km, home-g2-6km for EVA-08), because the rover is "home" until the drive back.
+const json = (path) => fetch(path).then((response) => { if (!response.ok) throw new Error(`${path}: ${response.status}`); return response.json() })
+Promise.all([loadRouteForEva(eva), loadScenarioCatalog()])
+  .then(async ([initial, catalog]) => {
+    const habitatId = catalog.scenarios.find((item) => item.eva === (eva || '07'))?.habitat ?? 'H1'
+    const byRover = travel === 'rover' || (travel !== 'foot' && Boolean(initial.route.mission.drive_out_minutes))
+    let route = initial.route
+    if (byRover || route.mission.drive_out_minutes) {
+      const [area, parking] = await Promise.all([json('/terrain/area.json'), json('/routes/rover-parking.json')])
+      const versions = planningTravelVersions(initial, area, catalog, parking)
+      route = byRover ? versions.rover : versions.foot
+    }
+    const homeId = (isRoverRoute(route) ? route.mission.home_label : habitatId).toLowerCase()
+    const file = await loadHomeFile(`/safezone/home-${homeId}-6km`).catch((error) => {
+      console.warn(`Home file unavailable (${error.message}). Working out the way home on the phone.`)
+      return null
+    })
     assertRoute(route)
-    const navigation = createTerrainNavigation(route, grid, { homeFile: file })
-    if (file && navigation.source !== 'home file') console.warn(`Home file does not match this terrain, so the phone worked out the way home itself. Rebuild it: node src/safezone/buildHomeFile.js --home <x,y> --id ${id} --out home-${id.toLowerCase()}-6km`)
-    start(route, navigation, grid)
+    const navigation = createTerrainNavigation(route, initial.grid, { homeFile: file })
+    if (file && navigation.source !== 'home file') console.warn(`Home file does not match this terrain, so the phone worked out the way home itself. Rebuild home-${homeId}-6km (src/safezone/README.md).`)
+    start(route, navigation, initial.grid)
   })
   .catch((error) => { root.innerHTML = `<div class="walk-loading is-error"><h1>Unable to load the route</h1><p>${safe(error.message)}</p><p><a href="${withScenario(planningHref, scenarioFromSearch(location.search))}">Back to Planning</a></p></div>` })
