@@ -66,7 +66,9 @@ export function mountPlanningSafety({ root, map, grid, route }) {
     <p id="ps-storm-note" class="ps-storm-note" role="status"></p>
     <p id="ps-budget" class="ps-note"></p>
     <p class="ps-note">Map colours include the candidate-stop time; turn-back excludes it. Transparent areas are unreachable or outside the suit budget. Walk uses its own simulated clock.</p>`
-  const $ = (id) => root.querySelector(`#${id}`)
+  // The form moves to the desktop sidebar after mounting; its controls remain
+  // part of this planner even when they are no longer descendants of root.
+  const $ = (id) => document.getElementById(id)
   const form = root.querySelector('form')
   $('ps-elapsed').max = String(route.mission.max_walk_minutes / 60)
   $('ps-budget').textContent = `Suit budget: ${duration(route.mission.max_walk_minutes)}; protected reserve: ${duration(route.mission.reserve_minutes)}.${route.mission.drive_home_minutes ? ' EVA-08 includes an assumed 55 min suited drive each way; G2 is not storm shelter. Elapsed time starts after the outbound drive.' : ''} No live suit or position feed.`
