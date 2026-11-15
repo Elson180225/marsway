@@ -83,12 +83,12 @@ close(eva08.rover.walking + eva08.rover.science, gediz.walking + gediz.science, 
 // EVA-08 on foot from H1 fits, but only just (Gediz is 3.8 km away).
 assert.ok(eva08.foot.spare < 30, 'EVA-08 on foot is tight')
 
-// Spots not chosen yet are reported as waiting, not as passing.
-for (const r of results.filter((x) => x.eva !== '08')) {
-  assert.equal(r.rover, null)
-  assert.match(r.waiting, /Nigel/)
+// Every EVA has a parking spot now (Nigel's pickRoverParking.js) and every rover version passes.
+for (const r of results) {
+  assert.ok(r.rover, `EVA-${r.eva} rover: ${r.waiting}`)
+  assert.ok(r.rover.ok, `EVA-${r.eva} rover: ${r.rover.problems.join(' ')}`)
 }
-assert.equal(parkingSpot('07', files), null)
+assert.equal(parkingSpot('07', files).id, 'R07')
 assert.equal(evaSetup('10', files).habitat.id, 'H2')
 
 console.log('Rover safety passed: drive time, on-foot and rover plans, storm plan, walk-back, parking slope; all six EVAs fit on foot; EVA-08 rover from G2 passes.')

@@ -1,0 +1,22 @@
+{
+  "format": "marsway-home-v1",
+  "description": "Pre-calculated time and route back to the parked rover (R12) for every cell. See app/src/safezone/homeFile.js.",
+  "habitat": {
+    "id": "R12",
+    "col": 864,
+    "row": 467,
+    "x": 4322.5,
+    "y": 3662.5
+  },
+  "width": 1200,
+  "height": 1200,
+  "cellSize": 5,
+  "suit": {
+    "speedFactor": 0.5,
+    "slopeWarnDeg": 15,
+    "slopeNoGoDeg": 25,
+    "roughnessPerDeg": 0.02,
+    "roughWarnDeg": 8
+  },
+  "bin": "home-r12-6km.bin"
+}
